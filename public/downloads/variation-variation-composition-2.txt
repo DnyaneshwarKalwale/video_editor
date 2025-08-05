@@ -1,0 +1,20 @@
+Variation Information
+====================
+
+Variation ID: variation-composition-2
+Variation Text: Unlock the Power of some body
+Is Original: false
+
+Project Information:
+- Platform: Instagram Reels
+- Aspect Ratio: 9:16 aspect ratio
+- Duration: 5041.667ms
+
+Text Overlays (1):
+
+1. ID: InOoAjgNajuYdvQsyrCJf
+   Text: Unlock the Power of some body
+   Timing: 0ms - 5000ms
+
+
+Generated on: 2025-08-05T08:05:11.630Z
