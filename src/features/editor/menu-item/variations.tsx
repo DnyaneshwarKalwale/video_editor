@@ -114,14 +114,22 @@ export const Variations = () => {
     // Find the track item and update its text
     const trackItem = trackItemsMap[variation.originalTextId];
     if (trackItem) {
-      StateManager.dispatch('EDIT_OBJECT', {
-        payload: {
-          [variation.originalTextId]: {
-            details: {
-              text: variation.text,
-            },
-          },
+      const updatedTrackItem = {
+        ...trackItem,
+        details: {
+          ...trackItem.details,
+          text: variation.text,
         },
+      };
+      
+      const updatedTrackItemsMap = {
+        ...trackItemsMap,
+        [variation.originalTextId]: updatedTrackItem,
+      };
+      
+      // Update the store with the new track items map
+      useStore.getState().setState({
+        trackItemsMap: updatedTrackItemsMap,
       });
     }
   };

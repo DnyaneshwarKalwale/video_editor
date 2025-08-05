@@ -211,35 +211,7 @@ export function SceneInteractions({
 					},
 				});
 			}}
-			onResize={({ target, width, height, direction }) => {
-				const [xControl, yControl] = direction;
-				
-				// Calculate the change in size
-				const currentWidth = target.clientWidth;
-				const currentHeight = target.clientHeight;
-				const widthDiff = width - currentWidth;
-				const heightDiff = height - currentHeight;
-				
-				// Adjust position based on which handle is being dragged
-				let newLeft = Number.parseFloat(target.style.left);
-				let newTop = Number.parseFloat(target.style.top);
-				
-				// If dragging left handle, move the element left
-				if (xControl === -1) {
-					newLeft -= widthDiff;
-				}
-				
-				// If dragging top handle, move the element up
-				if (yControl === -1) {
-					newTop -= heightDiff;
-				}
-				
-				// Apply the new size and position
-				target.style.width = `${width}px`;
-				target.style.height = `${height}px`;
-				target.style.left = `${newLeft}px`;
-				target.style.top = `${newTop}px`;
-			}}
+
 			onResizeEnd={({ target }) => {
 				const targetId = getIdFromClassName(target.className) as string;
 				const textDiv = target.firstElementChild?.firstElementChild
@@ -346,41 +318,8 @@ export function SceneInteractions({
 							textDiv.style.width = `${nextWidth}px`;
 							textDiv.style.height = `${nextHeight}px`;
 						}
-					}
+									}
 				}
-			}}
-			onResizeEnd={({ target }) => {
-				const targetId = getIdFromClassName(target.className) as string;
-				const textDiv = target.firstElementChild?.firstElementChild
-					?.firstElementChild as HTMLDivElement;
-				
-				// Check if textDiv exists before accessing its style
-				if (!textDiv) {
-					// If no textDiv found, just update width and height
-					dispatch(EDIT_OBJECT, {
-						payload: {
-							[targetId]: {
-								details: {
-									width: Number.parseFloat(target.style.width),
-									height: Number.parseFloat(target.style.height),
-								},
-							},
-						},
-					});
-					return;
-				}
-				
-				dispatch(EDIT_OBJECT, {
-					payload: {
-						[targetId]: {
-							details: {
-								width: Number.parseFloat(target.style.width),
-								height: Number.parseFloat(target.style.height),
-								fontSize: Number.parseFloat(textDiv.style.fontSize),
-							},
-						},
-					},
-				});
 			}}
 			onDragGroupEnd={() => {
 				if (holdGroupPosition) {
