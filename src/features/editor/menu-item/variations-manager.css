@@ -1,26 +1,30 @@
 .variations-manager {
-  padding: 20px;
+  padding: 16px 12px;
   background: #f5f5f5;
-  min-height: 100vh;
+  height: 100%;
+  overflow-y: auto;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .variations-manager-header {
   background: white;
   border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
+  padding: 12px;
+  margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .header-content {
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .header-content h4 {
   margin: 0;
   color: #262626;
+  font-size: 14px;
 }
 
 .element-selection {
@@ -28,23 +32,27 @@
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 0 4px 16px 4px;
 }
 
 .elements-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .element-item {
   display: flex;
   align-items: center;
-  padding: 12px;
+  padding: 8px;
   border: 1px solid #e8e8e8;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   background: white;
+  min-height: 40px;
 }
 
 .element-item:hover {
@@ -54,57 +62,77 @@
 }
 
 .element-icon {
-  margin-right: 12px;
-  font-size: 18px;
+  margin-right: 8px;
+  font-size: 16px;
   color: #1890ff;
-  width: 24px;
+  width: 20px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .element-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .element-content .ant-typography {
   margin: 0;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.element-content .ant-typography strong {
+  font-size: 13px;
 }
 
 .element-variations {
   margin-left: auto;
   color: #8c8c8c;
-  font-size: 14px;
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 20px;
   color: #8c8c8c;
+  font-size: 12px;
 }
 
 .export-section {
   background: white;
   border-radius: 8px;
   padding: 16px;
-  margin-top: 16px;
+  margin: 16px 8px 8px 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.export-section .ant-btn {
+  font-size: 12px;
+  height: 32px;
+  margin: 0 4px;
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
   .variations-manager {
-    padding: 12px;
-  }
-  
-  .element-item {
     padding: 8px;
   }
   
+  .element-item {
+    padding: 6px;
+  }
+  
   .element-icon {
-    font-size: 16px;
-    margin-right: 8px;
+    font-size: 14px;
+    margin-right: 6px;
+  }
+  
+  .element-content .ant-typography {
+    font-size: 11px;
   }
 }
 
@@ -122,4 +150,45 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Ensure the sidebar doesn't overflow */
+.variations-manager * {
+  box-sizing: border-box;
+}
+
+/* Compact search input */
+.variations-manager .ant-input-search {
+  margin-bottom: 8px;
+}
+
+.variations-manager .ant-input-search .ant-input {
+  font-size: 12px;
+  height: 28px;
+}
+
+/* Compact buttons */
+.variations-manager .ant-btn {
+  font-size: 12px;
+  height: 28px;
+  padding: 0 8px;
+}
+
+/* Compact cards */
+.variations-manager .ant-card {
+  margin-bottom: 8px;
+}
+
+.variations-manager .ant-card-head {
+  min-height: 32px;
+  padding: 0 12px;
+}
+
+.variations-manager .ant-card-head-title {
+  font-size: 13px;
+  padding: 6px 0;
+}
+
+.variations-manager .ant-card-body {
+  padding: 8px 12px;
 }
