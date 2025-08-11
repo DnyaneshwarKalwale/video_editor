@@ -257,31 +257,63 @@ const Variations: React.FC<VariationsProps> = ({
 
   // Set the selected element when timeline elements change
   useEffect(() => {
+    console.log('Timeline elements changed:', timelineElements);
     if (timelineElements.length > 0) {
-      setSelectedElement(timelineElements[0]);
-      
-      // Load existing variations from localStorage
       const element = timelineElements[0];
-      if (element) {
-        const storageKey = `variations_${element.id}`;
-        const savedVariations = localStorage.getItem(storageKey);
-        
-        if (savedVariations) {
-          try {
-            const parsedVariations = JSON.parse(savedVariations);
-            // Extract text variations (skip the original)
-            const textVariations = parsedVariations
-              .filter((v: any) => v.id !== 'original' && v.type === 'text')
-              .map((v: any) => v.value);
-            setGeneratedTextVariations(textVariations);
-          } catch (error) {
-            console.error('Error parsing saved variations:', error);
-          }
-        }
-      }
+      console.log('Setting selected element:', element);
+      setSelectedElement(element);
     }
   }, [timelineElements]);
 
+  // Load existing variations when selected element changes
+  useEffect(() => {
+    console.log('Selected element changed:', selectedElement);
+    if (selectedElement) {
+      // Try both storage keys to be sure
+      const storageKey = `variations_${selectedElement.id}`;
+      const simpleStorageKey = `simple_variations_${selectedElement.id}`;
+      console.log('Loading variations from storage keys:', storageKey, simpleStorageKey);
+      
+      let savedVariations = localStorage.getItem(storageKey);
+      if (!savedVariations) {
+        savedVariations = localStorage.getItem(simpleStorageKey);
+      }
+      
+      if (savedVariations) {
+        try {
+          const parsedVariations = JSON.parse(savedVariations);
+          console.log('Parsed variations:', parsedVariations);
+          
+          // Handle both formats - the new format and the simple format
+          let textVariations: string[] = [];
+          
+          if (Array.isArray(parsedVariations)) {
+            // Simple format: array of objects with 'value' property
+            textVariations = parsedVariations
+              .filter((v: any) => v.id !== 'original' && v.type === 'text')
+              .map((v: any) => v.value);
+          } else if (parsedVariations.variations) {
+            // New format: object with variations array
+            textVariations = parsedVariations.variations
+              .filter((v: any) => v.id !== 'original' && v.type === 'text')
+              .map((v: any) => v.value);
+          }
+          
+          console.log('Setting generated text variations:', textVariations);
+          setGeneratedTextVariations(textVariations);
+        } catch (error) {
+          console.error('Error parsing saved variations:', error);
+          setGeneratedTextVariations([]);
+        }
+      } else {
+        console.log('No saved variations found, clearing');
+        setGeneratedTextVariations([]);
+      }
+    }
+  }, [selectedElement]);
+
+    console.log('Rendering variations modal with generatedTextVariations:', generatedTextVariations);
+    
     return (
     <div className="variations-container">
       {selectedElement?.type === 'text' ? (

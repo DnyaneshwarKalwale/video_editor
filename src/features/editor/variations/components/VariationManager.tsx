@@ -13,7 +13,7 @@ import {
   Upload
 } from 'lucide-react';
 import { TimelineElement, ElementType, TextVariation, MediaVariation } from '../types/variation-types';
-import { TextVariationModal } from './TextVariationModal';
+
 import { MediaVariationModal } from './MediaVariationModal';
 import useStore from '../../store/use-store';
 
@@ -239,27 +239,15 @@ export const VariationManager: React.FC<VariationManagerProps> = ({
 
       {/* Modals */}
       {selectedElement && (
-        <>
-          <TextVariationModal
-            isOpen={showTextModal}
-            onClose={() => {
-              setShowTextModal(false);
-              setSelectedElement(null);
-            }}
-            element={selectedElement}
-            onAddVariations={handleAddTextVariations}
-          />
-          
-          <MediaVariationModal
-            isOpen={showMediaModal}
-            onClose={() => {
-              setShowMediaModal(false);
-              setSelectedElement(null);
-            }}
-            element={selectedElement}
-            onAddVariations={handleAddMediaVariations}
-          />
-        </>
+        <MediaVariationModal
+          isOpen={showMediaModal}
+          onClose={() => {
+            setShowMediaModal(false);
+            setSelectedElement(null);
+          }}
+          element={selectedElement}
+          onAddVariations={handleAddMediaVariations}
+        />
       )}
     </div>
   );
