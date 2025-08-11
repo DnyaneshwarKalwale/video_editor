@@ -73,7 +73,8 @@ export async function POST(request: NextRequest) {
     };
     
     // Use Remotion CLI to render the video with optimized settings
-    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${platformConfig.width} --height=${platformConfig.height} --concurrency=8 --jpeg-quality=80`;
+    // Reduced concurrency to 2 to match server CPU cores
+    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${platformConfig.width} --height=${platformConfig.height} --concurrency=2 --jpeg-quality=80`;
 
     console.log('Executing Remotion command:', remotionCommand);
     console.log('Environment variables:', env);
