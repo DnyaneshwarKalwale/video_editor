@@ -54,6 +54,8 @@
 		"@remotion/bundler": "4.0.331",
 		"@remotion/cli": "4.0.331",
 		"@remotion/compositor-win32-x64-msvc": "4.0.331",
+		"@remotion/core": "1.0.0-y.46",
+		"@remotion/lambda": "^4.0.332",
 		"@remotion/licensing": "4.0.331",
 		"@remotion/media-parser": "4.0.331",
 		"@remotion/media-utils": "4.0.331",

@@ -27,7 +27,6 @@ export const VariationManager: React.FC<VariationManagerProps> = ({
   const { trackItemsMap, trackItemIds } = useStore();
   const [elements, setElements] = useState<TimelineElement[]>([]);
   const [selectedElement, setSelectedElement] = useState<TimelineElement | null>(null);
-  const [showTextModal, setShowTextModal] = useState(false);
   const [showMediaModal, setShowMediaModal] = useState(false);
 
   // Extract elements from timeline
@@ -91,28 +90,11 @@ export const VariationManager: React.FC<VariationManagerProps> = ({
     setSelectedElement(element);
     
     if (element.elementType === 'text') {
-      setShowTextModal(true);
+      // Text variations are handled in variations.tsx, not here
+      return;
     } else {
       setShowMediaModal(true);
     }
-  };
-
-  const handleAddTextVariations = (variations: TextVariation[]) => {
-    if (!selectedElement) return;
-
-    const updatedElements = elements.map(el => {
-      if (el.id === selectedElement.id) {
-        return {
-          ...el,
-          currentVariationCount: el.currentVariationCount + variations.length,
-          variations: [...el.variations, ...variations]
-        };
-      }
-      return el;
-    });
-
-    setElements(updatedElements);
-    onVariationsChange(updatedElements);
   };
 
   const handleAddMediaVariations = (variations: MediaVariation[]) => {
@@ -181,7 +163,7 @@ export const VariationManager: React.FC<VariationManagerProps> = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleCreateVariations(element)}
+                          disabled
                           className="h-8 px-3"
                         >
                           <Sparkles className="w-3 h-3 mr-1" />
@@ -190,7 +172,7 @@ export const VariationManager: React.FC<VariationManagerProps> = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleCreateVariations(element)}
+                          disabled
                           className="h-8 px-3"
                         >
                           <Globe className="w-3 h-3 mr-1" />

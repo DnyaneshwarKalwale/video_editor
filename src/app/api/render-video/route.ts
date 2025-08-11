@@ -64,12 +64,21 @@ export async function POST(request: NextRequest) {
       fps: 30
     });
     
+    // Set environment variables for Chrome
+    const env = {
+      ...process.env,
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true',
+      PUPPETEER_EXECUTABLE_PATH: '/usr/bin/google-chrome-stable',
+      CHROME_BIN: '/usr/bin/google-chrome-stable'
+    };
+    
     // Use Remotion CLI to render the video with optimized settings
     const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${platformConfig.width} --height=${platformConfig.height} --concurrency=8 --jpeg-quality=80`;
 
     console.log('Executing Remotion command:', remotionCommand);
+    console.log('Environment variables:', env);
     
-    const { stdout, stderr } = await execAsync(remotionCommand);
+    const { stdout, stderr } = await execAsync(remotionCommand, { env });
     
     console.log('Remotion stdout:', stdout);
     if (stderr) console.log('Remotion stderr:', stderr);
