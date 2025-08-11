@@ -13,7 +13,6 @@ interface DownloadState {
 	output?: Output;
 	payload?: IDesign;
 	displayProgressModal: boolean;
-	jobId?: string;
 	actions: {
 		setProjectId: (projectId: string) => void;
 		setExporting: (exporting: boolean) => void;
@@ -23,7 +22,6 @@ interface DownloadState {
 		setOutput: (output: Output) => void;
 		startExport: () => void;
 		setDisplayProgressModal: (displayProgressModal: boolean) => void;
-		setJobId: (jobId: string) => void;
 	};
 }
 
@@ -44,7 +42,6 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 		setOutput: (output) => set({ output }),
 		setDisplayProgressModal: (displayProgressModal) =>
 			set({ displayProgressModal }),
-		setJobId: (jobId) => set({ jobId }),
 		startExport: async () => {
 			try {
 				// Set exporting to true at the start
@@ -149,7 +146,7 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 				console.log('Video track items count:', videoTrackItems.length);
 				console.log('Audio track items count:', audioTrackItems.length);
 
-				// Use Remotion renderer
+				// Use Remotion renderer instead of DesignCombo
 				const response = await fetch('/api/render-video', {
 					method: 'POST',
 					headers: {
@@ -170,25 +167,86 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 				});
 
 				if (!response.ok) {
-					throw new Error('Failed to render video with Remotion');
+					const errorText = await response.text();
+					console.error('Remotion API error response:', errorText);
+					throw new Error(`Failed to start video rendering: ${response.status} ${response.statusText}`);
 				}
 
-				// Clear progress interval
-				clearInterval(progressInterval);
-				set({ progress: 100 });
+				const jobResponse = await response.json();
+				const { jobId } = jobResponse;
+				
+				console.log('Video render job created:', jobId);
 
-				// Get the video blob
-				const videoBlob = await response.blob();
+				// Poll for job completion
+				let attempts = 0;
+				const maxAttempts = 300; // 5 minutes with 1-second intervals
 				
-				// Create a temporary URL for the blob
-				const url = URL.createObjectURL(videoBlob);
+				while (attempts < maxAttempts) {
+					await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+					attempts++;
+					
+					// Update progress (estimate based on time)
+					const estimatedProgress = Math.min(90, (attempts / maxAttempts) * 90);
+					set({ progress: estimatedProgress });
+					
+					// Check job status
+					const statusResponse = await fetch(`/api/render-video?jobId=${jobId}`);
+					
+					if (!statusResponse.ok) {
+						console.error('Failed to check job status:', statusResponse.status);
+						continue;
+					}
+					
+					const statusData = await statusResponse.json();
+					
+					if (statusData.status === 'completed') {
+						console.log('Video render completed, downloading...');
+						set({ progress: 95 });
+						
+						// Download the completed video
+						const downloadResponse = await fetch(`/api/render-video?jobId=${jobId}`, {
+							method: 'PUT'
+						});
+						
+						if (!downloadResponse.ok) {
+							throw new Error(`Failed to download video: ${downloadResponse.status}`);
+						}
+						
+						// Get the video blob
+						const videoBlob = await downloadResponse.blob();
+						
+						// Check if the blob is valid
+						if (videoBlob.size === 0) {
+							throw new Error('Received empty video file from server');
+						}
+						
+						console.log('Video blob received:', {
+							size: videoBlob.size,
+							type: videoBlob.type
+						});
+						
+						// Create a temporary URL for the blob
+						const url = URL.createObjectURL(videoBlob);
+						
+						// Set the output
+						set({ 
+							exporting: false, 
+							output: { url, type: get().exportType },
+							progress: 100 
+						});
+						
+						return; // Success!
+						
+					} else if (statusData.status === 'failed') {
+						throw new Error(`Video rendering failed: ${statusData.error || 'Unknown error'}`);
+					}
+					
+					// Still processing, continue polling
+					console.log(`Job status: ${statusData.status}, progress: ${statusData.progress}%`);
+				}
 				
-				// Set the output
-				set({ 
-					exporting: false, 
-					output: { url, type: 'mp4' },
-					progress: 100 
-				});
+				// If we get here, the job took too long
+				throw new Error('Video rendering timed out after 5 minutes');
 
 			} catch (error) {
 				console.error('Error in Remotion export:', error);

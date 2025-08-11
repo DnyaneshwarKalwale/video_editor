@@ -541,32 +541,94 @@ const VariationModal: React.FC<VariationModalProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to render variation video');
+        const errorText = await response.text();
+        console.error('Remotion API error response:', errorText);
+        throw new Error(`Failed to start video rendering: ${response.status} ${response.statusText}`);
       }
 
-      // Clear progress interval
-      clearInterval(progressInterval);
-      setDownloadProgress(100);
-
-      // Get the video blob and download it
-      const videoBlob = await response.blob();
-      const url = URL.createObjectURL(videoBlob);
-      setDownloadUrl(url);
+      const jobResponse = await response.json();
+      const { jobId } = jobResponse;
       
-      // Create a download link
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `variation-${variation.id}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      console.log('Video render job created:', jobId);
 
-      // Keep the modal open for a moment to show completion
-      setTimeout(() => {
-        setShowProgressModal(false);
-        setDownloadUrl(null);
-        setDownloadingVariation(null);
-      }, 2000);
+      // Poll for job completion
+      let attempts = 0;
+      const maxAttempts = 300; // 5 minutes with 1-second intervals
+      
+      while (attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        attempts++;
+        
+        // Update progress (estimate based on time)
+        const estimatedProgress = Math.min(90, (attempts / maxAttempts) * 90);
+        setDownloadProgress(estimatedProgress);
+        
+        // Check job status
+        const statusResponse = await fetch(`/api/render-video?jobId=${jobId}`);
+        
+        if (!statusResponse.ok) {
+          console.error('Failed to check job status:', statusResponse.status);
+          continue;
+        }
+        
+        const statusData = await statusResponse.json();
+        
+        if (statusData.status === 'completed') {
+          console.log('Video render completed, downloading...');
+          setDownloadProgress(95);
+          
+          // Download the completed video
+          const downloadResponse = await fetch(`/api/render-video?jobId=${jobId}`, {
+            method: 'PUT'
+          });
+          
+          if (!downloadResponse.ok) {
+            throw new Error(`Failed to download video: ${downloadResponse.status}`);
+          }
+          
+          // Get the video blob and download it
+          const videoBlob = await downloadResponse.blob();
+          
+          // Check if the blob is valid
+          if (videoBlob.size === 0) {
+            throw new Error('Received empty video file from server');
+          }
+          
+          console.log('Video blob received:', {
+            size: videoBlob.size,
+            type: videoBlob.type
+          });
+          
+          const url = URL.createObjectURL(videoBlob);
+          setDownloadUrl(url);
+          
+          // Create a download link
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `variation-${variation.id}.mp4`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+
+          // Keep the modal open for a moment to show completion
+          setTimeout(() => {
+            setShowProgressModal(false);
+            setDownloadUrl(null);
+            setDownloadingVariation(null);
+          }, 2000);
+          
+          return; // Success!
+          
+        } else if (statusData.status === 'failed') {
+          throw new Error(`Video rendering failed: ${statusData.error || 'Unknown error'}`);
+        }
+        
+        // Still processing, continue polling
+        console.log(`Job status: ${statusData.status}, progress: ${statusData.progress}%`);
+      }
+      
+      // If we get here, the job took too long
+      throw new Error('Video rendering timed out after 5 minutes');
 
     } catch (error) {
       console.error('Error downloading variation:', error);
