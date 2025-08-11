@@ -6,72 +6,40 @@ import path from 'path';
 
 const execAsync = promisify(exec);
 
-// Store for background jobs
-const jobs = new Map();
-
-// Increase timeout for video rendering (5 minutes)
-const RENDER_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+// Increase timeout for video rendering (10 minutes)
+const RENDER_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { variation, textOverlays, platformConfig, duration, videoTrackItems, audioTrackItems } = body;
 
-    // Generate unique job ID
-    const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Initialize job status
-    jobs.set(jobId, {
-      status: 'processing',
-      progress: 0,
-      error: null,
-      videoUrl: null,
-      startTime: Date.now()
-    });
-
-    // Start background rendering
-    renderVideoInBackground(jobId, {
-      variation,
-      textOverlays,
-      platformConfig,
+    console.log('Received render request:', {
+      variation: variation?.id,
+      textOverlaysCount: textOverlays?.length || 0,
+      videoTrackItemsCount: videoTrackItems?.length || 0,
       duration,
-      videoTrackItems,
-      audioTrackItems
-    });
-
-    // Return immediately with job ID
-    return NextResponse.json({ 
-      jobId,
-      status: 'processing',
-      message: 'Video rendering started. Use the job ID to check progress.'
-    });
-
-  } catch (error) {
-    console.error('Error starting video render:', error);
-    return NextResponse.json({ 
-      error: 'Failed to start video rendering',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
-}
-
-async function renderVideoInBackground(jobId: string, videoData: any) {
-  try {
-    console.log(`Starting background render for job ${jobId}`);
-    
-    // Update job status
-    jobs.set(jobId, {
-      ...jobs.get(jobId),
-      status: 'processing',
-      progress: 5
+      platformConfig
     });
 
     // Create a temporary JSON file with the video data
-    const tempDataPath = path.join(process.cwd(), `temp-video-data-${jobId}.json`);
+    const tempDataPath = path.join(process.cwd(), 'temp-video-data.json');
+    const videoData = {
+      variation: variation || { id: 'default', isOriginal: true },
+      textOverlays: textOverlays || [],
+      platformConfig: platformConfig || { width: 1080, height: 1920, aspectRatio: '9:16' },
+      duration: duration || 5000,
+      videoTrackItems: videoTrackItems || [],
+      audioTrackItems: audioTrackItems || [],
+    };
+
+    // Log the full video data for debugging
+    console.log('Full video data:', JSON.stringify(videoData, null, 2));
+
     fs.writeFileSync(tempDataPath, JSON.stringify(videoData, null, 2));
 
     // Output path for the rendered video
-    const outputPath = path.join(process.cwd(), `output-${videoData.variation.id}-${jobId}.mp4`);
+    const outputPath = path.join(process.cwd(), `output-${variation?.id || 'video'}.mp4`);
 
     // Set environment variables for Chrome
     const env = {
@@ -82,17 +50,20 @@ async function renderVideoInBackground(jobId: string, videoData: any) {
     };
     
     // Use Remotion CLI to render the video
-    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${videoData.platformConfig.width} --height=${videoData.platformConfig.height} --concurrency=2 --jpeg-quality=80`;
+    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${platformConfig.width} --height=${platformConfig.height} --concurrency=2 --jpeg-quality=80`;
 
-    console.log(`Executing Remotion command for job ${jobId}:`, remotionCommand);
+    console.log('Executing Remotion command:', remotionCommand);
+    console.log('Starting render at:', new Date().toISOString());
     
-    // Execute with timeout and progress tracking
+    // Execute with timeout
     const { stdout, stderr } = await execAsync(remotionCommand, { 
       env,
       timeout: RENDER_TIMEOUT 
     });
     
-    console.log(`Render completed for job ${jobId}`);
+    console.log('Render completed at:', new Date().toISOString());
+    console.log('Remotion stdout:', stdout);
+    if (stderr) console.log('Remotion stderr:', stderr);
 
     // Check if the video file was created
     if (!fs.existsSync(outputPath)) {
@@ -101,7 +72,7 @@ async function renderVideoInBackground(jobId: string, videoData: any) {
 
     // Get file size for logging
     const stats = fs.statSync(outputPath);
-    console.log(`Video file created successfully for job ${jobId}:`, {
+    console.log('Video file created successfully:', {
       path: outputPath,
       size: `${(stats.size / 1024 / 1024).toFixed(2)} MB`
     });
@@ -113,24 +84,21 @@ async function renderVideoInBackground(jobId: string, videoData: any) {
     fs.unlinkSync(tempDataPath);
     fs.unlinkSync(outputPath);
 
-    // Update job status to completed
-    jobs.set(jobId, {
-      status: 'completed',
-      progress: 100,
-      error: null,
-      videoBuffer: videoBuffer,
-      videoSize: stats.size,
-      completedTime: Date.now()
+    console.log('Video render completed successfully');
+
+    return new NextResponse(videoBuffer, {
+      headers: {
+        'Content-Type': 'video/mp4',
+        'Content-Disposition': `attachment; filename="variation-${variation?.id || 'video'}.mp4"`,
+        'Content-Length': videoBuffer.length.toString(),
+      },
     });
-
-    console.log(`Job ${jobId} completed successfully`);
-
   } catch (error) {
-    console.error(`Error in background render for job ${jobId}:`, error);
+    console.error('Error rendering video:', error);
     
     // Clean up any temporary files on error
     try {
-      const tempDataPath = path.join(process.cwd(), `temp-video-data-${jobId}.json`);
+      const tempDataPath = path.join(process.cwd(), 'temp-video-data.json');
       if (fs.existsSync(tempDataPath)) {
         fs.unlinkSync(tempDataPath);
       }
@@ -138,49 +106,9 @@ async function renderVideoInBackground(jobId: string, videoData: any) {
       console.error('Error cleaning up temp files:', cleanupError);
     }
     
-    // Update job status to failed
-    jobs.set(jobId, {
-      status: 'failed',
-      progress: 0,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      completedTime: Date.now()
-    });
+    return NextResponse.json({ 
+      error: 'Failed to render video',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
-}
-
-// New endpoint to check job status
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const jobId = searchParams.get('jobId');
-  
-  if (!jobId) {
-    return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
-  }
-  
-  const job = jobs.get(jobId);
-  
-  if (!job) {
-    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-  }
-  
-  if (job.status === 'completed') {
-    // Return the video file
-    return new NextResponse(job.videoBuffer, {
-      headers: {
-        'Content-Type': 'video/mp4',
-        'Content-Disposition': `attachment; filename="variation-${jobId}.mp4"`,
-        'Content-Length': job.videoSize.toString(),
-      },
-    });
-  }
-  
-  // Return job status
-  return NextResponse.json({
-    jobId,
-    status: job.status,
-    progress: job.progress,
-    error: job.error,
-    startTime: job.startTime,
-    completedTime: job.completedTime
-  });
 } 

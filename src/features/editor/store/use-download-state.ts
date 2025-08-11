@@ -149,7 +149,7 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 				console.log('Video track items count:', videoTrackItems.length);
 				console.log('Audio track items count:', audioTrackItems.length);
 
-				// Start background job
+				// Use Remotion renderer
 				const response = await fetch('/api/render-video', {
 					method: 'POST',
 					headers: {
@@ -170,54 +170,25 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 				});
 
 				if (!response.ok) {
-					throw new Error('Failed to start video rendering');
+					throw new Error('Failed to render video with Remotion');
 				}
 
-				const { jobId } = await response.json();
-				set({ jobId });
+				// Clear progress interval
+				clearInterval(progressInterval);
+				set({ progress: 100 });
 
-				// Poll for job status
-				const pollInterval = setInterval(async () => {
-					try {
-						const statusResponse = await fetch(`/api/render-video?jobId=${jobId}`);
-						
-						if (statusResponse.ok) {
-							const contentType = statusResponse.headers.get('content-type');
-							
-							if (contentType?.includes('video/mp4')) {
-								// Video is ready
-								clearInterval(pollInterval);
-								clearInterval(progressInterval);
-								
-								const videoBlob = await statusResponse.blob();
-								const url = URL.createObjectURL(videoBlob);
-								
-								set({ 
-									exporting: false, 
-									output: { url, type: 'mp4' },
-									progress: 100 
-								});
-							} else {
-								// Check status
-								const statusData = await statusResponse.json();
-								
-								if (statusData.status === 'failed') {
-									clearInterval(pollInterval);
-									clearInterval(progressInterval);
-									throw new Error(statusData.error || 'Video rendering failed');
-								}
-								
-								// Update progress
-								set({ progress: statusData.progress || 0 });
-							}
-						}
-					} catch (error) {
-						console.error('Error polling job status:', error);
-						clearInterval(pollInterval);
-						clearInterval(progressInterval);
-						set({ exporting: false, progress: 0 });
-					}
-				}, 2000); // Poll every 2 seconds
+				// Get the video blob
+				const videoBlob = await response.blob();
+				
+				// Create a temporary URL for the blob
+				const url = URL.createObjectURL(videoBlob);
+				
+				// Set the output
+				set({ 
+					exporting: false, 
+					output: { url, type: 'mp4' },
+					progress: 100 
+				});
 
 			} catch (error) {
 				console.error('Error in Remotion export:', error);
