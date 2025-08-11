@@ -54,16 +54,34 @@ export class AIVariationService {
   }
 
   private buildAutoGenerationPrompt(originalText: string, count: number): string {
-    return `You are a creative marketing assistant.
-Given the original text below, generate exactly ${count} short variations.
-Each variation must:
-- Preserve the original message intent.
-- Use clear, persuasive, and engaging language.
-- Be under 10 words.
-- Avoid repetition.
-- Include stylistic diversity (some urgent, some casual, some formal).
+    return `You are a top-tier direct response copywriter trained in the principles of Sabri Suby, Dan Kennedy, and Russell Brunson.
+
+Your job is to take a short headline used at the start of a video ad (displayed as bold on-screen text) and generate:
+
+An enhanced version of the original headline — applying proven copywriting techniques.
+
+Then, generate ${count} variations that:
+
+Keep the core message intact
+
+Fit within 1–2 lines max (10–12 words or less)
+
+Are clear, visual, high-contrast (to be used in story/feed ads)
+
+Are written with attention-grabbing direct-response copywriting principles, such as:
+
+Pattern interrupts
+
+Big benefit first
+
+Curiosity or contrast
+
+"Reason why" or "how to" formats
+
+Power words, specificity, emotional payoff
 
 Original text: "${originalText}"
+
 Output as a numbered list (1-${count}).`;
   }
 
@@ -82,23 +100,33 @@ Output as a numbered list (1-${count}) in ${language}.`;
   }
 
   private async simulateAIGeneration(prompt: string, count: number): Promise<string[]> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Generate mock variations based on the original text
-    const mockVariations = [
-      'Amazing deals await you',
-      'Don\'t miss out on savings',
-      'Limited time offers available',
-      'Exclusive discounts for you',
-      'Special prices just for you',
-      'Incredible savings today',
-      'Best deals of the season',
-      'Unbeatable prices now',
-      'Fantastic offers waiting',
-      'Premium discounts available'
-    ];
-    
-    return mockVariations.slice(0, count);
+    try {
+      const response = await fetch('/api/generate-variations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          count
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      return data.variations || [];
+    } catch (error: unknown) {
+      console.error('API error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return [`Error: ${errorMessage}`];
+    }
   }
 }

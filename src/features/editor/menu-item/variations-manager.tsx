@@ -32,7 +32,6 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
   const [isVariationsModalVisible, setIsVariationsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [totalCombinations, setTotalCombinations] = useState(1);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     // Calculate total combinations whenever timeline elements change
@@ -45,11 +44,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
 
   const handleVariationsChange = (updatedElements: TimelineElement[]) => {
     onTimelineElementsChange(updatedElements);
-    // Force immediate re-render to update counts
-    setTimeout(() => {
-      setRefreshKey(prev => prev + 1);
-    }, 100);
-    message.success('Variations updated successfully!');
+    // Don't force re-render - let React handle it naturally
   };
 
   const openExportModal = () => {
@@ -104,24 +99,22 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
     console.log('Selected element:', element.type, element);
     setSelectedElement(element);
     setIsVariationsModalVisible(true);
+    console.log('Modal should now be visible');
   };
 
-  // Reset modal state when no element is selected
+  // Reset modal state when no element is selected (but only if modal is not supposed to be open)
   useEffect(() => {
-    if (!selectedElement) {
+    if (!selectedElement && isVariationsModalVisible) {
       setIsVariationsModalVisible(false);
     }
-  }, [selectedElement]);
+  }, [selectedElement, isVariationsModalVisible]);
 
-  // Refresh counts when component mounts or when variations change
-  useEffect(() => {
-    setRefreshKey(prev => prev + 1);
-  }, [timelineElements]);
+  // Remove the refreshKey effect that was causing infinite re-renders
 
   const handleCloseVariationsModal = () => {
+    console.log('Closing variations modal');
     setIsVariationsModalVisible(false);
-    setSelectedElement(null);
-    setRefreshKey(prev => prev + 1); // Force re-render
+    // Don't immediately set selectedElement to null - let afterClose handle it
   };
 
   return (
@@ -138,7 +131,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
           style={{ marginBottom: 16 }}
         />
         
-        <div className="elements-list" key={refreshKey}>
+        <div className="elements-list">
           {filteredElements.length === 0 ? (
             <div className="empty-state">
               <Text type="secondary">No elements found. Add elements to timeline first.</Text>
@@ -146,7 +139,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
           ) : (
             filteredElements.map((element) => (
               <div 
-                key={`${element.id}-${refreshKey}`} 
+                key={element.id} 
                 className="element-item"
                 onClick={() => handleElementSelect(element)}
               >
@@ -193,14 +186,17 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
         return true;
       })() && (
         <Modal
-          title="Add Variants"
+          title={`Add ${selectedElement.type.charAt(0).toUpperCase() + selectedElement.type.slice(1)} Variants`}
           open={isVariationsModalVisible}
           onCancel={handleCloseVariationsModal}
           footer={null}
           width={1200}
           style={{ top: 20 }}
-          destroyOnHidden={true}
+          destroyOnHidden={false}
           maskClosable={false}
+          afterClose={() => {
+            setSelectedElement(null);
+          }}
         >
           <Variations 
             timelineElements={[selectedElement]}
@@ -210,7 +206,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
                 el.id === selectedElement.id ? updatedElements[0] : el
               );
               handleVariationsChange(updatedTimeline);
-              handleCloseVariationsModal();
+              // Don't close modal immediately - let user manage variations
             }}
           />
         </Modal>

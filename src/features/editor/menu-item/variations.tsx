@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Modal, Input, Select, message, Upload, List, Card, Space, Typography, Divider, Badge, Row, Col } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, StarOutlined, GlobalOutlined, VideoCameraOutlined, FileTextOutlined, PictureOutlined, SoundOutlined, CloseOutlined, SearchOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
+import { AIVariationService } from '../variations/services/ai-variation-service';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
@@ -74,34 +75,16 @@ const Variations: React.FC<VariationsProps> = ({
            Original text: "${originalText}"
            Output as a numbered list (1–10).`;
 
-      // Simulate AI API call - replace with actual API
-      const mockVariations = isLanguageVariation 
-        ? [
-            "¡Título y algo de cuerpo!",
-            "Encabezado y contenido adicional",
-            "Título principal con texto",
-            "¡Encabezado y cuerpo del mensaje!",
-            "Título con contenido descriptivo",
-            "Encabezado y texto del cuerpo",
-            "¡Título y cuerpo del contenido!",
-            "Encabezado con texto adicional",
-            "Título y contenido del cuerpo",
-            "¡Encabezado y cuerpo principal!"
-          ]
-        : [
-            "Heading and some body",
-            "Title and content",
-            "Header with body text",
-            "Main heading and content",
-            "Title and description",
-            "Heading with body",
-            "Main title and text",
-            "Header and content",
-            "Title and body content",
-            "Heading and main text"
-          ];
+      // Use the actual AI service
+      const aiService = AIVariationService.getInstance();
+      const response = await aiService.generateTextVariations({
+        originalText: originalText,
+        variationType: isLanguageVariation ? 'language' : 'auto',
+        targetLanguage: isLanguageVariation ? targetLanguage : undefined,
+        count: 10
+      });
 
-      setGeneratedTextVariations(mockVariations);
+      setGeneratedTextVariations(response.variations);
       
       // Automatically save the variations to localStorage with proper format
       if (selectedElement) {
@@ -132,16 +115,16 @@ const Variations: React.FC<VariationsProps> = ({
           isOriginal: true,
             allTextOverlays: [originalElementData]
           },
-          ...mockVariations.map((text, index) => ({
-            id: `variation-${index}`,
-            text: text,
-            originalTextId: selectedElement.id,
-            isOriginal: false,
-            allTextOverlays: [{
-              ...originalElementData,
-              text: text
-            }]
-          }))
+                  ...response.variations.map((text: string, index: number) => ({
+          id: `variation-${index}`,
+          text: text,
+          originalTextId: selectedElement.id,
+          isOriginal: false,
+          allTextOverlays: [{
+            ...originalElementData,
+            text: text
+          }]
+        }))
         ];
 
         // Save to local storage in the format expected by navbar
@@ -156,12 +139,12 @@ const Variations: React.FC<VariationsProps> = ({
             value: selectedElement.content,
             type: 'text'
           },
-          ...mockVariations.map((text, index) => ({
-            id: `variation-${index}`,
-            key: `T${index + 1}`,
-            value: text,
-            type: 'text'
-          }))
+                  ...response.variations.map((text: string, index: number) => ({
+          id: `variation-${index}`,
+          key: `T${index + 1}`,
+          value: text,
+          type: 'text'
+        }))
         ];
 
         const simpleStorageKey = `simple_variations_${selectedElement.id}`;
@@ -180,7 +163,7 @@ const Variations: React.FC<VariationsProps> = ({
         onVariationsChange(updatedElements);
       }
       
-      message.success(`Generated and saved ${mockVariations.length} text variations successfully!`);
+      message.success(`Generated ${response.variations.length} text variations! You can now edit, delete, or add more variations.`);
     } catch (error) {
       message.error('Failed to generate variations');
     } finally {
@@ -206,9 +189,12 @@ const Variations: React.FC<VariationsProps> = ({
         }))
       ];
 
-      // Save to local storage
+      // Save to BOTH storage keys to keep them in sync
       const storageKey = `variations_${selectedElement.id}`;
+      const simpleStorageKey = `simple_variations_${selectedElement.id}`;
+      
       localStorage.setItem(storageKey, JSON.stringify(allVariations));
+      localStorage.setItem(simpleStorageKey, JSON.stringify(allVariations));
 
       // Update the element with new variations
       const updatedElement = {
@@ -221,12 +207,10 @@ const Variations: React.FC<VariationsProps> = ({
       );
       
       onVariationsChange(updatedElements);
+      
+      // Don't close modal - let user continue managing variations
       message.success(`Saved ${allVariations.length} variations successfully!`);
     }
-    
-    setSelectedElement(null);
-    setVariations([]);
-    setGeneratedTextVariations([]);
   };
 
   const handleDeleteVariation = (index: number) => {
@@ -250,8 +234,12 @@ const Variations: React.FC<VariationsProps> = ({
         }))
       ];
       
+      // Update BOTH storage keys to keep them in sync
       const storageKey = `variations_${selectedElement.id}`;
+      const simpleStorageKey = `simple_variations_${selectedElement.id}`;
+      
       localStorage.setItem(storageKey, JSON.stringify(allVariations));
+      localStorage.setItem(simpleStorageKey, JSON.stringify(allVariations));
       
       // Update the element immediately
       const updatedElement = {
@@ -271,6 +259,26 @@ const Variations: React.FC<VariationsProps> = ({
   useEffect(() => {
     if (timelineElements.length > 0) {
       setSelectedElement(timelineElements[0]);
+      
+      // Load existing variations from localStorage
+      const element = timelineElements[0];
+      if (element) {
+        const storageKey = `variations_${element.id}`;
+        const savedVariations = localStorage.getItem(storageKey);
+        
+        if (savedVariations) {
+          try {
+            const parsedVariations = JSON.parse(savedVariations);
+            // Extract text variations (skip the original)
+            const textVariations = parsedVariations
+              .filter((v: any) => v.id !== 'original' && v.type === 'text')
+              .map((v: any) => v.value);
+            setGeneratedTextVariations(textVariations);
+          } catch (error) {
+            console.error('Error parsing saved variations:', error);
+          }
+        }
+      }
     }
   }, [timelineElements]);
 
@@ -408,7 +416,10 @@ const Variations: React.FC<VariationsProps> = ({
                       ];
                       
                       const storageKey = `variations_${selectedElement.id}`;
+                      const simpleStorageKey = `simple_variations_${selectedElement.id}`;
+                      
                       localStorage.setItem(storageKey, JSON.stringify(allVariations));
+                      localStorage.setItem(simpleStorageKey, JSON.stringify(allVariations));
                       
                       // Update the element immediately
                       const updatedElement = {
