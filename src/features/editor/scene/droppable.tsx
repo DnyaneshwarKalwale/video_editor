@@ -1,7 +1,9 @@
-import { dispatch } from "@designcombo/events";
+import { useCallback, useState } from "react";
 import { ADD_AUDIO, ADD_IMAGE, ADD_VIDEO } from "@designcombo/state";
+import { dispatch } from "@designcombo/events";
 import { generateId } from "@designcombo/timeline";
-import React, { useCallback, useState } from "react";
+
+import { usePlatformStoreClient } from "../platform-preview";
 
 enum AcceptedDropTypes {
 	IMAGE = "image",
@@ -25,28 +27,66 @@ interface DroppableAreaProps {
 const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 	const [isPointerInside, setIsPointerInside] = useState(false);
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
+	const { currentPlatform } = usePlatformStoreClient();
 
 	const handleDrop = useCallback((draggedData: DraggedData) => {
-		const payload = { ...draggedData, id: generateId() };
 		switch (draggedData.type) {
 			case AcceptedDropTypes.IMAGE:
-				dispatch(ADD_IMAGE, { payload });
+				// Create image payload with proper positioning based on current platform
+				const imagePayload = {
+					id: generateId(),
+					display: {
+						from: 0,
+						to: 5000,
+					},
+					type: "image",
+					details: {
+						src: draggedData.src || "https://cdn.designcombo.dev/rect-gray.png",
+						width: 400,
+						height: 300,
+					},
+				};
+				dispatch(ADD_IMAGE, { 
+					payload: imagePayload
+				});
 				break;
 			case AcceptedDropTypes.VIDEO:
-				dispatch(ADD_VIDEO, { payload });
+				// Create video payload with proper positioning based on current platform
+				const videoPayload = {
+					id: generateId(),
+					display: {
+						from: 0,
+						to: 5000,
+					},
+					type: "video",
+					details: {
+						src: draggedData.src || "",
+						width: 400,
+						height: 300,
+					},
+				};
+				dispatch(ADD_VIDEO, { 
+					payload: videoPayload
+				});
 				break;
 			case AcceptedDropTypes.AUDIO:
-				dispatch(ADD_AUDIO, { payload });
+				dispatch(ADD_AUDIO, { 
+					payload: { ...draggedData, id: generateId() }
+				});
 				break;
 		}
-	}, []);
+	}, [currentPlatform]);
 
 	const onDragEnter = useCallback(
 		(e: React.DragEvent<HTMLDivElement>) => {
 			e.preventDefault();
 			try {
-				const draggedDataString = e.dataTransfer?.types[0] as string;
+				// Check if we have application/json data
+				if (!e.dataTransfer.types.includes("application/json")) return;
+				
+				const draggedDataString = e.dataTransfer.getData("application/json");
 				if (!draggedDataString) return;
+				
 				const draggedData: DraggedData = JSON.parse(draggedDataString);
 
 				if (!Object.values(AcceptedDropTypes).includes(draggedData.type))
@@ -80,10 +120,13 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 			onDragStateChange?.(false);
 
 			try {
-				const draggedDataString = e.dataTransfer?.types[0] as string;
-				const draggedData = JSON.parse(
-					e.dataTransfer!.getData(draggedDataString),
-				);
+				// Check if we have application/json data
+				if (!e.dataTransfer.types.includes("application/json")) return;
+				
+				const draggedDataString = e.dataTransfer.getData("application/json");
+				if (!draggedDataString) return;
+				
+				const draggedData = JSON.parse(draggedDataString);
 				handleDrop(draggedData);
 			} catch (error) {
 				console.error("Error parsing dropped data:", error);

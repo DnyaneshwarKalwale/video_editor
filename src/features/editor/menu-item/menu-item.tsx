@@ -1,4 +1,5 @@
 import useLayoutStore from "../store/use-layout-store";
+import useStore from "../store/use-store";
 import { Texts } from "./texts";
 import { Audios } from "./audios";
 import { Elements } from "./elements";
@@ -7,10 +8,63 @@ import { Videos } from "./videos";
 import { VoiceOver } from "./voice-over";
 import { useIsLargeScreen } from "@/hooks/use-media-query";
 import { Uploads } from "./uploads";
-import { Variations } from "./variations";
+import VariationsManager from "./variations-manager";
 
 const ActiveMenuItem = () => {
 	const { activeMenuItem } = useLayoutStore();
+	const { trackItemsMap, trackItemIds } = useStore();
+
+	// Convert timeline elements to the format expected by VariationsManager
+	const timelineElements = trackItemIds
+		.map(id => {
+			const item = trackItemsMap[id];
+			if (!item) return null;
+
+			// Only include supported element types
+			if (!['video', 'text', 'image', 'audio'].includes(item.type)) {
+				return null;
+			}
+
+			// Get element name based on type
+			const getElementName = (item: any, type: string): string => {
+				switch (type) {
+					case 'text':
+						return item.details?.text || 'Text Element';
+					case 'video':
+						return item.details?.src ? item.details.src.split('/').pop() || 'Video' : 'Video Element';
+					case 'image':
+						return item.details?.src ? item.details.src.split('/').pop() || 'Image' : 'Image Element';
+					case 'audio':
+						return item.details?.src ? item.details.src.split('/').pop() || 'Audio' : 'Audio Element';
+					default:
+						return 'Element';
+				}
+			};
+
+			// Get element content based on type
+			const getElementContent = (item: any, type: string): string => {
+				switch (type) {
+					case 'text':
+						return item.details?.text || '';
+					case 'video':
+					case 'image':
+					case 'audio':
+						return item.details?.src || '';
+					default:
+						return '';
+				}
+			};
+
+			return {
+				id: item.id,
+				type: item.type as 'video' | 'text' | 'image' | 'audio',
+				name: getElementName(item, item.type),
+				content: getElementContent(item, item.type),
+				duration: item.duration || 0,
+				variations: [] // Start with empty variations
+			};
+		})
+		.filter(Boolean) as any[];
 
 	if (activeMenuItem === "texts") {
 		return <Texts />;
@@ -40,7 +94,14 @@ const ActiveMenuItem = () => {
 		return <Uploads />;
 	}
 	if (activeMenuItem === "variations") {
-		return <Variations />;
+		return <VariationsManager 
+			timelineElements={timelineElements} 
+			onTimelineElementsChange={(updatedElements) => {
+				// Here you would update the timeline store with the new variations
+				// For now, we'll just log the changes
+				console.log('Timeline elements updated:', updatedElements);
+			}} 
+		/>;
 	}
 
 	return null;

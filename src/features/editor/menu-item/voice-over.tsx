@@ -8,16 +8,27 @@ import { TEXT_ADD_PAYLOAD } from "../constants/payload";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { usePlatformStoreClient } from "../platform-preview";
 
 export const VoiceOver = () => {
 	const [voiceId, setVoiceId] = useState<string>("");
 	const [textValue, setTextValue] = useState<string>("");
 
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
+	const { currentPlatform } = usePlatformStoreClient();
 
 	const handleAddText = () => {
+		// Create text payload with proper positioning based on current platform
+		const textPayload = {
+			...TEXT_ADD_PAYLOAD,
+			details: {
+				...TEXT_ADD_PAYLOAD.details,
+				text: textValue || "Voice over text",
+			},
+		};
+		
 		dispatch(ADD_TEXT, {
-			payload: TEXT_ADD_PAYLOAD,
+			payload: textPayload,
 			options: {},
 		});
 	};

@@ -1,0 +1,111 @@
+{
+  "variation": {
+    "id": "test-variation",
+    "text": "This is a test variation",
+    "originalTextId": "test123",
+    "isOriginal": true,
+    "editable": false
+  },
+  "textOverlays": [
+    {
+      "id": "text1",
+      "text": "HELLO WORLD - TEST TEXT",
+      "position": {
+        "top": 50,
+        "left": 50
+      },
+      "style": {
+        "fontSize": 80,
+        "fontFamily": "Arial-Bold",
+        "color": "#FF0000",
+        "backgroundColor": "transparent",
+        "textAlign": "center",
+        "fontWeight": "bold",
+        "opacity": 100,
+        "borderWidth": 0,
+        "borderColor": "#000000",
+        "textDecoration": "none"
+      },
+      "timing": {
+        "from": 0,
+        "to": 3000
+      },
+      "width": 800,
+      "height": 200
+    },
+    {
+      "id": "text2",
+      "text": "SECOND TEXT OVERLAY",
+      "position": {
+        "top": 80,
+        "left": 50
+      },
+      "style": {
+        "fontSize": 60,
+        "fontFamily": "Arial",
+        "color": "#00FF00",
+        "backgroundColor": "transparent",
+        "textAlign": "center",
+        "fontWeight": "normal",
+        "opacity": 100,
+        "borderWidth": 0,
+        "borderColor": "#000000",
+        "textDecoration": "none"
+      },
+      "timing": {
+        "from": 1000,
+        "to": 4000
+      },
+      "width": 600,
+      "height": 150
+    }
+  ],
+  "platformConfig": {
+    "width": 1080,
+    "height": 1920,
+    "aspectRatio": "1080:1920"
+  },
+  "duration": 5000,
+  "videoTrackItems": [
+    {
+      "id": "video1",
+      "src": "https://example.com/test-video.mp4",
+      "display": {
+        "from": 0,
+        "to": 5000
+      },
+      "details": {
+        "width": 400,
+        "height": 300,
+        "opacity": 100,
+        "src": "https://example.com/test-video.mp4",
+        "volume": 100,
+        "borderRadius": 0,
+        "borderWidth": 0,
+        "borderColor": "#000000",
+        "boxShadow": {
+          "color": "#000000",
+          "x": 0,
+          "y": 0,
+          "blur": 0
+        },
+        "top": 200,
+        "left": 100,
+        "transform": "scale(1)",
+        "blur": 0,
+        "brightness": 100,
+        "flipX": false,
+        "flipY": false,
+        "rotate": "0deg",
+        "visibility": "visible"
+      },
+      "trim": {
+        "from": 0,
+        "to": 5000
+      },
+      "playbackRate": 1,
+      "volume": 100
+    }
+  ],
+  "audioTrackItems": []
+} 

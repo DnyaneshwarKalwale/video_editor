@@ -1,9 +1,8 @@
 import { Input } from "@/components/ui/input";
-
 import { Slider } from "@/components/ui/slider";
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 
-const Rounded = ({
+const Opacity = ({
 	value,
 	onChange,
 }: {
@@ -19,19 +18,14 @@ const Rounded = ({
 	}, [value]);
 
 	return (
-		<div className="flex gap-2">
-			<div className="flex flex-1 items-center text-sm text-muted-foreground">
-				Round
+		<div className="flex gap-2 min-w-0">
+			<div className="flex flex-1 items-center text-sm text-muted-foreground min-w-0">
+				Opacity
 			</div>
-			<div
-				className="w-32"
-				style={{
-					display: "grid",
-					gridTemplateColumns: "1fr 80px",
-				}}
-			>
+			<div className="flex items-center gap-2 min-w-0 flex-shrink-0">
 				<Input
-					className="h-8 w-11 px-2 text-center text-sm"
+					max={100}
+					className="h-8 w-20 px-2 text-center text-sm min-w-0"
 					type="number"
 					onChange={(e) => {
 						const newValue = Number(e.target.value);
@@ -42,23 +36,25 @@ const Rounded = ({
 					}}
 					value={localValue} // Use local state for input value
 				/>
-				<Slider
-					id="rounded"
-					value={[localValue]} // Use local state for slider value
-					onValueChange={(e) => {
-						setLocalValue(e[0]); // Update local state
-					}}
-					onValueCommit={() => {
-						onChange(localValue); // Propagate value to parent when user commits change
-					}}
-					min={0}
-					max={50}
-					step={1}
-					aria-label="rounded"
-				/>
+				<div className="w-20 flex-shrink-0">
+					<Slider
+						id="opacity"
+						value={[localValue]} // Use local state for slider value
+						onValueChange={(e) => {
+							setLocalValue(e[0]); // Update local state
+						}}
+						onValueCommit={() => {
+							onChange(localValue); // Propagate value to parent when user commits change
+						}}
+						min={0}
+						max={100}
+						step={1}
+						aria-label="Opacity"
+					/>
+				</div>
 			</div>
 		</div>
 	);
 };
 
-export default Rounded;
+export default Opacity;

@@ -1,323 +1,444 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Sparkles, Copy, Check, Type } from 'lucide-react';
-import useVariationProject from '../variations/hooks/useVariationProject';
-import OpenAIService from '../variations/services/openai-service';
-import { VideoVariation } from '../variations/types/variation-types';
-import useStore from '../store/use-store';
-import StateManager from '@designcombo/state';
+import { Button, Modal, Input, Select, message, Upload, List, Card, Space, Typography, Divider, Badge, Row, Col } from 'antd';
+import { PlusOutlined, DeleteOutlined, EditOutlined, StarOutlined, GlobalOutlined, VideoCameraOutlined, FileTextOutlined, PictureOutlined, SoundOutlined, CloseOutlined, SearchOutlined } from '@ant-design/icons';
+import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
 
-export const Variations = () => {
-  const [variations, setVariations] = useState<VideoVariation[]>([]);
+const { Text, Title } = Typography;
+const { Option } = Select;
+
+interface TimelineElement {
+  id: string;
+  type: 'video' | 'text' | 'image' | 'audio';
+  name: string;
+  content: string;
+  duration?: number;
+  variations: any[];
+}
+
+interface Variation {
+  id: string;
+  key: string;
+  value: string;
+  type: 'text' | 'video' | 'image' | 'audio';
+  file?: File;
+  url?: string;
+}
+
+interface VariationsProps {
+  timelineElements: TimelineElement[];
+  onVariationsChange: (elements: TimelineElement[]) => void;
+}
+
+const Variations: React.FC<VariationsProps> = ({ 
+  timelineElements, 
+  onVariationsChange 
+}) => {
+  const [selectedElement, setSelectedElement] = useState<TimelineElement | null>(null);
+  const [variations, setVariations] = useState<Variation[]>([]);
+  const [targetLanguage, setTargetLanguage] = useState('Spanish');
+  const [generatedTextVariations, setGeneratedTextVariations] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  
-  const projectData = useVariationProject();
-  const { trackItemsMap } = useStore();
 
-  // Check if variations are already generated in localStorage first
-  useEffect(() => {
-    const existingVariations = localStorage.getItem('generatedVariations');
-    let shouldRegenerate = true;
-    
-    if (existingVariations) {
-      try {
-        const parsed = JSON.parse(existingVariations);
-        
-        // Check if we have variations for all current text overlays
-        if (projectData && projectData.textOverlays.length > 0) {
-          const currentTextIds = new Set(projectData.textOverlays.map(overlay => overlay.id));
-          const existingTextIds = new Set(parsed.map((v: VideoVariation) => v.originalTextId));
-          
-          // Check if all current text overlays have variations
-          const hasAllVariations = projectData.textOverlays.every(overlay => 
-            existingTextIds.has(overlay.id)
-          );
-          
-          if (hasAllVariations && currentTextIds.size === existingTextIds.size) {
-            setVariations(parsed);
-            shouldRegenerate = false;
-          }
-        }
-      } catch (error) {
-        console.error('Error parsing existing variations:', error);
-      }
-    }
+  // Don't auto-open modal - only open when explicitly triggered
+  // The modal will be opened by the parent component when an element is selected
 
-    // Generate variations if needed
-    if (shouldRegenerate && projectData && projectData.textOverlays.length > 0) {
-      generateVariations();
-    }
-  }, [projectData]);
-
-  const generateVariations = async () => {
-    if (!projectData || projectData.textOverlays.length === 0) return;
-
+  // AI Text Generation Prompts
+  const generateTextVariations = async (originalText: string, isLanguageVariation: boolean = false) => {
     setIsGenerating(true);
-    setError(null);
-
+    
     try {
-      const allVariations: VideoVariation[] = [];
+      // Clear any existing variations first
+      setGeneratedTextVariations([]);
+      
+      const prompt = isLanguageVariation 
+        ? `You are a translation and creative rewriting expert.
+           Given the original text below, generate exactly 10 variations in ${targetLanguage}.
+           Each variation must:
+           - Maintain the original intent.
+           - Use natural expressions for the target language.
+           - Be under 10 words.
+           - Avoid direct literal translation — make it engaging for a native audience.
+           - Vary the tone (some urgent, some casual, some formal).
 
-      // Generate variations for each text overlay
-      for (let i = 0; i < projectData.textOverlays.length; i++) {
-        const textOverlay = projectData.textOverlays[i];
-        
-        // Create original variation for this text element
-        const originalVariation: VideoVariation = {
-          id: `original-${textOverlay.id}`,
-          text: textOverlay.text,
-          originalTextId: textOverlay.id,
-          isOriginal: true,
-          editable: false,
+           Original text: "${originalText}"
+           Output as a numbered list (1–10) in ${targetLanguage}.`
+        : `You are a creative marketing assistant.
+           Given the original text below, generate exactly 10 short variations.
+           Each variation must:
+           - Preserve the original message intent.
+           - Use clear, persuasive, and engaging language.
+           - Be under 10 words.
+           - Avoid repetition.
+           - Include stylistic diversity (some urgent, some casual, some formal).
+
+           Original text: "${originalText}"
+           Output as a numbered list (1–10).`;
+
+      // Simulate AI API call - replace with actual API
+      const mockVariations = isLanguageVariation 
+        ? [
+            "¡Título y algo de cuerpo!",
+            "Encabezado y contenido adicional",
+            "Título principal con texto",
+            "¡Encabezado y cuerpo del mensaje!",
+            "Título con contenido descriptivo",
+            "Encabezado y texto del cuerpo",
+            "¡Título y cuerpo del contenido!",
+            "Encabezado con texto adicional",
+            "Título y contenido del cuerpo",
+            "¡Encabezado y cuerpo principal!"
+          ]
+        : [
+            "Heading and some body",
+            "Title and content",
+            "Header with body text",
+            "Main heading and content",
+            "Title and description",
+            "Heading with body",
+            "Main title and text",
+            "Header and content",
+            "Title and body content",
+            "Heading and main text"
+          ];
+
+      setGeneratedTextVariations(mockVariations);
+      
+      // Automatically save the variations to localStorage with proper format
+      if (selectedElement) {
+        // Get the original element data from the timeline
+        const originalElementData = {
+          id: selectedElement.id,
+          text: selectedElement.content,
+          position: { top: 652.922, left: 147.346 }, // Default position
+          style: {
+            fontSize: 120,
+            fontFamily: "Roboto-Bold",
+            color: "#000000",
+            backgroundColor: "transparent",
+            textAlign: "center",
+            opacity: 100
+          },
+          timing: { from: 0, to: 5000 }, // Default timing
+          width: 600,
+          height: 434.4,
+          editable: false
         };
-        allVariations.push(originalVariation);
 
-        // Generate AI variations for this text element
-        const openAIService = new OpenAIService();
-        const { variations: aiVariations, error: apiError } = await openAIService.generateTextVariations(
-          textOverlay.text
+        const allVariations = [
+          {
+            id: 'original-composition',
+            text: selectedElement.content,
+            originalTextId: selectedElement.id,
+          isOriginal: true,
+            allTextOverlays: [originalElementData]
+          },
+          ...mockVariations.map((text, index) => ({
+            id: `variation-${index}`,
+            text: text,
+            originalTextId: selectedElement.id,
+            isOriginal: false,
+            allTextOverlays: [{
+              ...originalElementData,
+              text: text
+            }]
+          }))
+        ];
+
+        // Save to local storage in the format expected by navbar
+        const storageKey = `variations_${selectedElement.id}`;
+        localStorage.setItem(storageKey, JSON.stringify(allVariations));
+
+        // Also save in the simple format for sidebar display
+        const simpleVariations = [
+          {
+            id: 'original',
+            key: 'TO',
+            value: selectedElement.content,
+            type: 'text'
+          },
+          ...mockVariations.map((text, index) => ({
+            id: `variation-${index}`,
+            key: `T${index + 1}`,
+            value: text,
+            type: 'text'
+          }))
+        ];
+
+        const simpleStorageKey = `simple_variations_${selectedElement.id}`;
+        localStorage.setItem(simpleStorageKey, JSON.stringify(simpleVariations));
+
+        // Update the element with new variations
+        const updatedElement = {
+          ...selectedElement,
+          variations: simpleVariations
+        };
+
+        const updatedElements = timelineElements.map(el => 
+          el.id === selectedElement.id ? updatedElement : el
         );
-
-        if (apiError) {
-          setError(apiError);
-        }
-
-        // Create variation objects for this text element
-        const generatedVariations: VideoVariation[] = aiVariations.map((text, index) => ({
-          id: `variation-${textOverlay.id}-${index + 1}`,
-          text,
-          originalTextId: textOverlay.id,
-          isOriginal: false,
-          editable: false,
-        }));
-
-        allVariations.push(...generatedVariations);
+        
+        onVariationsChange(updatedElements);
       }
-
-      setVariations(allVariations);
-      localStorage.setItem('generatedVariations', JSON.stringify(allVariations));
+      
+      message.success(`Generated and saved ${mockVariations.length} text variations successfully!`);
     } catch (error) {
-      console.error('Error generating variations:', error);
-      setError('Failed to generate variations');
+      message.error('Failed to generate variations');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const applyVariation = (variation: VideoVariation) => {
-    if (variation.isOriginal) return;
-    
-    // Find the track item and update its text
-    const trackItem = trackItemsMap[variation.originalTextId];
-    if (trackItem) {
-      const updatedTrackItem = {
-        ...trackItem,
-        details: {
-          ...trackItem.details,
-          text: variation.text,
+  const saveVariations = () => {
+    if (selectedElement) {
+      // Create variations array with original text + generated variations
+      const allVariations = [
+        {
+          id: 'original',
+          key: 'TO',
+          value: selectedElement.content,
+          type: 'text'
         },
+        ...generatedTextVariations.map((text, index) => ({
+          id: `variation-${index}`,
+          key: `T${index + 1}`,
+          value: text,
+          type: 'text'
+        }))
+      ];
+
+      // Save to local storage
+      const storageKey = `variations_${selectedElement.id}`;
+      localStorage.setItem(storageKey, JSON.stringify(allVariations));
+
+      // Update the element with new variations
+      const updatedElement = {
+        ...selectedElement,
+        variations: allVariations
       };
+
+      const updatedElements = timelineElements.map(el => 
+        el.id === selectedElement.id ? updatedElement : el
+      );
       
-      const updatedTrackItemsMap = {
-        ...trackItemsMap,
-        [variation.originalTextId]: updatedTrackItem,
-      };
-      
-      // Update the store with the new track items map
-      useStore.getState().setState({
-        trackItemsMap: updatedTrackItemsMap,
-      });
+      onVariationsChange(updatedElements);
+      message.success(`Saved ${allVariations.length} variations successfully!`);
     }
-  };
-
-  const copyToClipboard = (text: string, variationId: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(variationId);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const getVariationNumber = (variation: VideoVariation) => {
-    if (variation.isOriginal) return 0;
-    const match = variation.id.match(/variation-.*?-(\d+)/);
-    return match ? parseInt(match[1]) : 0;
-  };
-
-  const getTextElementName = (textId: string) => {
-    const textItem = trackItemsMap[textId];
-    if (textItem && textItem.details?.text) {
-      const text = textItem.details?.text || '';
-      return text.length > 20 ? `"${text.substring(0, 20)}..."` : `"${text}"`;
-    }
-    return 'Text Element';
-  };
-
-  // Group variations by variation number instead of text element
-  const groupedByVariationNumber = variations.reduce((groups, variation) => {
-    const variationNumber = getVariationNumber(variation);
-    const key = variation.isOriginal ? 'original' : `variation-${variationNumber}`;
     
-    if (!groups[key]) {
-      groups[key] = [];
+    setSelectedElement(null);
+    setVariations([]);
+    setGeneratedTextVariations([]);
+  };
+
+  const handleDeleteVariation = (index: number) => {
+    const newVariations = generatedTextVariations.filter((_, i) => i !== index);
+    setGeneratedTextVariations(newVariations);
+    
+    // Update local storage immediately
+    if (selectedElement) {
+      const allVariations = [
+        {
+          id: 'original',
+          key: 'TO',
+          value: selectedElement.content,
+          type: 'text'
+        },
+        ...newVariations.map((text, idx) => ({
+          id: `variation-${idx}`,
+          key: `T${idx + 1}`,
+          value: text,
+          type: 'text'
+        }))
+      ];
+      
+      const storageKey = `variations_${selectedElement.id}`;
+      localStorage.setItem(storageKey, JSON.stringify(allVariations));
+      
+      // Update the element immediately
+      const updatedElement = {
+        ...selectedElement,
+        variations: allVariations
+      };
+      
+      const updatedElements = timelineElements.map(el => 
+        el.id === selectedElement.id ? updatedElement : el
+      );
+      
+      onVariationsChange(updatedElements);
     }
-    groups[key].push(variation);
-    return groups;
-  }, {} as Record<string, VideoVariation[]>);
+  };
 
-  // Sort the groups: original first, then variations by number
-  const sortedGroups = Object.entries(groupedByVariationNumber).sort(([a], [b]) => {
-    if (a === 'original') return -1;
-    if (b === 'original') return 1;
-    const aNum = parseInt(a.replace('variation-', ''));
-    const bNum = parseInt(b.replace('variation-', ''));
-    return aNum - bNum;
-  });
+  // Set the selected element when timeline elements change
+  useEffect(() => {
+    if (timelineElements.length > 0) {
+      setSelectedElement(timelineElements[0]);
+    }
+  }, [timelineElements]);
 
-  if (!projectData || projectData.textOverlays.length === 0) {
     return (
-      <div className="p-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-sm">
-              <Sparkles className="w-4 h-4" />
-              Text Variations
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-500">
-              Add some text to your video to generate AI-powered variations.
-            </p>
-            <p className="text-xs text-gray-400 mt-1">
-              Click the "Texts" button to add text elements to your video.
-            </p>
-          </CardContent>
-        </Card>
+    <div className="variations-container">
+      {selectedElement?.type === 'text' ? (
+        /* Text Variations Modal */
+        <div className="text-variations-content">
+            {/* Variations Table */}
+            <div className="variations-table">
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#fafafa', borderBottom: '1px solid #d9d9d9' }}>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, width: '80px' }}>Key</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600 }}>Value</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600, width: '80px' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Original text as first variation */}
+                  <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                    <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                      <Input value="TO" style={{ width: '60px', textAlign: 'center' }} />
+                    </td>
+                    <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                      <Input
+                        value={selectedElement?.content || ''}
+                        placeholder="Enter text content"
+                        style={{ width: '100%' }}
+                      />
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center', verticalAlign: 'middle' }}>
+                      <Button 
+                        type="text" 
+                        danger 
+                        icon={<DeleteOutlined />}
+                      />
+                    </td>
+                  </tr>
+                  
+                  {/* Generated variations */}
+                  {generatedTextVariations.map((text, index) => (
+                    <tr key={index} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                      <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                        <Input value={`T${index + 1}`} style={{ width: '60px', textAlign: 'center' }} />
+                      </td>
+                      <td style={{ padding: '12px 16px', verticalAlign: 'middle' }}>
+                        <Input
+                          value={text}
+                          onChange={(e) => {
+                            const newVariations = [...generatedTextVariations];
+                            newVariations[index] = e.target.value;
+                            setGeneratedTextVariations(newVariations);
+                          }}
+                          placeholder="Enter variation text"
+                          style={{ width: '100%' }}
+                        />
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <Button 
+                          type="text" 
+                          danger 
+                          icon={<DeleteOutlined />}
+                          onClick={() => handleDeleteVariation(index)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="action-buttons">
+              <div className="add-variant-section">
+            <Button 
+                  type="primary" 
+                  icon={<PlusOutlined />}
+                  style={{ 
+                    width: '100%', 
+                    backgroundColor: '#333', 
+                    borderColor: '#333',
+                    marginBottom: 16
+                  }}
+                  onClick={() => {
+                    setGeneratedTextVariations([...generatedTextVariations, '']);
+                  }}
+                >
+                  Add Variant
+            </Button>
       </div>
-    );
-  }
+              
+              <div className="generate-buttons">
+          <Button 
+                  icon={<StarOutlined />}
+                  loading={isGenerating}
+                  onClick={() => generateTextVariations(selectedElement?.content || '')}
+                  style={{ width: '100%', marginBottom: 8 }}
+                >
+                  Auto-generate Variants
+          </Button>
 
-  return (
-    <div className="p-4 space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Sparkles className="w-4 h-4" />
-            Text Variations
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {error && variations.length === 0 && (
-            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-yellow-800 text-xs">
-                Using fallback variations. Add OPENAI_API_KEY to .env.local for AI-powered variations.
-              </p>
-            </div>
-          )}
-
-          {isGenerating ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                <p className="text-xs text-gray-600">Generating variations...</p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {sortedGroups.map(([groupKey, groupVariations]) => {
-                const isOriginal = groupKey === 'original';
-                const variationNumber = isOriginal ? 0 : parseInt(groupKey.replace('variation-', ''));
+      <Button
+                  icon={<GlobalOutlined />}
+                  loading={isGenerating}
+                  onClick={() => generateTextVariations(selectedElement?.content || '', true)}
+                  style={{ width: '100%', marginBottom: 8 }}
+                >
+                  Generate Language Variants
+      </Button>
                 
-                return (
-                  <div key={groupKey} className="space-y-3">
-                    {/* Variation Group Header */}
-                    <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
-                      <Badge 
-                        variant={isOriginal ? "default" : "secondary"}
-                        className="text-sm font-medium"
-                      >
-                        {isOriginal ? 'Original' : `Variation ${variationNumber}`}
-                      </Badge>
-                      <span className="text-xs text-gray-500">
-                        ({groupVariations.length} text elements)
-                      </span>
-                    </div>
-                    
-                    {/* Text elements for this variation */}
-                    <div className="space-y-3">
-                      {groupVariations.map((variation) => (
-                        <div
-                          key={variation.id}
-                          className="p-3 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors bg-white"
-                        >
-                          {/* Text Element Header */}
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <div className="flex items-center gap-2">
-                              <Type className="w-4 h-4 text-blue-600" />
-                              <h4 className="text-sm font-medium text-gray-900">
-                                {getTextElementName(variation.originalTextId)}
-                              </h4>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0"
-                              onClick={() => copyToClipboard(variation.text, variation.id)}
-                              title="Copy text"
-                            >
-                              {copiedId === variation.id ? (
-                                <Check className="w-3 h-3 text-green-600" />
-                              ) : (
-                                <Copy className="w-3 h-3" />
-                              )}
-                            </Button>
-                          </div>
-                          
-                          {/* Text content */}
-                          <div className="mb-3">
-                            <p className="text-sm text-gray-700 leading-relaxed">
-                              {variation.text}
-                            </p>
-                          </div>
-                          
-                          {/* Apply button */}
                           <Button
-                            size="sm"
-                            variant={copiedId === variation.id ? "default" : "outline"}
-                            className="w-full text-xs"
-                            onClick={() => applyVariation(variation)}
-                            disabled={variation.isOriginal}
-                          >
-                            {variation.isOriginal 
-                              ? 'Current Text' 
-                              : copiedId === variation.id 
-                                ? 'Applied ✓' 
-                                : 'Apply with Original Styling'
-                            }
+                  icon={<EditOutlined />}
+                  style={{ width: '100%', marginBottom: 8 }}
+                >
+                  Bulk rename variants
                           </Button>
-                        </div>
-                      ))}
+
+            <Button 
+                  danger
+                  icon={<DeleteOutlined />}
+                  style={{ width: '100%' }}
+                  onClick={() => {
+                    setGeneratedTextVariations([]);
+                    
+                    // Update local storage to only keep original
+                    if (selectedElement) {
+                      const allVariations = [
+                        {
+                          id: 'original',
+                          key: 'TO',
+                          value: selectedElement.content,
+                          type: 'text'
+                        }
+                      ];
+                      
+                      const storageKey = `variations_${selectedElement.id}`;
+                      localStorage.setItem(storageKey, JSON.stringify(allVariations));
+                      
+                      // Update the element immediately
+                      const updatedElement = {
+                        ...selectedElement,
+                        variations: allVariations
+                      };
+                      
+                      const updatedElements = timelineElements.map(el => 
+                        el.id === selectedElement.id ? updatedElement : el
+                      );
+                      
+                      onVariationsChange(updatedElements);
+                    }
+                    
+                    message.success('All variants deleted');
+                  }}
+                >
+                  Delete All
+            </Button>
+          </div>
                     </div>
                   </div>
-                );
-              })}
+        ) : (
+          /* Media Variations - Now handled by MediaVariationModal */
+          <div className="media-variations-placeholder">
+            <Text>Media variations are now handled by the new MediaVariationModal component.</Text>
             </div>
           )}
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={generateVariations}
-            disabled={isGenerating}
-          >
-            <Sparkles className="w-3 h-3 mr-2" />
-            Regenerate Variations
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }; 
+
+export default Variations; 

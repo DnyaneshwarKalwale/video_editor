@@ -1,48 +1,50 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { ADD_AUDIO, ADD_IMAGE, ADD_VIDEO } from "@designcombo/state";
 import { dispatch } from "@designcombo/events";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
-import {
-	Music,
-	Image as ImageIcon,
-	Video as VideoIcon,
-	Loader2,
-	UploadIcon,
-} from "lucide-react";
+import { useIsDraggingOverTimeline } from "../hooks/is-dragging-over-timeline";
+import Draggable from "@/components/shared/draggable";
+import { cn } from "@/lib/utils";
 import { generateId } from "@designcombo/timeline";
-import { Button } from "@/components/ui/button";
-import useUploadStore from "../store/use-upload-store";
+import { UploadIcon, VideoIcon, ImageIcon, Music, Loader2 } from "lucide-react";
 import ModalUpload from "@/components/modal-upload";
+import useUploadStore from "../store/use-upload-store";
+
+import { usePlatformStoreClient } from "../platform-preview";
 
 export const Uploads = () => {
-	const { setShowUploadModal, uploads, pendingUploads, activeUploads } =
-		useUploadStore();
+	const isDraggingOverTimeline = useIsDraggingOverTimeline();
+	const { currentPlatform } = usePlatformStoreClient();
+	const { uploads, pendingUploads, activeUploads, setShowUploadModal } = useUploadStore();
 
-	// Group completed uploads by type
-	const videos = uploads.filter(
-		(upload) => upload.type?.startsWith("video/") || upload.type === "video",
-	);
-	const images = uploads.filter(
-		(upload) => upload.type?.startsWith("image/") || upload.type === "image",
-	);
-	const audios = uploads.filter(
-		(upload) => upload.type?.startsWith("audio/") || upload.type === "audio",
-	);
+	const videos = uploads.filter((upload: any) => upload.type === "video");
+	const images = uploads.filter((upload: any) => upload.type === "image");
+	const audios = uploads.filter((upload: any) => upload.type === "audio");
 
 	const handleAddVideo = (video: any) => {
 		const srcVideo = video.metadata?.uploadedUrl || video.url;
 
-		dispatch(ADD_VIDEO, {
-			payload: {
-				id: generateId(),
-				details: {
-					src: srcVideo,
-				},
-				metadata: {
-					previewUrl:
-						"https://cdn.designcombo.dev/caption_previews/static_preset1.webp",
-				},
+		// Create video payload with proper positioning based on current platform
+		const videoPayload = {
+			id: generateId(),
+			display: {
+				from: 0,
+				to: 5000,
 			},
+			type: "video",
+			details: {
+				src: srcVideo,
+				width: 400,
+				height: 300,
+			},
+			metadata: {
+				previewUrl:
+					"https://cdn.designcombo.dev/caption_previews/static_preset1.webp",
+			},
+		};
+
+		dispatch(ADD_VIDEO, {
+			payload: videoPayload,
 			options: {
 				resourceId: "main",
 				scaleMode: "fit",
@@ -53,19 +55,24 @@ export const Uploads = () => {
 	const handleAddImage = (image: any) => {
 		const srcImage = image.metadata?.uploadedUrl || image.url;
 
-		dispatch(ADD_IMAGE, {
-			payload: {
-				id: generateId(),
-				type: "image",
-				display: {
-					from: 0,
-					to: 5000,
-				},
-				details: {
-					src: srcImage,
-				},
-				metadata: {},
+		// Create image payload with proper positioning based on current platform
+		const imagePayload = {
+			id: generateId(),
+			display: {
+				from: 0,
+				to: 5000,
 			},
+			type: "image",
+			details: {
+				src: srcImage,
+				width: 400,
+				height: 300,
+			},
+			metadata: {},
+		};
+
+		dispatch(ADD_IMAGE, {
+			payload: imagePayload,
 			options: {},
 		});
 	};
@@ -113,7 +120,7 @@ export const Uploads = () => {
 						Uploads in Progress
 					</div>
 					<div className="flex flex-col gap-2">
-						{pendingUploads.map((upload) => (
+						{pendingUploads.map((upload: any) => (
 							<div key={upload.id} className="flex items-center gap-2">
 								<span className="truncate text-xs flex-1">
 									{upload.file?.name || upload.url || "Unknown"}
@@ -121,7 +128,7 @@ export const Uploads = () => {
 								<span className="text-xs text-muted-foreground">Pending</span>
 							</div>
 						))}
-						{activeUploads.map((upload) => (
+						{activeUploads.map((upload: any) => (
 							<div key={upload.id} className="flex items-center gap-2">
 								<span className="truncate text-xs flex-1">
 									{upload.file?.name || upload.url || "Unknown"}
@@ -147,26 +154,24 @@ export const Uploads = () => {
 							<VideoIcon className="w-4 h-4 text-muted-foreground" />
 							<span className="font-medium text-sm">Videos</span>
 						</div>
-						<ScrollArea className="max-h-32">
-							<div className="grid grid-cols-3 gap-2 max-w-full">
-								{videos.map((video, idx) => (
+						<div className="grid grid-cols-3 gap-2 max-w-full">
+							{videos.map((video: any, idx: number) => (
+								<div
+									className="flex items-center gap-2 flex-col w-full"
+									key={video.id || idx}
+								>
 									<div
-										className="flex items-center gap-2 flex-col w-full"
-										key={video.id || idx}
+										className="w-16 h-16 flex items-center justify-center overflow-hidden relative cursor-pointer"
+										onClick={() => handleAddVideo(video)}
 									>
-										<Card
-											className="w-16 h-16 flex items-center justify-center overflow-hidden relative cursor-pointer"
-											onClick={() => handleAddVideo(video)}
-										>
-											<VideoIcon className="w-8 h-8 text-muted-foreground" />
-										</Card>
-										<div className="text-xs text-muted-foreground truncate w-full text-center">
-											{video.file?.name || video.url || "Video"}
-										</div>
+										<VideoIcon className="w-8 h-8 text-muted-foreground" />
 									</div>
-								))}
-							</div>
-						</ScrollArea>
+									<div className="text-xs text-muted-foreground truncate w-full text-center">
+										{video.file?.name || video.url || "Video"}
+									</div>
+								</div>
+							))}
+						</div>
 					</div>
 				)}
 
@@ -177,26 +182,24 @@ export const Uploads = () => {
 							<ImageIcon className="w-4 h-4 text-muted-foreground" />
 							<span className="font-medium text-sm">Images</span>
 						</div>
-						<ScrollArea className="max-h-32">
-							<div className="grid grid-cols-3 gap-2 max-w-full">
-								{images.map((image, idx) => (
+						<div className="grid grid-cols-3 gap-2 max-w-full">
+							{images.map((image: any, idx: number) => (
+								<div
+									className="flex items-center gap-2 flex-col w-full"
+									key={image.id || idx}
+								>
 									<div
-										className="flex items-center gap-2 flex-col w-full"
-										key={image.id || idx}
+										className="w-16 h-16 flex items-center justify-center overflow-hidden relative cursor-pointer"
+										onClick={() => handleAddImage(image)}
 									>
-										<Card
-											className="w-16 h-16 flex items-center justify-center overflow-hidden relative cursor-pointer"
-											onClick={() => handleAddImage(image)}
-										>
-											<ImageIcon className="w-8 h-8 text-muted-foreground" />
-										</Card>
-										<div className="text-xs text-muted-foreground truncate w-full text-center">
-											{image.file?.name || image.url || "Image"}
-										</div>
+										<ImageIcon className="w-8 h-8 text-muted-foreground" />
 									</div>
-								))}
-							</div>
-						</ScrollArea>
+									<div className="text-xs text-muted-foreground truncate w-full text-center">
+										{image.file?.name || image.url || "Image"}
+									</div>
+								</div>
+							))}
+						</div>
 					</div>
 				)}
 
@@ -207,26 +210,24 @@ export const Uploads = () => {
 							<Music className="w-4 h-4 text-muted-foreground" />
 							<span className="font-medium text-sm">Audios</span>
 						</div>
-						<ScrollArea className="max-h-32">
-							<div className="grid grid-cols-3 gap-2 max-w-full">
-								{audios.map((audio, idx) => (
+						<div className="grid grid-cols-3 gap-2 max-w-full">
+							{audios.map((audio: any, idx: number) => (
+								<div
+									className="flex items-center gap-2 flex-col w-full"
+									key={audio.id || idx}
+								>
 									<div
-										className="flex items-center gap-2 flex-col w-full"
-										key={audio.id || idx}
+										className="w-16 h-16 flex items-center justify-center overflow-hidden relative cursor-pointer"
+										onClick={() => handleAddAudio(audio)}
 									>
-										<Card
-											className="w-16 h-16 flex items-center justify-center overflow-hidden relative cursor-pointer"
-											onClick={() => handleAddAudio(audio)}
-										>
-											<Music className="w-8 h-8 text-muted-foreground" />
-										</Card>
-										<div className="text-xs text-muted-foreground truncate w-full text-center">
-											{audio.file?.name || audio.url || "Audio"}
-										</div>
+										<Music className="w-8 h-8 text-muted-foreground" />
 									</div>
-								))}
-							</div>
-						</ScrollArea>
+									<div className="text-xs text-muted-foreground truncate w-full text-center">
+										{audio.file?.name || audio.url || "Audio"}
+									</div>
+								</div>
+							))}
+						</div>
 					</div>
 				)}
 			</div>

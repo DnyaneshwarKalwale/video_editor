@@ -106,8 +106,8 @@ const CropModal = () => {
 		<>
 			{cropTarget && (
 				<Dialog open={!!cropTarget} onOpenChange={() => setCropTarget(null)}>
-					<DialogOverlay className="z-[300] bg-zinc-950/80">
-						<DialogContent className="z-[300] flex h-[640px] w-[900px] max-w-7xl flex-col bg-zinc-950 px-8">
+					<DialogOverlay className="z-[500] bg-zinc-950/80">
+						<DialogContent className="z-[500] flex h-[640px] w-[900px] max-w-7xl flex-col bg-zinc-950 px-8">
 							<DialogTitle>Crop</DialogTitle>
 
 							{/* <VisuallyHidden.Root> */}

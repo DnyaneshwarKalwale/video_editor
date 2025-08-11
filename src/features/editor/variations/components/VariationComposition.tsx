@@ -50,41 +50,98 @@ const VariationComposition: React.FC<VariationCompositionProps> = ({
     }))
   });
 
-    // Create a modified track items map with the variation text applied
+    // Create a modified track items map with the variation text and media applied
   const modifiedTrackItemsMap = useMemo(() => {
     const modified = { ...trackItemsMap };
     
-    // Use variation's allTextOverlays if available, otherwise use the passed textOverlays
-    const overlaysToUse = variation.allTextOverlays || textOverlays;
+    // Always use variation's allTextOverlays for proper text variation display
+    const overlaysToUse = variation.allTextOverlays && variation.allTextOverlays.length > 0 ? variation.allTextOverlays : textOverlays;
     
-         // Apply variation texts to all text overlays
-     overlaysToUse.forEach(textOverlay => {
-       const textItem = modified[textOverlay.id];
-       console.log(`Checking text overlay ${textOverlay.id}:`, {
-         exists: !!textItem,
-         type: textItem?.type,
-         currentText: textItem?.details?.text,
-         newText: textOverlay.text
-       });
-       
-                if (textItem && textItem.type === 'text') {
-           modified[textOverlay.id] = {
-             ...textItem,
-             details: {
-               ...textItem.details,
-               text: textOverlay.text, // Use the text from the overlay directly
-               // Ensure positioning is correct
-               top: textOverlay.position?.top || textItem.details.top,
-               left: textOverlay.position?.left || textItem.details.left,
-               fontSize: textOverlay.style?.fontSize || textItem.details.fontSize,
-               color: textOverlay.style?.color || textItem.details.color,
-             },
-           };
-           console.log(`✅ Applied text "${textOverlay.text}" to text overlay ${textOverlay.id} with timing ${textOverlay.timing.from}-${textOverlay.timing.to}ms, position: top=${textOverlay.position?.top}, left=${textOverlay.position?.left}`);
-         } else {
-           console.log(`❌ Text item not found in trackItemsMap for overlay ${textOverlay.id}`);
-         }
-     });
+    // Apply variation texts to all text overlays
+    overlaysToUse.forEach(textOverlay => {
+      const textItem = modified[textOverlay.id];
+      console.log(`Checking text overlay ${textOverlay.id}:`, {
+        exists: !!textItem,
+        type: textItem?.type,
+        currentText: textItem?.details?.text,
+        newText: textOverlay.text
+      });
+      
+      if (textItem && textItem.type === 'text') {
+        modified[textOverlay.id] = {
+          ...textItem,
+          details: {
+            ...textItem.details,
+            text: textOverlay.text, // Use the text from the overlay directly
+            // Ensure positioning is correct
+            top: textOverlay.position?.top || textItem.details.top,
+            left: textOverlay.position?.left || textItem.details.left,
+            fontSize: textOverlay.style?.fontSize || textItem.details.fontSize,
+            color: textOverlay.style?.color || textItem.details.color,
+          },
+        };
+        console.log(`✅ Applied text "${textOverlay.text}" to text overlay ${textOverlay.id} with timing ${textOverlay.timing.from}-${textOverlay.timing.to}ms, position: top=${textOverlay.position?.top}, left=${textOverlay.position?.left}`);
+      } else {
+        console.log(`❌ Text item not found in trackItemsMap for overlay ${textOverlay.id}`);
+      }
+    });
+
+    // Apply media variations (video, image, audio) from combinationData
+    if (variation.metadata?.combination) {
+      const combination = variation.metadata.combination;
+      console.log('Applying media variations from combination:', combination);
+      
+      combination.forEach((item: any) => {
+        // Use elementId for direct mapping if available
+        if (item.elementId && trackItemsMap[item.elementId] && item.type !== 'text') {
+          const trackItem = trackItemsMap[item.elementId];
+          
+          console.log(`Applying ${item.type} variation using elementId:`, {
+            elementId: item.elementId,
+            originalSrc: trackItem.details?.src,
+            newSrc: item.value,
+            type: item.type
+          });
+          
+          modified[item.elementId] = {
+            ...trackItem,
+            details: {
+              ...trackItem.details,
+              src: item.value, // Use the variation's media URL
+            },
+          };
+          
+          console.log(`✅ Applied ${item.type} variation "${item.value}" to ${item.elementId}`);
+        } else {
+          // Fallback to finding by content match
+          const originalItem = Object.values(trackItemsMap).find(trackItem => 
+            trackItem.type === item.type && (
+              (item.type === 'text' && trackItem.details?.text === item.originalValue) ||
+              (item.type !== 'text' && trackItem.details?.src === item.originalValue)
+            )
+          );
+          
+          if (originalItem && item.type !== 'text') {
+            console.log(`Applying ${item.type} variation using content match:`, {
+              id: originalItem.id,
+              originalSrc: originalItem.details?.src,
+              newSrc: item.value,
+              type: item.type
+            });
+            
+            modified[originalItem.id] = {
+              ...originalItem,
+              details: {
+                ...originalItem.details,
+                src: item.value, // Use the variation's media URL
+              },
+            };
+            
+            console.log(`✅ Applied ${item.type} variation "${item.value}" to ${originalItem.id}`);
+          }
+        }
+      });
+    }
     
     return modified;
   }, [trackItemsMap, variation, textOverlays]);

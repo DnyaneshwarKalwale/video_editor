@@ -1,10 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Player } from '@remotion/player';
 import { VideoVariation, TextOverlayData } from '../types/variation-types';
 import TextOverlayEditor from './TextOverlayEditor';
 import VariationComposition from './VariationComposition';
-
 import { VideoTrackItem, AudioTrackItem } from '../types/variation-types';
+import VideoPlayerManager from '../utils/videoPlayerManager';
 
 interface VideoPreviewProps {
   variation: VideoVariation;
@@ -39,9 +39,51 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [isVisible, setIsVisible] = useState(false);
+  const [shouldLoad, setShouldLoad] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [canLoad, setCanLoad] = useState(false);
 
   // Calculate aspect ratio
   const aspectRatio = platformConfig.width / platformConfig.height;
+
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            // Request player slot from manager
+            VideoPlayerManager.getInstance().requestPlayer(variation.id).then(() => {
+              setCanLoad(true);
+              // Delay loading to prevent overwhelming the browser
+              setTimeout(() => setShouldLoad(true), Math.random() * 1000);
+            });
+          } else {
+            setIsVisible(false);
+            setShouldLoad(false);
+            setCanLoad(false);
+            // Release player slot
+            VideoPlayerManager.getInstance().releasePlayer(variation.id);
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      if (containerRef.current) {
+        observer.unobserve(containerRef.current);
+      }
+      // Release player slot on unmount
+      VideoPlayerManager.getInstance().releasePlayer(variation.id);
+    };
+  }, [variation.id]);
   
   useEffect(() => {
     const updateContainerSize = () => {
@@ -87,6 +129,11 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     onTextChange?.(variation.id, overlayId, newText);
   };
 
+  const handlePlayerError = useCallback((error: any) => {
+    console.error(`Video player error for variation ${variation.id}:`, error);
+    setHasError(true);
+  }, [variation.id]);
+
   // For original video, show all overlays. For variations, only update the specific text that was varied
   const updatedOverlays = textOverlays.map(overlay => {
     const shouldUpdateText = !variation.isOriginal && overlay.id === variation.originalTextId;
@@ -104,8 +151,22 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
       ref={containerRef}
       className="relative w-full h-full bg-black overflow-hidden"
     >
-      {/* Complete Video Composition with Remotion Player */}
-      {(() => {
+      {/* Show loading placeholder when not visible */}
+      {!isVisible && (
+        <div className="flex items-center justify-center w-full h-full bg-gray-100">
+          <div className="text-gray-500 text-sm">Loading preview...</div>
+        </div>
+      )}
+
+      {/* Show error state */}
+      {hasError && (
+        <div className="flex items-center justify-center w-full h-full bg-red-50">
+          <div className="text-red-500 text-sm">Failed to load video</div>
+        </div>
+      )}
+
+      {/* Complete Video Composition with Remotion Player - Only load when visible and slot available */}
+      {isVisible && shouldLoad && canLoad && !hasError && (() => {
         const durationInFrames = Math.ceil(duration / 1000 * 30);
         console.log(`VideoPreview for ${variation.id}: duration=${duration}ms, durationInFrames=${durationInFrames}, fps=30`);
         return (

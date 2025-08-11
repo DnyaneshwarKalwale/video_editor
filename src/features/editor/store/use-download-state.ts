@@ -45,61 +45,151 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 		startExport: async () => {
 			try {
 				// Set exporting to true at the start
-				set({ exporting: true, displayProgressModal: true });
+				set({ exporting: true, displayProgressModal: true, progress: 0 });
 
 				// Assume payload to be stored in the state for POST request
 				const { payload } = get();
 
 				if (!payload) throw new Error("Payload is not defined");
 
-				// Step 1: POST request to start rendering
-				const response = await fetch(`/api/render`, {
-					method: "POST",
+				// Simulate progress updates for Remotion rendering
+				const progressInterval = setInterval(() => {
+					const currentProgress = get().progress;
+					if (currentProgress < 90) {
+						set({ progress: currentProgress + 10 });
+					}
+				}, 1000);
+
+				// Convert DesignCombo data to Remotion format
+				const textOverlays = Object.values(payload.trackItemsMap)
+					.filter((item: any) => item.type === 'text')
+					.map((item: any) => ({
+						id: item.id,
+						text: item.details.text || '',
+						position: {
+							top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 50 : item.details.top || 50,
+							left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 50 : item.details.left || 50,
+						},
+						style: {
+							fontSize: item.details.fontSize || 48,
+							fontFamily: item.details.fontFamily || 'Arial, sans-serif',
+							color: item.details.color || 'white',
+							backgroundColor: item.details.backgroundColor || 'transparent',
+							textAlign: item.details.textAlign || 'center',
+							fontWeight: item.details.fontWeight?.toString() || 'bold',
+							opacity: item.details.opacity || 100,
+							borderWidth: item.details.borderWidth,
+							borderColor: item.details.borderColor,
+							textDecoration: item.details.textDecoration,
+						},
+						timing: {
+							from: item.display.from,
+							to: item.display.to,
+						},
+						width: item.details.width,
+						height: item.details.height,
+					}));
+
+				const videoTrackItems = Object.values(payload.trackItemsMap)
+					.filter((item: any) => item.type === 'video')
+					.map((item: any) => ({
+						id: item.id,
+						src: item.details.src,
+						display: {
+							from: item.display.from,
+							to: item.display.to,
+						},
+						details: {
+							...item.details,
+							left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 0 : item.details.left || 0,
+							top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 0 : item.details.top || 0,
+							width: item.details.width || 200,
+							height: item.details.height || 200,
+						},
+						trim: item.trim,
+						playbackRate: item.playbackRate || 1,
+						volume: item.details.volume || 0,
+						crop: item.details.crop,
+					}));
+
+				const audioTrackItems = Object.values(payload.trackItemsMap)
+					.filter((item: any) => item.type === 'audio')
+					.map((item: any) => ({
+						id: item.id,
+						src: item.details.src,
+						display: {
+							from: item.display.from,
+							to: item.display.to,
+						},
+						details: {
+							...item.details,
+							volume: item.details.volume || 0,
+						},
+					}));
+
+				// Create variation data for the current composition
+				const variation = {
+					id: 'current-composition',
+					text: textOverlays[0]?.text || 'Video',
+					originalTextId: textOverlays[0]?.id,
+					isOriginal: true,
+					editable: false,
+				};
+
+				// Get the correct canvas size from the payload
+				const canvasWidth = payload.size?.width || 1080;
+				const canvasHeight = payload.size?.height || 1920;
+				
+				console.log('Exporting with canvas size:', { width: canvasWidth, height: canvasHeight });
+				console.log('Payload size:', payload.size);
+				console.log('Text overlays count:', textOverlays.length);
+				console.log('Video track items count:', videoTrackItems.length);
+				console.log('Audio track items count:', audioTrackItems.length);
+
+				// Use Remotion renderer instead of DesignCombo
+				const response = await fetch('/api/render-video', {
+					method: 'POST',
 					headers: {
-						"Content-Type": "application/json",
+						'Content-Type': 'application/json',
 					},
 					body: JSON.stringify({
-						design: payload,
-						options: {
-							fps: 30,
-							size: payload.size,
-							format: "mp4",
+						variation,
+						textOverlays,
+						platformConfig: {
+							width: canvasWidth,
+							height: canvasHeight,
+							aspectRatio: `${canvasWidth}:${canvasHeight}`,
 						},
+						duration: payload.duration || 5000,
+						videoTrackItems,
+						audioTrackItems,
 					}),
 				});
 
-				if (!response.ok) throw new Error("Failed to submit export request.");
+				if (!response.ok) {
+					throw new Error('Failed to render video with Remotion');
+				}
 
-				const jobInfo = await response.json();
-				const videoId = jobInfo.video.id;
+				// Clear progress interval
+				clearInterval(progressInterval);
+				set({ progress: 100 });
 
-				// Step 2 & 3: Polling for status updates
-				const checkStatus = async () => {
-					const statusResponse = await fetch(`/api/render/${videoId}`, {
-						headers: {
-							"Content-Type": "application/json",
-						},
-					});
+				// Get the video blob
+				const videoBlob = await response.blob();
+				
+				// Create a temporary URL for the blob
+				const url = URL.createObjectURL(videoBlob);
+				
+				// Set the output
+				set({ 
+					exporting: false, 
+					output: { url, type: get().exportType },
+					progress: 100 
+				});
 
-					if (!statusResponse.ok)
-						throw new Error("Failed to fetch export status.");
-
-					const statusInfo = await statusResponse.json();
-					const { status, progress, url } = statusInfo.video;
-
-					set({ progress });
-
-					if (status === "COMPLETED") {
-						set({ exporting: false, output: { url, type: get().exportType } });
-					} else if (status === "PENDING") {
-						setTimeout(checkStatus, 2500);
-					}
-				};
-
-				checkStatus();
 			} catch (error) {
-				console.error(error);
-				set({ exporting: false });
+				console.error('Error in Remotion export:', error);
+				set({ exporting: false, progress: 0 });
 			}
 		},
 	},

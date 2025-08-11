@@ -6,13 +6,25 @@ import Draggable from "@/components/shared/draggable";
 import { TEXT_ADD_PAYLOAD } from "../constants/payload";
 import { cn } from "@/lib/utils";
 import { nanoid } from "nanoid";
+import { usePlatformStoreClient } from "../platform-preview";
 
 export const Texts = () => {
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
+	const { currentPlatform } = usePlatformStoreClient();
 
 	const handleAddText = () => {
+		// Create text payload with proper positioning based on current platform
+		const textPayload = {
+			...TEXT_ADD_PAYLOAD,
+			id: nanoid(),
+			details: {
+				...TEXT_ADD_PAYLOAD.details,
+				text: "Add your text here",
+			},
+		};
+		
 		dispatch(ADD_TEXT, {
-			payload: { ...TEXT_ADD_PAYLOAD, id: nanoid() },
+			payload: textPayload,
 			options: {},
 		});
 	};
@@ -28,16 +40,25 @@ export const Texts = () => {
 			options: {},
 		});
 	};
-	// https://cdn.designcombo.dev/rect-gray.png
 
 	const handleAddImage = () => {
-		dispatch(ADD_IMAGE, {
-			payload: {
-				id: nanoid(),
-				details: {
-					src: "https://cdn.designcombo.dev/rect-gray.png",
-				},
+		// Create image payload with proper positioning based on current platform
+		const imagePayload = {
+			id: nanoid(),
+			display: {
+				from: 0,
+				to: 5000,
 			},
+			type: "image",
+			details: {
+				src: "https://example.com/image.jpg",
+				width: 400,
+				height: 300,
+			},
+		};
+		
+		dispatch(ADD_IMAGE, {
+			payload: imagePayload,
 			options: {},
 		});
 	};

@@ -201,7 +201,10 @@ const ImageItem = ({
 
 	return (
 		<Draggable
-			data={image}
+			data={{
+				...image,
+				type: "image"
+			}}
 			renderCustomPreview={<div style={style} />}
 			shouldDisplayPreview={shouldDisplayPreview}
 		>

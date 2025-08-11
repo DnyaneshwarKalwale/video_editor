@@ -173,7 +173,7 @@ export default function TextPresetPicker({
 	return (
 		<div
 			ref={floatingRef}
-			className="absolute right-2 top-2 z-[300] w-56 border bg-sidebar p-0 shadow-lg rounded-lg overflow-hidden"
+			className="absolute right-2 top-2 z-[500] w-56 border bg-sidebar p-0 shadow-lg rounded-lg overflow-hidden"
 		>
 			<div className="handle flex cursor-grab items-center justify-between px-4 py-3 border-b border-gray-200">
 				<p className="text-sm font-bold">Presets</p>

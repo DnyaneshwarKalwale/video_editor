@@ -52,6 +52,11 @@ export function SceneInteractions({
 			const selInfo = getSelectionByIds(targetIds);
 			setSelectionInfo(selInfo);
 			setTargets(selInfo.targets as HTMLDivElement[]);
+			
+			// Force update moveable to ensure controls are properly updated
+			setTimeout(() => {
+				moveableRef.current?.moveable.updateRect();
+			}, 100);
 		};
 		const timer = setTimeout(() => {
 			updateTargets();

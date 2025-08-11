@@ -1,37 +1,96 @@
-import useStore from "../store/use-store";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Droppable } from "@/components/ui/droppable";
+import { ADD_IMAGE, ADD_VIDEO, ADD_AUDIO } from "@designcombo/state";
+import { dispatch } from "@designcombo/events";
+import { generateId } from "@designcombo/timeline";
 import { PlusIcon } from "lucide-react";
-import { DroppableArea } from "./droppable";
 import { LogoIcons } from "@/components/shared/logos";
+import useStore from "../store/use-store";
+
+import { usePlatformStoreClient } from "../platform-preview";
+import { DroppableArea } from "./droppable";
 
 const SceneEmpty = () => {
-	const [isLoading, setIsLoading] = useState(true);
+	const { size: desiredSize } = useStore();
+	const { currentPlatform } = usePlatformStoreClient();
 	const containerRef = useRef<HTMLDivElement>(null);
+	const [isLoading, setIsLoading] = useState(false);
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
-	const [desiredSize, setDesiredSize] = useState({ width: 0, height: 0 });
-	const { size } = useStore();
-
-	useEffect(() => {
-		const container = containerRef.current!;
-		const PADDING = 96;
-		const containerHeight = container.clientHeight - PADDING;
-		const containerWidth = container.clientWidth - PADDING;
-		const { width, height } = size;
-
-		const desiredZoom = Math.min(
-			containerWidth / width,
-			containerHeight / height,
-		);
-		setDesiredSize({
-			width: width * desiredZoom,
-			height: height * desiredZoom,
-		});
-		setIsLoading(false);
-	}, [size]);
 
 	const onSelectFiles = (files: File[]) => {
-		console.log({ files });
+		setIsLoading(true);
+		
+		files.forEach((file) => {
+			const fileType = file.type;
+			const fileUrl = URL.createObjectURL(file);
+			
+			if (fileType.startsWith('image/')) {
+				// Create image payload with proper positioning based on current platform
+				const imagePayload = {
+					id: generateId(),
+					display: {
+						from: 0,
+						to: 5000,
+					},
+					type: "image",
+					details: {
+						src: fileUrl,
+						width: 400,
+						height: 300,
+					},
+				};
+				
+				dispatch(ADD_IMAGE, {
+					payload: {
+						...imagePayload,
+						metadata: {},
+					},
+					options: {},
+				});
+			} else if (fileType.startsWith('video/')) {
+				// Create video payload with proper positioning based on current platform
+				const videoPayload = {
+					id: generateId(),
+					display: {
+						from: 0,
+						to: 5000,
+					},
+					type: "video",
+					details: {
+						src: fileUrl,
+						width: 400,
+						height: 300,
+					},
+				};
+				
+				dispatch(ADD_VIDEO, {
+					payload: {
+						...videoPayload,
+						metadata: {
+							previewUrl: fileUrl,
+						},
+					},
+					options: {
+						resourceId: "main",
+						scaleMode: "fit",
+					},
+				});
+			} else if (fileType.startsWith('audio/')) {
+				dispatch(ADD_AUDIO, {
+					payload: {
+						id: generateId(),
+						type: 'audio',
+						details: {
+							src: fileUrl,
+						},
+						metadata: {},
+					},
+					options: {},
+				});
+			}
+		});
+		
+		setIsLoading(false);
 	};
 
 	return (
@@ -39,9 +98,14 @@ const SceneEmpty = () => {
 			{!isLoading ? (
 				<Droppable
 					maxFileCount={4}
-					maxSize={4 * 1024 * 1024}
+					maxSize={100 * 1024 * 1024}
 					disabled={false}
 					onValueChange={onSelectFiles}
+					accept={{
+						"image/*": [],
+						"video/*": [],
+						"audio/*": []
+					}}
 					className="h-full w-full flex-1 bg-background"
 				>
 					<DroppableArea

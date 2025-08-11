@@ -4,6 +4,8 @@ export const getTargetControls = (targetType: string): string[] => {
 			return ["nw", "n", "ne", "w", "e", "sw", "s", "se"];
 		case "image":
 			return ["nw", "n", "ne", "w", "e", "sw", "s", "se"];
+		case "video":
+			return ["nw", "n", "ne", "w", "e", "sw", "s", "se"];
 		case "svg":
 			return ["nw", "n", "ne", "w", "e", "sw", "s", "se"];
 		case "group":
@@ -36,7 +38,16 @@ export const getTargetAbles = (targetType: string): ITargetAbles => {
 		case "image":
 			return {
 				rotatable: true,
-				resizable: false,
+				resizable: true,
+				scalable: true,
+				keepRatio: true,
+				draggable: true,
+				snappable: true,
+			};
+		case "video":
+			return {
+				rotatable: true,
+				resizable: true,
 				scalable: true,
 				keepRatio: true,
 				draggable: true,
@@ -123,6 +134,16 @@ export const getSelectionByIds = (ids: string[]): SelectionInfo => {
 		const targetType = getTypeFromClassName(target.className)!;
 		const ables = getTargetAbles(targetType);
 		const controls = getTargetControls(targetType);
+		
+		// Debug logging
+		console.log('Selection info for single target:', {
+			targetType,
+			className: target.className,
+			ables,
+			controls,
+			target
+		});
+		
 		return { targets: [target], layerType: targetType, ables, controls };
 	} else {
 		return {

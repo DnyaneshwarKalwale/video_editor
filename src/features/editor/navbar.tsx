@@ -22,6 +22,8 @@ import {
 	Smartphone,
 	Tablet,
 	Sparkles,
+	Loader2,
+	Video,
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { usePlatformStoreClient, PLATFORM_CONFIGS, getPlatformIcon } from "./platform-preview";
@@ -29,11 +31,14 @@ import VariationModal from "./variations/components/VariationModal";
 import { useVariationProject } from "./variations/hooks/useVariationProject";
 import { VideoVariation } from "./variations/types/variation-types";
 
+import { useVariationStore } from "./variations/store/use-variation-store";
+
 import type StateManager from "@designcombo/state";
 import { generateId } from "@designcombo/timeline";
 import type { IDesign } from "@designcombo/types";
 import { useDownloadState } from "./store/use-download-state";
 import DownloadProgressModal from "./download-progress-modal";
+
 import AutosizeInput from "@/components/ui/autosize-input";
 import { debounce } from "lodash";
 import {
@@ -61,7 +66,9 @@ export default function Navbar({
 	const isSmallScreen = useIsSmallScreen();
 	const { showOverlay, toggleOverlay, currentPlatform, setCurrentPlatform } = usePlatformStoreClient();
 	const [isVariationModalOpen, setIsVariationModalOpen] = useState(false);
+
 	const variationProject = useVariationProject();
+	const { totalCombinations, generateAllVideos } = useVariationStore();
 
 	const handleUndo = () => {
 		dispatch(HISTORY_UNDO);
@@ -97,11 +104,8 @@ export default function Navbar({
 	};
 
 	const handleOpenVariations = () => {
-		if (variationProject && variationProject.textOverlays.length > 0) {
-			setIsVariationModalOpen(true);
-		} else {
-			alert('Please add some text to your video before creating variations.');
-		}
+		// Always open variation modal to show videos
+		setIsVariationModalOpen(true);
 	};
 
 	const handleSaveVariations = (variations: VideoVariation[]) => {
@@ -266,14 +270,13 @@ export default function Navbar({
 					>
 						<Sparkles width={20} />
 					</Button>
+
 				</div>
 			</div>
 
 			<div className="flex h-11 items-center justify-end gap-2">
 				<div className=" pointer-events-auto flex h-10 items-center gap-2 rounded-md px-4">
-
-
-					<DownloadPopover stateManager={stateManager} />
+					<RemotionExportButton stateManager={stateManager} projectName={projectName} />
 				</div>
 			</div>
 		</div>
@@ -287,79 +290,38 @@ export default function Navbar({
 				onSave={handleSaveVariations}
 			/>
 		)}
+
 		</>
 	);
 }
 
-const DownloadPopover = ({ stateManager }: { stateManager: StateManager }) => {
-	const isMediumScreen = useIsMediumScreen();
+const RemotionExportButton = ({ stateManager, projectName }: { stateManager: StateManager; projectName: string }) => {
 	const { actions, exportType } = useDownloadState();
-	const [isExportTypeOpen, setIsExportTypeOpen] = useState(false);
-	const [open, setOpen] = useState(false);
+	const { currentPlatform } = usePlatformStoreClient();
 
 	const handleExport = () => {
+		// Get the current state in the format that DesignCombo already uses
 		const data: IDesign = {
 			id: generateId(),
 			...stateManager.getState(),
 		};
 
+		// Set the data for export
 		actions.setState({ payload: data });
+		
+		// Start the export process - this will trigger the download modal
 		actions.startExport();
 	};
 
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger asChild>
-				<Button
-					className="flex h-7 gap-1 border border-border"
-					size="icon"
-				>
-					<Download width={18} />
-					<span className="hidden lg:block">Export</span>
-				</Button>
-			</PopoverTrigger>
-			<PopoverContent
-				align="end"
-				className="bg-sidebar z-[250] flex w-60 flex-col gap-4"
-			>
-				<Label>Export settings</Label>
-
-				<Popover open={isExportTypeOpen} onOpenChange={setIsExportTypeOpen}>
-					<PopoverTrigger asChild>
-						<Button className="w-full justify-between" variant="outline">
-							<div>{exportType.toUpperCase()}</div>
-							<ChevronDown width={16} />
-						</Button>
-					</PopoverTrigger>
-					<PopoverContent className="bg-background z-[251] w-[--radix-popover-trigger-width] px-2 py-2">
-						<div
-							className="flex h-7 items-center rounded-sm px-3 text-sm hover:cursor-pointer hover:bg-zinc-800"
-							onClick={() => {
-								actions.setExportType("mp4");
-								setIsExportTypeOpen(false);
-							}}
-						>
-							MP4
-						</div>
-						<div
-							className="flex h-7 items-center rounded-sm px-3 text-sm hover:cursor-pointer hover:bg-zinc-800"
-							onClick={() => {
-								actions.setExportType("json");
-								setIsExportTypeOpen(false);
-							}}
-						>
-							JSON
-						</div>
-					</PopoverContent>
-				</Popover>
-
-				<div>
-					<Button onClick={handleExport} className="w-full">
-						Export
-					</Button>
-				</div>
-			</PopoverContent>
-		</Popover>
+		<Button
+			onClick={handleExport}
+			className="flex h-7 gap-1 border border-border"
+			size="icon"
+		>
+			<Download width={18} />
+			<span className="hidden lg:block">Export</span>
+		</Button>
 	);
 };
 
