@@ -18,7 +18,35 @@ const jobStore = new Map<string, {
   error?: string;
   createdAt: Date;
   completedAt?: Date;
+  videoData?: any; // Store video data for processing
 }>();
+
+// Job queue to ensure only one video renders at a time
+let isProcessing = false;
+const jobQueue: string[] = [];
+
+// Process next job in queue
+async function processNextJob() {
+  if (isProcessing || jobQueue.length === 0) {
+    return;
+  }
+  
+  isProcessing = true;
+  const jobId = jobQueue.shift()!;
+  const job = jobStore.get(jobId);
+  
+  if (job && job.videoData) {
+    console.log(`[Queue] Processing job ${jobId} (${jobQueue.length} jobs remaining in queue)`);
+    await processVideoJob(jobId, job.videoData);
+  }
+  
+  isProcessing = false;
+  
+  // Process next job if any
+  if (jobQueue.length > 0) {
+    setTimeout(processNextJob, 1000); // Wait 1 second before next job
+  }
+}
 
 // Background processing function
 async function processVideoJob(jobId: string, videoData: any) {
@@ -49,10 +77,18 @@ async function processVideoJob(jobId: string, videoData: any) {
       CHROME_BIN: '/usr/bin/google-chrome-stable'
     };
     
-    // Use Remotion CLI to render the video
-    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${videoData.platformConfig.width} --height=${videoData.platformConfig.height} --concurrency=1 --jpeg-quality=80`;
+    // Use Remotion CLI to render the video with memory optimization
+    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${videoData.platformConfig.width} --height=${videoData.platformConfig.height} --concurrency=1 --jpeg-quality=80 --memory-limit=2048`;
 
     console.log(`[Job ${jobId}] Starting video render...`);
+    
+    // Kill any existing Chrome processes to free up memory
+    try {
+      await execAsync('pkill -f chrome-headless || true');
+      console.log(`[Job ${jobId}] Cleaned up existing Chrome processes`);
+    } catch (error) {
+      console.log(`[Job ${jobId}] No existing Chrome processes to clean up`);
+    }
     
     // Execute with timeout
     const { stdout, stderr } = await execAsync(remotionCommand, { 
@@ -181,17 +217,22 @@ export async function POST(request: NextRequest) {
       id: jobId,
       status: 'pending' as const,
       progress: 0,
-      createdAt: new Date()
+      createdAt: new Date(),
+      videoData: videoData // Store video data for later processing
     };
     
     jobStore.set(jobId, job);
 
     console.log(`[Job ${jobId}] Created new video render job`);
 
-    // Start background processing
-    processVideoJob(jobId, videoData).catch(error => {
-      console.error(`[Job ${jobId}] Background processing error:`, error);
-    });
+    // Add to queue instead of processing immediately
+    jobQueue.push(jobId);
+    console.log(`[Queue] Added job ${jobId} to queue (${jobQueue.length} jobs in queue)`);
+    
+    // Start processing if not already processing
+    if (!isProcessing) {
+      processNextJob();
+    }
 
     // Return job ID immediately
     return NextResponse.json({ 
