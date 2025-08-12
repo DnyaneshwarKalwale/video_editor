@@ -19,6 +19,7 @@ interface DownloadManagerState {
   downloads: DownloadItem[];
   isOpen: boolean;
   maxConcurrent: number;
+  isProcessing: boolean; // Global processing lock
   
   // Actions
   addDownload: (name: string, type: 'video' | 'variation', data?: any) => string;
@@ -45,7 +46,8 @@ export const useDownloadManager = create<DownloadManagerState>()(
     (set, get) => ({
       downloads: [],
       isOpen: false,
-      maxConcurrent: 1, // Only one download at a time // Reduced from 2 to 1 to prevent server overload
+      maxConcurrent: 1, // Only one download at a time
+      isProcessing: false, // Global processing lock // Reduced from 2 to 1 to prevent server overload
 
       addDownload: (name: string, type: 'video' | 'variation', data?: any) => {
         const id = `download-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -111,18 +113,21 @@ export const useDownloadManager = create<DownloadManagerState>()(
       },
 
       processQueue: () => {
-        const { downloads, maxConcurrent } = get();
+        const { downloads, maxConcurrent, isProcessing } = get();
         const pendingDownloads = downloads.filter(d => d.status === 'pending');
         const downloadingCount = downloads.filter(d => d.status === 'downloading').length;
         
-        console.log(`[Queue] Processing queue: ${downloadingCount} downloading, ${pendingDownloads.length} pending, max: ${maxConcurrent}`);
+        console.log(`[Queue] Processing queue: ${downloadingCount} downloading, ${pendingDownloads.length} pending, max: ${maxConcurrent}, isProcessing: ${isProcessing}`);
         
-        if (downloadingCount < maxConcurrent && pendingDownloads.length > 0) {
+        if (!isProcessing && downloadingCount < maxConcurrent && pendingDownloads.length > 0) {
           const nextDownload = pendingDownloads[0];
           console.log(`[Queue] Starting download: ${nextDownload.name}`);
+          set({ isProcessing: true });
           get().startDownload(nextDownload);
         } else if (downloadingCount >= maxConcurrent) {
           console.log(`[Queue] Max concurrent downloads reached (${downloadingCount}/${maxConcurrent}), waiting...`);
+        } else if (isProcessing) {
+          console.log(`[Queue] Already processing, skipping...`);
         }
       },
 
@@ -145,6 +150,11 @@ export const useDownloadManager = create<DownloadManagerState>()(
             error: error instanceof Error ? error.message : 'Unknown error',
             completedAt: new Date()
           });
+        } finally {
+          // Always release the processing lock
+          set({ isProcessing: false });
+          // Process next in queue
+          setTimeout(() => get().processQueue(), 1000);
         }
       },
 
