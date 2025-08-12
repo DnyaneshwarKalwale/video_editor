@@ -45,7 +45,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
     (set, get) => ({
       downloads: [],
       isOpen: false,
-      maxConcurrent: 2,
+      maxConcurrent: 1, // Reduced from 2 to 1 to prevent server overload
 
       addDownload: (name: string, type: 'video' | 'variation', data?: any) => {
         const id = `download-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -63,8 +63,8 @@ export const useDownloadManager = create<DownloadManagerState>()(
           downloads: [...state.downloads, newDownload]
         }));
 
-        // Process queue after adding
-        setTimeout(() => get().processQueue(), 100);
+        // Process queue after adding with longer delay
+        setTimeout(() => get().processQueue(), 500);
         
         return id;
       },
@@ -168,12 +168,12 @@ export const useDownloadManager = create<DownloadManagerState>()(
         // Update download with job ID
         get().updateDownload(download.id, { jobId });
 
-        // Poll for completion
+        // Poll for completion with longer intervals
         let attempts = 0;
-        const maxAttempts = 300; // 5 minutes
+        const maxAttempts = 600; // Increased to 10 minutes for server processing
         
         while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Increased polling interval
           attempts++;
           
           // Update progress (estimate)
@@ -184,7 +184,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           const statusResponse = await fetch(`/api/render-video?jobId=${jobId}`);
           
           if (!statusResponse.ok) {
-            console.error('Failed to check job status:', statusResponse.status);
+            console.error(`Failed to check job status for ${download.name}:`, statusResponse.status);
             continue;
           }
           
@@ -222,8 +222,8 @@ export const useDownloadManager = create<DownloadManagerState>()(
               completedAt: new Date()
             });
             
-            // Process next in queue
-            setTimeout(() => get().processQueue(), 100);
+            // Process next in queue with longer delay
+            setTimeout(() => get().processQueue(), 1000);
             return;
             
           } else if (statusData.status === 'failed') {
@@ -231,7 +231,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           }
         }
         
-        throw new Error('Video rendering timed out after 5 minutes');
+        throw new Error('Video rendering timed out after 10 minutes');
       },
 
       downloadVariation: async (download: DownloadItem) => {
@@ -259,12 +259,12 @@ export const useDownloadManager = create<DownloadManagerState>()(
         // Update download with job ID
         get().updateDownload(download.id, { jobId });
 
-        // Poll for completion
+        // Poll for completion with longer intervals
         let attempts = 0;
-        const maxAttempts = 300;
+        const maxAttempts = 1200; // Increased to 20 minutes for server processing
         
         while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Increased polling interval
           attempts++;
           
           // Update progress
@@ -275,6 +275,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           const statusResponse = await fetch(`/api/render-video?jobId=${jobId}`);
           
           if (!statusResponse.ok) {
+            console.error(`Failed to check job status for ${download.name}:`, statusResponse.status);
             continue;
           }
           
@@ -312,8 +313,8 @@ export const useDownloadManager = create<DownloadManagerState>()(
               completedAt: new Date()
             });
             
-            // Process next in queue
-            setTimeout(() => get().processQueue(), 100);
+            // Process next in queue with longer delay
+            setTimeout(() => get().processQueue(), 1000);
             return;
             
           } else if (statusData.status === 'failed') {
@@ -321,7 +322,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           }
         }
         
-        throw new Error('Variation rendering timed out after 5 minutes');
+        throw new Error('Variation rendering timed out after 10 minutes');
       },
     }),
     {
