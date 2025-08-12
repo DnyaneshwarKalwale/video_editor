@@ -50,7 +50,7 @@ async function processVideoJob(jobId: string, videoData: any) {
     };
     
     // Use Remotion CLI to render the video
-    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${videoData.platformConfig.width} --height=${videoData.platformConfig.height} --concurrency=1 --jpeg-quality=60`;
+    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${videoData.platformConfig.width} --height=${videoData.platformConfig.height} --concurrency=2 --jpeg-quality=80`;
 
     console.log(`[Job ${jobId}] Starting video render...`);
     

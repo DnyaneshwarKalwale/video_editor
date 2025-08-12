@@ -45,7 +45,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
     (set, get) => ({
       downloads: [],
       isOpen: false,
-      maxConcurrent: 1, // Reduced from 2 to 1 to prevent server overload
+      maxConcurrent: 2, // Reduced from 2 to 1 to prevent server overload
 
       addDownload: (name: string, type: 'video' | 'variation', data?: any) => {
         const id = `download-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
