@@ -45,7 +45,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
     (set, get) => ({
       downloads: [],
       isOpen: false,
-      maxConcurrent: 2, // Reduced from 2 to 1 to prevent server overload
+      maxConcurrent: 1, // Only one download at a time // Reduced from 2 to 1 to prevent server overload
 
       addDownload: (name: string, type: 'video' | 'variation', data?: any) => {
         const id = `download-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -115,9 +115,14 @@ export const useDownloadManager = create<DownloadManagerState>()(
         const pendingDownloads = downloads.filter(d => d.status === 'pending');
         const downloadingCount = downloads.filter(d => d.status === 'downloading').length;
         
+        console.log(`[Queue] Processing queue: ${downloadingCount} downloading, ${pendingDownloads.length} pending, max: ${maxConcurrent}`);
+        
         if (downloadingCount < maxConcurrent && pendingDownloads.length > 0) {
           const nextDownload = pendingDownloads[0];
+          console.log(`[Queue] Starting download: ${nextDownload.name}`);
           get().startDownload(nextDownload);
+        } else if (downloadingCount >= maxConcurrent) {
+          console.log(`[Queue] Max concurrent downloads reached (${downloadingCount}/${maxConcurrent}), waiting...`);
         }
       },
 
