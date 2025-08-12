@@ -37,7 +37,7 @@ import type StateManager from "@designcombo/state";
 import { generateId } from "@designcombo/timeline";
 import type { IDesign } from "@designcombo/types";
 import { useDownloadState } from "./store/use-download-state";
-import DownloadProgressModal from "./download-progress-modal";
+// Removed DownloadProgressModal import since we're not using it anymore
 
 import AutosizeInput from "@/components/ui/autosize-input";
 import { debounce } from "lodash";
@@ -48,6 +48,7 @@ import {
 } from "@/hooks/use-media-query";
 
 import { LogoIcons } from "@/components/shared/logos";
+import { useDownloadManager } from './store/use-download-manager';
 
 export default function Navbar({
 	user,
@@ -171,6 +172,10 @@ export default function Navbar({
 		return () => clearInterval(interval);
 	}, [stateManager]);
 
+	const { setOpen, downloads } = useDownloadManager();
+	
+	const activeDownloads = downloads.filter(d => d.status === 'downloading' || d.status === 'pending').length;
+
 	return (
 		<>
 		<div
@@ -180,7 +185,7 @@ export default function Navbar({
 			}}
 			className="bg-white pointer-events-none flex h-11 items-center border-b border-gray-200 px-2"
 		>
-			<DownloadProgressModal />
+			{/* Removed old DownloadProgressModal - now using DownloadManager */}
 
 			<div className="flex items-center gap-2">
 				<div className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md text-gray-900">
@@ -263,12 +268,18 @@ export default function Navbar({
 						</Button>
 					<Button
 						onClick={handleOpenVariations}
-						className="text-gray-600 hover:text-gray-900"
+						className="text-gray-600 hover:text-gray-900 relative"
 						variant="ghost"
 						size="icon"
 						title="Create AI Variations"
 					>
 						<Sparkles width={20} />
+						{/* Download count indicator */}
+						{activeDownloads > 0 && (
+							<span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+								{activeDownloads}
+							</span>
+						)}
 					</Button>
 
 				</div>
@@ -277,6 +288,20 @@ export default function Navbar({
 			<div className="flex h-11 items-center justify-end gap-2">
 				<div className=" pointer-events-auto flex h-10 items-center gap-2 rounded-md px-4">
 					<RemotionExportButton stateManager={stateManager} projectName={projectName} />
+				</div>
+				<div className=" pointer-events-auto flex h-10 items-center gap-2 rounded-md px-4">
+					<Button
+						onClick={() => setOpen(true)}
+						className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+						title="Download Manager"
+					>
+						<Download className="w-5 h-5" />
+						{activeDownloads > 0 && (
+							<span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+								{activeDownloads}
+							</span>
+						)}
+					</Button>
 				</div>
 			</div>
 		</div>
@@ -296,21 +321,16 @@ export default function Navbar({
 }
 
 const RemotionExportButton = ({ stateManager, projectName }: { stateManager: StateManager; projectName: string }) => {
-	const { actions, exportType } = useDownloadState();
+	const { exportVideo, setExporting, exporting, progress, output, setOutput } = useDownloadState();
 	const { currentPlatform } = usePlatformStoreClient();
 
-	const handleExport = () => {
-		// Get the current state in the format that DesignCombo already uses
-		const data: IDesign = {
-			id: generateId(),
-			...stateManager.getState(),
-		};
-
-		// Set the data for export
-		actions.setState({ payload: data });
-		
-		// Start the export process - this will trigger the download modal
-		actions.startExport();
+	const handleExport = async () => {
+		try {
+			// Start the export process with progress popup
+			await exportVideo(stateManager, projectName);
+		} catch (error) {
+			console.error('Export failed:', error);
+		}
 	};
 
 	return (
@@ -318,9 +338,19 @@ const RemotionExportButton = ({ stateManager, projectName }: { stateManager: Sta
 			onClick={handleExport}
 			className="flex h-7 gap-1 border border-border"
 			size="icon"
+			disabled={exporting}
 		>
-			<Download width={18} />
-			<span className="hidden lg:block">Export</span>
+			{exporting ? (
+				<>
+					<div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+					<span className="hidden lg:block">Exporting...</span>
+				</>
+			) : (
+				<>
+					<Download width={18} />
+					<span className="hidden lg:block">Export</span>
+				</>
+			)}
 		</Button>
 	);
 };

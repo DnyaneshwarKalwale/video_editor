@@ -7,6 +7,7 @@ import { RemotionRendererService } from '../services/remotion-renderer';
 import { Button } from '@/components/ui/button';
 import useStore from '../../store/use-store';
 import VariationDownloadProgressModal from './VariationDownloadProgressModal';
+import { useDownloadManager } from '../../store/use-download-manager';
 
 
 const VariationModal: React.FC<VariationModalProps> = ({
@@ -26,6 +27,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
+  const { addDownload } = useDownloadManager();
 
   const loadVariationsFromSidebar = () => {
     // Get all timeline elements
@@ -326,31 +328,20 @@ const VariationModal: React.FC<VariationModalProps> = ({
     generateVariations();
   };
 
-
-
-  const downloadVariation = async (variation: VideoVariation) => {
-    console.log('Download button clicked for variation:', variation.id);
-    setDownloadingVariationId(variation.id);
-    setDownloadingVariation(variation);
-    setDownloadProgress(0);
-    setShowProgressModal(true);
-    console.log('Progress modal state set to true');
-
+  const handleDownload = async (variation: any) => {
     try {
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setDownloadProgress(prev => {
-          if (prev < 90) {
-            return prev + 10;
-          }
-          return prev;
-        });
-      }, 1000);
+      setDownloadingVariation(variation.id);
+      setShowProgressModal(true);
+
+      // Get scene data from the store
+      const storeState = useStore.getState();
+      const canvasWidth = storeState.size.width;
+      const canvasHeight = storeState.size.height;
 
       // Convert track items to the format expected by the render API
       // Use variation's allTextOverlays if available, otherwise fallback to trackItemsMap
       const textOverlays = variation.allTextOverlays && variation.allTextOverlays.length > 0 
-        ? variation.allTextOverlays.map((overlay) => ({
+        ? variation.allTextOverlays.map((overlay: any) => ({
             id: overlay.id,
             text: overlay.text, // Use the actual variation text
             position: {
@@ -376,7 +367,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
             width: overlay.width,
             height: overlay.height,
           }))
-        : Object.values(trackItemsMap)
+        : Object.values(storeState.trackItemsMap)
             .filter((item: any) => item.type === 'text')
             .map((item: any) => ({
               id: item.id,
@@ -405,7 +396,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
               height: item.details.height,
             }));
 
-      const videoTrackItems = Object.values(trackItemsMap)
+      const videoTrackItems = Object.values(storeState.trackItemsMap)
         .filter((item: any) => item.type === 'video')
         .map((item: any) => {
           // Check if this video has a variation in the combination
@@ -442,7 +433,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
           };
         });
 
-      const audioTrackItems = Object.values(trackItemsMap)
+      const audioTrackItems = Object.values(storeState.trackItemsMap)
         .filter((item: any) => item.type === 'audio')
         .map((item: any) => {
           // Check if this audio has a variation in the combination
@@ -473,7 +464,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
         });
 
       // Handle image track items with variations
-      const imageTrackItems = Object.values(trackItemsMap)
+      const imageTrackItems = Object.values(storeState.trackItemsMap)
         .filter((item: any) => item.type === 'image')
         .map((item: any) => {
           // Check if this image has a variation in the combination
@@ -515,127 +506,53 @@ const VariationModal: React.FC<VariationModalProps> = ({
         editable: false,
       };
 
-      // Get canvas size from project data
-      const canvasWidth = project.platformConfig.width || 1080;
-      const canvasHeight = project.platformConfig.height || 1920;
-
-      // Call the render API
-      const response = await fetch('/api/render-video', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Prepare variation data
+      const downloadData = {
+        variation: variationData,
+        textOverlays,
+        platformConfig: {
+          width: canvasWidth,
+          height: canvasHeight,
+          aspectRatio: `${canvasWidth}:${canvasHeight}`,
         },
-        body: JSON.stringify({
-          variation: variationData,
-          textOverlays,
-          platformConfig: {
-            width: canvasWidth,
-            height: canvasHeight,
-            aspectRatio: `${canvasWidth}:${canvasHeight}`,
-          },
-          duration: project.duration || 5000,
-          videoTrackItems,
-          audioTrackItems,
-          imageTrackItems,
-        }),
-      });
+        duration: storeState.duration || 5000,
+        videoTrackItems,
+        audioTrackItems,
+        imageTrackItems,
+      };
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Remotion API error response:', errorText);
-        throw new Error(`Failed to start video rendering: ${response.status} ${response.statusText}`);
-      }
+      // Add to download manager
+      const downloadId = addDownload(
+        `variation-${variation.id}.mp4`,
+        'variation',
+        downloadData
+      );
 
-      const jobResponse = await response.json();
-      const { jobId } = jobResponse;
+      console.log('Variation added to download queue:', downloadId);
       
-      console.log('Video render job created:', jobId);
-
-      // Poll for job completion
-      let attempts = 0;
-      const maxAttempts = 300; // 5 minutes with 1-second intervals
-      
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-        attempts++;
-        
-        // Update progress (estimate based on time)
-        const estimatedProgress = Math.min(90, (attempts / maxAttempts) * 90);
-        setDownloadProgress(estimatedProgress);
-        
-        // Check job status
-        const statusResponse = await fetch(`/api/render-video?jobId=${jobId}`);
-        
-        if (!statusResponse.ok) {
-          console.error('Failed to check job status:', statusResponse.status);
-          continue;
-        }
-        
-        const statusData = await statusResponse.json();
-        
-        if (statusData.status === 'completed') {
-          console.log('Video render completed, downloading...');
-          setDownloadProgress(95);
-          
-          // Download the completed video
-          const downloadResponse = await fetch(`/api/render-video?jobId=${jobId}`, {
-            method: 'PUT'
-          });
-          
-          if (!downloadResponse.ok) {
-            throw new Error(`Failed to download video: ${downloadResponse.status}`);
-          }
-          
-          // Get the video blob and download it
-          const videoBlob = await downloadResponse.blob();
-          
-          // Check if the blob is valid
-          if (videoBlob.size === 0) {
-            throw new Error('Received empty video file from server');
-          }
-          
-          console.log('Video blob received:', {
-            size: videoBlob.size,
-            type: videoBlob.type
-          });
-          
-          const url = URL.createObjectURL(videoBlob);
-          setDownloadUrl(url);
-          
-          // Create a download link
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `variation-${variation.id}.mp4`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-
-          // Keep the modal open for a moment to show completion
-          setTimeout(() => {
-            setShowProgressModal(false);
-            setDownloadUrl(null);
-            setDownloadingVariation(null);
-          }, 2000);
-          
-          return; // Success!
-          
-        } else if (statusData.status === 'failed') {
-          throw new Error(`Video rendering failed: ${statusData.error || 'Unknown error'}`);
-        }
-        
-        // Still processing, continue polling
-        console.log(`Job status: ${statusData.status}, progress: ${statusData.progress}%`);
-      }
-      
-      // If we get here, the job took too long
-      throw new Error('Video rendering timed out after 5 minutes');
+      // Close progress modal after a short delay
+      setTimeout(() => {
+        setShowProgressModal(false);
+        setDownloadingVariation(null);
+      }, 2000);
 
     } catch (error) {
-      console.error('Error downloading variation:', error);
-      alert('Failed to download variation. Please try again.');
+      console.error('Error adding variation to download queue:', error);
       setShowProgressModal(false);
-    } finally {
-      setDownloadingVariationId(null);
+      setDownloadingVariation(null);
+    }
+  };
+
+  const handleDownloadAll = async () => {
+    try {
+      // Add all variations to download queue
+      for (const variation of variations) {
+        await handleDownload(variation);
+        // Small delay between adding each variation
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (error) {
+      console.error('Error adding all variations to download queue:', error);
     }
   };
 
@@ -675,6 +592,17 @@ const VariationModal: React.FC<VariationModalProps> = ({
             </div>
             
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <Button
+                onClick={handleDownloadAll}
+                disabled={isGenerating || variations.length === 0}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+              >
+                <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Download All</span>
+              </Button>
+              
               <Button
                 onClick={handleRegenerateVariations}
                 disabled={isGenerating}
@@ -760,7 +688,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
                         </span>
                         <div className="flex items-center justify-center gap-2">
                           <button
-                            onClick={() => downloadVariation(variation)}
+                            onClick={() => handleDownload(variation)}
                             disabled={downloadingVariationId === variation.id}
                             className="flex items-center justify-center gap-1 px-2 py-1 text-xs bg-green-50 hover:bg-green-100 text-green-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Download variation video"

@@ -30,6 +30,7 @@ import { ITrackItem } from "@designcombo/types";
 import useLayoutStore from "./store/use-layout-store";
 import ControlItemHorizontal from "./control-item-horizontal";
 import { PlatformPreview, usePlatformStoreClient, PLATFORM_CONFIGS } from "./platform-preview";
+import { DownloadManager } from './components/DownloadManager';
 
 const stateManager = new StateManager({
 	size: {
@@ -268,6 +269,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 				</ResizablePanelGroup>
 				<ControlItem />
 			</div>
+			{/* Download Manager */}
+			<DownloadManager />
 		</div>
 	);
 };
