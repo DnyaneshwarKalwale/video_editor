@@ -34,6 +34,10 @@ interface DownloadManagerState {
   // Queue management
   processQueue: () => void;
   startDownload: (download: DownloadItem) => Promise<void>;
+  
+  // Download methods
+  downloadVideo: (download: DownloadItem) => Promise<void>;
+  downloadVariation: (download: DownloadItem) => Promise<void>;
 }
 
 export const useDownloadManager = create<DownloadManagerState>()(
