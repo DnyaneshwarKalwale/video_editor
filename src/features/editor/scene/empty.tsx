@@ -48,32 +48,73 @@ const SceneEmpty = () => {
 					options: {},
 				});
 			} else if (fileType.startsWith('video/')) {
-				// Create video payload with proper positioning based on current platform
-				const videoPayload = {
-					id: generateId(),
-					display: {
-						from: 0,
-						to: 5000,
-					},
-					type: "video",
-					details: {
-						src: fileUrl,
-						width: 400,
-						height: 300,
-					},
-				};
+				// Get video duration first
+				const video = document.createElement('video');
+				video.src = fileUrl;
 				
-				dispatch(ADD_VIDEO, {
-					payload: {
-						...videoPayload,
-						metadata: {
-							previewUrl: fileUrl,
+				video.addEventListener('loadedmetadata', () => {
+					const videoDuration = Math.round(video.duration * 1000); // Convert to milliseconds
+					
+					// Create video payload with actual duration
+					const videoPayload = {
+						id: generateId(),
+						display: {
+							from: 0,
+							to: videoDuration,
 						},
-					},
-					options: {
-						resourceId: "main",
-						scaleMode: "fit",
-					},
+						type: "video",
+						details: {
+							src: fileUrl,
+							width: video.videoWidth || 400,
+							height: video.videoHeight || 300,
+						},
+					};
+					
+					dispatch(ADD_VIDEO, {
+						payload: {
+							...videoPayload,
+							metadata: {
+								previewUrl: fileUrl,
+								duration: videoDuration,
+								originalWidth: video.videoWidth,
+								originalHeight: video.videoHeight,
+							},
+						},
+						options: {
+							resourceId: "main",
+							scaleMode: "fit",
+						},
+					});
+				});
+				
+				video.addEventListener('error', () => {
+					// Fallback to default duration if video metadata can't be loaded
+					const videoPayload = {
+						id: generateId(),
+						display: {
+							from: 0,
+							to: 5000,
+						},
+						type: "video",
+						details: {
+							src: fileUrl,
+							width: 400,
+							height: 300,
+						},
+					};
+					
+					dispatch(ADD_VIDEO, {
+						payload: {
+							...videoPayload,
+							metadata: {
+								previewUrl: fileUrl,
+							},
+						},
+						options: {
+							resourceId: "main",
+							scaleMode: "fit",
+						},
+					});
 				});
 			} else if (fileType.startsWith('audio/')) {
 				dispatch(ADD_AUDIO, {

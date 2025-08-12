@@ -25,26 +25,38 @@ const jobStore = new Map<string, {
 let isProcessing = false;
 const jobQueue: string[] = [];
 
+// Global lock to prevent any concurrent processing
+let globalLock = false;
+
 // Process next job in queue
 async function processNextJob() {
-  if (isProcessing || jobQueue.length === 0) {
+  if (isProcessing || jobQueue.length === 0 || globalLock) {
     return;
   }
   
   isProcessing = true;
+  globalLock = true;
+  
   const jobId = jobQueue.shift()!;
   const job = jobStore.get(jobId);
   
   if (job && job.videoData) {
     console.log(`[Queue] Processing job ${jobId} (${jobQueue.length} jobs remaining in queue)`);
-    await processVideoJob(jobId, job.videoData);
-  }
-  
-  isProcessing = false;
-  
-  // Process next job if any
-  if (jobQueue.length > 0) {
-    setTimeout(processNextJob, 1000); // Wait 1 second before next job
+    try {
+      await processVideoJob(jobId, job.videoData);
+    } finally {
+      // Always release the lock
+      isProcessing = false;
+      globalLock = false;
+      
+      // Process next job if any
+      if (jobQueue.length > 0) {
+        setTimeout(processNextJob, 2000); // Wait 2 seconds before next job
+      }
+    }
+  } else {
+    isProcessing = false;
+    globalLock = false;
   }
 }
 
@@ -58,9 +70,11 @@ async function processVideoJob(jobId: string, videoData: any) {
     const job = jobStore.get(jobId);
     if (job) {
       job.status = 'processing';
-      job.progress = 10;
+      job.progress = 5;
       jobStore.set(jobId, job);
     }
+    
+    console.log(`[Job ${jobId}] Starting render for ${videoData.duration}ms duration (${Math.round(videoData.duration/1000)}s)`);
 
     // Create a temporary JSON file with the video data
     tempDataPath = path.join(process.cwd(), `temp-video-data-${jobId}.json`);
@@ -77,8 +91,8 @@ async function processVideoJob(jobId: string, videoData: any) {
       CHROME_BIN: '/usr/bin/google-chrome-stable'
     };
     
-    // Use Remotion CLI to render the video with memory optimization
-    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=30 --width=${videoData.platformConfig.width} --height=${videoData.platformConfig.height} --concurrency=1 --jpeg-quality=80 --memory-limit=2048`;
+    // Use Remotion CLI to render the video with optimized settings for longer videos
+    const remotionCommand = `npx remotion render src/remotion/entry.tsx VideoComposition ${outputPath} --props=${tempDataPath} --fps=24 --width=${videoData.platformConfig.width} --height=${videoData.platformConfig.height} --concurrency=1 --jpeg-quality=60 --memory-limit=1024 --codec=h264 --crf=28`;
 
     console.log(`[Job ${jobId}] Starting video render...`);
     
@@ -151,11 +165,26 @@ async function processVideoJob(jobId: string, videoData: any) {
   }
 }
 
+// Function to reset queue and processing state
+function resetQueue() {
+  isProcessing = false;
+  globalLock = false;
+  jobQueue.length = 0;
+  console.log('[Queue] Reset queue and processing state');
+}
+
 // Test endpoint to check if video file exists
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const videoId = searchParams.get('id');
   const jobId = searchParams.get('jobId');
+  const action = searchParams.get('action');
+  
+  // Reset queue action
+  if (action === 'reset') {
+    resetQueue();
+    return NextResponse.json({ message: 'Queue reset successfully' });
+  }
   
   if (jobId) {
     // Check job status
@@ -199,18 +228,25 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { variation, textOverlays, platformConfig, duration, videoTrackItems, audioTrackItems } = body;
 
-    // Create video data
+    // Create video data with duration limit for performance
+    const maxDuration = 90000; // 90 seconds maximum
+    const actualDuration = Math.min(duration || 5000, maxDuration);
+    
+    // Generate unique job ID
+    const jobId = `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    if (duration && duration > maxDuration) {
+      console.log(`[Job ${jobId}] Duration capped from ${duration}ms to ${maxDuration}ms for performance`);
+    }
+    
     const videoData = {
       variation: variation || { id: 'default', isOriginal: true },
       textOverlays: textOverlays || [],
       platformConfig: platformConfig || { width: 1080, height: 1920, aspectRatio: '9:16' },
-      duration: duration || 5000,
+      duration: actualDuration,
       videoTrackItems: videoTrackItems || [],
       audioTrackItems: audioTrackItems || [],
     };
-
-    // Generate unique job ID
-    const jobId = `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     // Create job entry
     const job = {
@@ -227,10 +263,10 @@ export async function POST(request: NextRequest) {
 
     // Add to queue instead of processing immediately
     jobQueue.push(jobId);
-    console.log(`[Queue] Added job ${jobId} to queue (${jobQueue.length} jobs in queue)`);
+    console.log(`[Queue] Added job ${jobId} to queue (${jobQueue.length} jobs in queue, isProcessing: ${isProcessing}, globalLock: ${globalLock})`);
     
     // Start processing if not already processing
-    if (!isProcessing) {
+    if (!isProcessing && !globalLock) {
       processNextJob();
     }
 

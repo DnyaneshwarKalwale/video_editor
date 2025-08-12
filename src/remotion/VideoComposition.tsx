@@ -5,7 +5,7 @@ import { useRef, useEffect } from 'react';
 
 const VideoComposition = () => {
   const frame = useCurrentFrame();
-  const currentTimeInMs = (frame / 30) * 1000; // 30fps
+  const currentTimeInMs = (frame / 24) * 1000; // 24fps
   
   // Get the input props from the JSON file passed via --props
   const inputProps = getInputProps() as any;
