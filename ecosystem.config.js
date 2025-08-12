@@ -34,8 +34,7 @@ module.exports = {
       error_file: '/root/.pm2/logs/video-editor-error.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       
-      // Advanced settings
-      wait_ready: true,
+      // Advanced settings - removed wait_ready to prevent hanging
       listen_timeout: 300000,
       kill_timeout: 600000,
       
