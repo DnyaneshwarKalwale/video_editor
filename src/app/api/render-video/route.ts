@@ -6,8 +6,8 @@ import path from 'path';
 
 const execAsync = promisify(exec);
 
-// Increase timeout for video rendering (5 minutes)
-const RENDER_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+// Increase timeout for video rendering (20 minutes)
+const RENDER_TIMEOUT = 20 * 60 * 1000; // 20 minutes
 
 // In-memory job store (in production, use Redis or database)
 const jobStore = new Map<string, {

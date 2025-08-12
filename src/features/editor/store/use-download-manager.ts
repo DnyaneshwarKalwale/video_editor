@@ -170,7 +170,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
 
         // Poll for completion with longer intervals
         let attempts = 0;
-        const maxAttempts = 600; // Increased to 10 minutes for server processing
+        const maxAttempts = 1200; // Increased to 20 minutes for server processing
         
         while (attempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 2000)); // Increased polling interval
@@ -231,7 +231,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           }
         }
         
-        throw new Error('Video rendering timed out after 10 minutes');
+        throw new Error('Video rendering timed out after 20 minutes');
       },
 
       downloadVariation: async (download: DownloadItem) => {
@@ -322,7 +322,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
           }
         }
         
-        throw new Error('Variation rendering timed out after 10 minutes');
+        throw new Error('Variation rendering timed out after 20 minutes');
       },
     }),
     {
