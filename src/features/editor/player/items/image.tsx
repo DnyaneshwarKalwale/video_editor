@@ -24,7 +24,15 @@ export default function Image({
 	const children = (
 		<div style={calculateMediaStyles(details, crop)}>
 			{/* image layer */}
-			<Img data-id={item.id} src={details.src} />
+			<Img 
+				data-id={item.id} 
+				src={details.src}
+				style={{
+					width: '100%',
+					height: '100%',
+					objectFit: 'cover',
+				}}
+			/>
 		</div>
 	);
 

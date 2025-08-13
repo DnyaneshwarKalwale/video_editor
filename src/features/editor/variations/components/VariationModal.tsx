@@ -640,7 +640,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
             {isGenerating ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
+                  					<Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" style={{ color: 'rgb(80, 118, 178)' }} />
                   <p className="text-gray-600">Generating variations with AI...</p>
                 </div>
               </div>

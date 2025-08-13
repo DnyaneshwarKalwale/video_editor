@@ -11,6 +11,7 @@ import ModalUpload from "@/components/modal-upload";
 import useUploadStore from "../store/use-upload-store";
 
 import { usePlatformStoreClient } from "../platform-preview";
+import { getDefaultVideoSize } from "../utils/platform-positioning";
 
 export const Uploads = () => {
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
@@ -23,6 +24,7 @@ export const Uploads = () => {
 
 	const handleAddVideo = (video: any) => {
 		const srcVideo = video.metadata?.uploadedUrl || video.url;
+		const defaultVideoSize = getDefaultVideoSize(currentPlatform);
 
 		// Create video payload with proper positioning based on current platform
 		const videoPayload = {
@@ -34,8 +36,10 @@ export const Uploads = () => {
 			type: "video",
 			details: {
 				src: srcVideo,
-				width: 400,
-				height: 300,
+				left: 0,
+				top: 0,
+				width: defaultVideoSize.width,
+				height: defaultVideoSize.height,
 			},
 			metadata: {
 				previewUrl:
@@ -54,6 +58,7 @@ export const Uploads = () => {
 
 	const handleAddImage = (image: any) => {
 		const srcImage = image.metadata?.uploadedUrl || image.url;
+		const defaultImageSize = getDefaultVideoSize(currentPlatform); // Use same logic as video
 
 		// Create image payload with proper positioning based on current platform
 		const imagePayload = {
@@ -65,8 +70,10 @@ export const Uploads = () => {
 			type: "image",
 			details: {
 				src: srcImage,
-				width: 400,
-				height: 300,
+				left: 0,
+				top: 0,
+				width: defaultImageSize.width,
+				height: defaultImageSize.height,
 			},
 			metadata: {},
 		};

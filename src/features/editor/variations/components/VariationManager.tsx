@@ -200,18 +200,18 @@ export const VariationManager: React.FC<VariationManagerProps> = ({
 
       {/* Summary */}
       {elements.length > 0 && (
-        <Card className="bg-blue-50 border-blue-200">
+        				<Card className="border-blue-200" style={{ backgroundColor: 'rgba(80, 118, 178, 0.1)' }}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-medium text-blue-900">
+                					<h4 className="text-sm font-medium" style={{ color: 'rgb(80, 118, 178)' }}>
                   Variation Summary
                 </h4>
-                <p className="text-xs text-blue-700">
+                					<p className="text-xs" style={{ color: 'rgb(80, 118, 178)' }}>
                   {elements.length} element{elements.length !== 1 ? 's' : ''} • {calculateTotalCombinations()} total video combinations
                 </p>
               </div>
-              <Badge variant="default" className="bg-blue-600">
+              					<Badge variant="default" style={{ backgroundColor: 'rgb(80, 118, 178)' }}>
                 {calculateTotalCombinations()} videos
               </Badge>
             </div>

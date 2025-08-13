@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, X, Check, AlertCircle, Play, Pause } from 'lucide-react';
+import { Download, X, Check, AlertCircle } from 'lucide-react';
 import { useDownloadManager } from '../store/use-download-manager';
 
 export const DownloadManager: React.FC = () => {
@@ -8,8 +8,6 @@ export const DownloadManager: React.FC = () => {
     isOpen,
     maxConcurrent,
     removeDownload,
-    pauseDownload,
-    resumeDownload,
     clearCompleted,
     setOpen,
   } = useDownloadManager();
@@ -19,13 +17,11 @@ export const DownloadManager: React.FC = () => {
       case 'pending':
         return <div className="w-4 h-4 bg-gray-300 rounded-full animate-pulse" />;
       case 'downloading':
-        return <div className="w-4 h-4 bg-blue-500 rounded-full animate-spin" />;
+        		return <div className="w-4 h-4 rounded-full animate-spin" style={{ backgroundColor: 'rgb(80, 118, 178)' }} />;
       case 'completed':
-        return <Check className="w-4 h-4 text-green-500" />;
+        		return <Check className="w-4 h-4" style={{ color: 'rgb(80, 118, 178)' }} />;
       case 'failed':
         return <AlertCircle className="w-4 h-4 text-red-500" />;
-      case 'paused':
-        return <Pause className="w-4 h-4 text-yellow-500" />;
       default:
         return null;
     }
@@ -41,8 +37,6 @@ export const DownloadManager: React.FC = () => {
         return 'Completed';
       case 'failed':
         return 'Failed';
-      case 'paused':
-        return 'Paused';
       default:
         return '';
     }
@@ -109,22 +103,6 @@ export const DownloadManager: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {download.status === 'downloading' && (
-                        <button
-                          onClick={() => pauseDownload(download.id)}
-                          className="p-1 hover:bg-gray-200 rounded"
-                        >
-                          <Pause className="w-4 h-4" />
-                        </button>
-                      )}
-                      {download.status === 'paused' && (
-                        <button
-                          onClick={() => resumeDownload(download.id)}
-                          className="p-1 hover:bg-gray-200 rounded"
-                        >
-                          <Play className="w-4 h-4" />
-                        </button>
-                      )}
                       <button
                         onClick={() => removeDownload(download.id)}
                         className="p-1 hover:bg-gray-200 rounded text-gray-400 hover:text-red-500"
@@ -139,12 +117,10 @@ export const DownloadManager: React.FC = () => {
                     <div
                       className={`h-2 rounded-full transition-all duration-300 ${
                         download.status === 'completed'
-                          ? 'bg-green-500'
+                          		? 'bg-[rgb(80,118,178)]'
                           : download.status === 'failed'
                           ? 'bg-red-500'
-                          : download.status === 'paused'
-                          ? 'bg-yellow-500'
-                          : 'bg-blue-500'
+                          		: 'bg-[rgb(80,118,178)]'
                       }`}
                       style={{ width: `${download.progress}%` }}
                     />

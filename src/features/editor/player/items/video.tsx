@@ -28,6 +28,11 @@ export const Video = ({
 				playbackRate={playbackRate}
 				src={details.src}
 				volume={details.volume || 0 / 100}
+				style={{
+					width: '100%',
+					height: '100%',
+					objectFit: 'cover',
+				}}
 			/>
 		</div>
 	);

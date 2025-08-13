@@ -53,11 +53,11 @@ const Scene = forwardRef<
 				style={{
 					width: size.width,
 					height: size.height,
-					background: "#ffffff",
+					background: "#000000",
 					transform: `scale(${zoom})`,
 					position: "absolute",
 				}}
-				className="player-container bg-white"
+				className="player-container bg-black"
 			>
 				<div
 					style={{

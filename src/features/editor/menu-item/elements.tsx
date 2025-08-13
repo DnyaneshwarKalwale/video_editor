@@ -157,7 +157,7 @@ const OPTIONS_WAVE_BARS = [
 			height: 1920 / 20,
 			width: 1080,
 			offsetPixelSpeed: 100,
-			lineColor: ["#EE8482", "teal"],
+			lineColor: ["#EE8482", "rgb(80, 118, 178)"],
 			lineGap: 70,
 			topRoundness: 0.2,
 			bottomRoundness: 0.4,

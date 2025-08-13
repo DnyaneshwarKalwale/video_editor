@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { usePlatformStoreClient } from "../platform-preview";
+import { calculateTextPositioning, getDefaultTextSize } from "../utils/platform-positioning";
 
 export const VoiceOver = () => {
 	const [voiceId, setVoiceId] = useState<string>("");
@@ -18,12 +19,27 @@ export const VoiceOver = () => {
 	const { currentPlatform } = usePlatformStoreClient();
 
 	const handleAddText = () => {
+		// Get default text size based on current platform
+		const defaultTextSize = getDefaultTextSize(currentPlatform);
+		
+		// Calculate proper positioning for the text
+		const textPositioning = calculateTextPositioning(
+			defaultTextSize.width,
+			defaultTextSize.height,
+			currentPlatform
+		);
+		
 		// Create text payload with proper positioning based on current platform
 		const textPayload = {
 			...TEXT_ADD_PAYLOAD,
 			details: {
 				...TEXT_ADD_PAYLOAD.details,
 				text: textValue || "Voice over text",
+				left: textPositioning.left,
+				top: textPositioning.top,
+				width: textPositioning.width,
+				height: textPositioning.height,
+				fontSize: defaultTextSize.fontSize,
 			},
 		};
 		

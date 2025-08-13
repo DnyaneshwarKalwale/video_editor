@@ -51,7 +51,7 @@ export const calculateTextStyles = (
 	textTransform: details.textTransform || "none",
 	fontSize: details.fontSize || "16px",
 	textAlign: details.textAlign || "left",
-	color: details.color || "#000000",
+	color: details.color || "rgba(255, 255, 255, 0.8)",
 	// Include backgroundColor so it can be applied to text characters
 	backgroundColor: details.backgroundColor || "transparent",
 	borderRadius: `${Math.min(details.width, details.height) * ((details.borderRadius || 0) / 100)}px`,

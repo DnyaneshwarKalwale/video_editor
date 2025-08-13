@@ -276,7 +276,7 @@ export default function Navbar({
 						<Sparkles width={20} />
 						{/* Download count indicator */}
 						{activeDownloads > 0 && (
-							<span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+							<span className="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style={{ backgroundColor: 'rgb(80, 118, 178)' }}>
 								{activeDownloads}
 							</span>
 						)}
@@ -287,21 +287,21 @@ export default function Navbar({
 
 			<div className="flex h-11 items-center justify-end gap-2">
 				<div className=" pointer-events-auto flex h-10 items-center gap-2 rounded-md px-4">
-					<RemotionExportButton stateManager={stateManager} projectName={projectName} />
-				</div>
-				<div className=" pointer-events-auto flex h-10 items-center gap-2 rounded-md px-4">
 					<Button
 						onClick={() => setOpen(true)}
-						className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors"
+						className="text-gray-600 hover:text-gray-900 relative"
+						variant="ghost"
+						size="icon"
 						title="Download Manager"
 					>
 						<Download className="w-5 h-5" />
 						{activeDownloads > 0 && (
-							<span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+							<span className="absolute -top-1 -right-1 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center" style={{ backgroundColor: 'rgb(80, 118, 178)' }}>
 								{activeDownloads}
 							</span>
 						)}
 					</Button>
+					<NewExportButton stateManager={stateManager} projectName={projectName} />
 				</div>
 			</div>
 		</div>
@@ -320,7 +320,7 @@ export default function Navbar({
 	);
 }
 
-const RemotionExportButton = ({ stateManager, projectName }: { stateManager: StateManager; projectName: string }) => {
+const NewExportButton = ({ stateManager, projectName }: { stateManager: StateManager; projectName: string }) => {
 	const { exportVideo, setExporting, exporting, progress, output, setOutput } = useDownloadState();
 	const { currentPlatform } = usePlatformStoreClient();
 
@@ -336,13 +336,13 @@ const RemotionExportButton = ({ stateManager, projectName }: { stateManager: Sta
 	return (
 		<Button
 			onClick={handleExport}
-			className="flex h-7 gap-1 border border-border"
-			size="icon"
+			className="h-7 gap-1 px-3"
+			variant="default"
 			disabled={exporting}
 		>
 			{exporting ? (
 				<>
-					<div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+					<div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'rgb(80, 118, 178)' }} />
 					<span className="hidden lg:block">Exporting...</span>
 				</>
 			) : (

@@ -5,7 +5,7 @@ export interface DownloadItem {
   id: string;
   name: string;
   type: 'video' | 'variation';
-  status: 'pending' | 'downloading' | 'completed' | 'failed' | 'paused';
+  status: 'pending' | 'downloading' | 'completed' | 'failed';
   progress: number;
   size?: number;
   error?: string;
@@ -25,8 +25,6 @@ interface DownloadManagerState {
   addDownload: (name: string, type: 'video' | 'variation', data?: any) => string;
   removeDownload: (id: string) => void;
   updateDownload: (id: string, updates: Partial<DownloadItem>) => void;
-  pauseDownload: (id: string) => void;
-  resumeDownload: (id: string) => void;
   clearCompleted: () => void;
   clearAll: () => void;
   setOpen: (open: boolean) => void;
@@ -71,7 +69,21 @@ export const useDownloadManager = create<DownloadManagerState>()(
         return id;
       },
 
-      removeDownload: (id: string) => {
+      removeDownload: async (id: string) => {
+        const download = get().downloads.find(d => d.id === id);
+        
+        // If the download is currently processing and has a jobId, cancel it on the server
+        if (download?.status === 'downloading' && download.jobId) {
+          try {
+            await fetch(`/api/render-video?jobId=${download.jobId}&action=cancel`, {
+              method: 'GET'
+            });
+            console.log(`[Download Manager] Cancelled job ${download.jobId} for download ${id}`);
+          } catch (error) {
+            console.error(`[Download Manager] Failed to cancel job ${download.jobId}:`, error);
+          }
+        }
+        
         set(state => ({
           downloads: state.downloads.filter(d => d.id !== id)
         }));
@@ -85,14 +97,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
         }));
       },
 
-      pauseDownload: (id: string) => {
-        get().updateDownload(id, { status: 'paused' });
-      },
 
-      resumeDownload: (id: string) => {
-        get().updateDownload(id, { status: 'pending' });
-        setTimeout(() => get().processQueue(), 100);
-      },
 
       clearCompleted: () => {
         set(state => ({
@@ -117,6 +122,12 @@ export const useDownloadManager = create<DownloadManagerState>()(
         const pendingDownloads = downloads.filter(d => d.status === 'pending');
         const downloadingCount = downloads.filter(d => d.status === 'downloading').length;
         
+        // Remove any cancelled downloads from the queue
+        const cancelledDownloads = downloads.filter(d => d.status === 'failed' && d.error === 'Download was cancelled');
+        if (cancelledDownloads.length > 0) {
+          console.log(`[Queue] Removing ${cancelledDownloads.length} cancelled downloads from queue`);
+        }
+        
         console.log(`[Queue] Processing queue: ${downloadingCount} downloading, ${pendingDownloads.length} pending, max: ${maxConcurrent}, isProcessing: ${isProcessing}`);
         
         if (!isProcessing && downloadingCount < maxConcurrent && pendingDownloads.length > 0) {
@@ -133,6 +144,12 @@ export const useDownloadManager = create<DownloadManagerState>()(
 
       startDownload: async (download: DownloadItem) => {
         if (download.status !== 'pending') return;
+
+        // Check if download was cancelled while waiting
+        const currentDownload = get().downloads.find(d => d.id === download.id);
+        if (!currentDownload || currentDownload.status !== 'pending') {
+          return;
+        }
 
         // Update status to downloading
         get().updateDownload(download.id, { status: 'downloading' });
@@ -191,6 +208,13 @@ export const useDownloadManager = create<DownloadManagerState>()(
           await new Promise(resolve => setTimeout(resolve, 2000)); // Increased polling interval
           attempts++;
           
+          // Check if download was cancelled
+          const currentDownload = get().downloads.find(d => d.id === download.id);
+          if (!currentDownload || currentDownload.status === 'failed') {
+            console.log(`[Download Manager] Download ${download.id} was cancelled, stopping polling`);
+            return;
+          }
+          
           // Update progress (estimate)
           const estimatedProgress = Math.min(90, (attempts / maxAttempts) * 90);
           get().updateDownload(download.id, { progress: estimatedProgress });
@@ -205,7 +229,15 @@ export const useDownloadManager = create<DownloadManagerState>()(
           
           const statusData = await statusResponse.json();
           
-          if (statusData.status === 'completed') {
+          if (statusData.status === 'cancelled') {
+            // Job was cancelled, update status and stop polling
+            get().updateDownload(download.id, {
+              status: 'failed',
+              error: 'Download was cancelled',
+              completedAt: new Date()
+            });
+            return;
+          } else if (statusData.status === 'completed') {
             // Download the completed video
             const downloadResponse = await fetch(`/api/render-video?jobId=${jobId}`, {
               method: 'PUT'
@@ -282,6 +314,13 @@ export const useDownloadManager = create<DownloadManagerState>()(
           await new Promise(resolve => setTimeout(resolve, 2000)); // Increased polling interval
           attempts++;
           
+          // Check if download was cancelled
+          const currentDownload = get().downloads.find(d => d.id === download.id);
+          if (!currentDownload || currentDownload.status === 'failed') {
+            console.log(`[Download Manager] Download ${download.id} was cancelled, stopping polling`);
+            return;
+          }
+          
           // Update progress
           const estimatedProgress = Math.min(90, (attempts / maxAttempts) * 90);
           get().updateDownload(download.id, { progress: estimatedProgress });
@@ -296,7 +335,15 @@ export const useDownloadManager = create<DownloadManagerState>()(
           
           const statusData = await statusResponse.json();
           
-          if (statusData.status === 'completed') {
+          if (statusData.status === 'cancelled') {
+            // Job was cancelled, update status and stop polling
+            get().updateDownload(download.id, {
+              status: 'failed',
+              error: 'Download was cancelled',
+              completedAt: new Date()
+            });
+            return;
+          } else if (statusData.status === 'completed') {
             // Download the completed variation
             const downloadResponse = await fetch(`/api/render-video?jobId=${jobId}`, {
               method: 'PUT'

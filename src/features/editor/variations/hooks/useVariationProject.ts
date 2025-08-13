@@ -37,7 +37,7 @@ export const useVariationProject = (): VariationProject | null => {
       style: {
         fontSize: item.details.fontSize || 16,
         fontFamily: item.details.fontFamily || 'Arial',
-        color: item.details.color || '#000000',
+        				color: item.details.color || 'rgba(255, 255, 255, 0.8)',
         backgroundColor: item.details.backgroundColor,
         borderWidth: item.details.borderWidth,
         borderColor: item.details.borderColor,

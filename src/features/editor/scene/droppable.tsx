@@ -4,6 +4,7 @@ import { dispatch } from "@designcombo/events";
 import { generateId } from "@designcombo/timeline";
 
 import { usePlatformStoreClient } from "../platform-preview";
+import { calculateVideoPositioning, getDefaultVideoSize } from "../utils/platform-positioning";
 
 enum AcceptedDropTypes {
 	IMAGE = "image",
@@ -33,6 +34,7 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 		switch (draggedData.type) {
 			case AcceptedDropTypes.IMAGE:
 				// Create image payload with proper positioning based on current platform
+				const defaultImageSize = getDefaultVideoSize(currentPlatform); // Use same logic as video
 				const imagePayload = {
 					id: generateId(),
 					display: {
@@ -42,8 +44,10 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 					type: "image",
 					details: {
 						src: draggedData.src || "https://cdn.designcombo.dev/rect-gray.png",
-						width: 400,
-						height: 300,
+						left: 0,
+						top: 0,
+						width: defaultImageSize.width,
+						height: defaultImageSize.height,
 					},
 				};
 				dispatch(ADD_IMAGE, { 
@@ -52,6 +56,7 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 				break;
 			case AcceptedDropTypes.VIDEO:
 				// Create video payload with proper positioning based on current platform
+				const defaultVideoSize = getDefaultVideoSize(currentPlatform);
 				const videoPayload = {
 					id: generateId(),
 					display: {
@@ -61,8 +66,10 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 					type: "video",
 					details: {
 						src: draggedData.src || "",
-						width: 400,
-						height: 300,
+						left: 0,
+						top: 0,
+						width: defaultVideoSize.width,
+						height: defaultVideoSize.height,
 					},
 				};
 				dispatch(ADD_VIDEO, { 

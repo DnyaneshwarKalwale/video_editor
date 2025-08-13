@@ -67,7 +67,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
 
   const getElementTypeColor = (type: string) => {
     switch (type) {
-      case 'video': return 'green';
+      			case 'video': return 'blue';
       case 'text': return 'blue';
       case 'image': return 'orange';
       case 'audio': return 'purple';

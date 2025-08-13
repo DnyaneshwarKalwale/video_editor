@@ -12,13 +12,15 @@ const RENDER_TIMEOUT = 20 * 60 * 1000; // 20 minutes
 // In-memory job store (in production, use Redis or database)
 const jobStore = new Map<string, {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   result?: string; // file path
   error?: string;
   createdAt: Date;
   completedAt?: Date;
   videoData?: any; // Store video data for processing
+  cancelled?: boolean; // Flag to track cancellation requests
+  process?: any; // Store the child process for cancellation
 }>();
 
 // Job queue to ensure only one video renders at a time
@@ -64,6 +66,7 @@ async function processNextJob() {
 async function processVideoJob(jobId: string, videoData: any) {
   let tempDataPath: string | null = null;
   let outputPath: string | null = null;
+  let childProcess: any = null;
   
   try {
     // Update job status to processing
@@ -104,10 +107,65 @@ async function processVideoJob(jobId: string, videoData: any) {
       console.log(`[Job ${jobId}] No existing Chrome processes to clean up`);
     }
     
-    // Execute with timeout
-    const { stdout, stderr } = await execAsync(remotionCommand, { 
+    // Execute with spawn to allow cancellation
+    const { spawn } = require('child_process');
+    const remotionArgs = [
+      'remotion', 'render', 'src/remotion/entry.tsx', 'VideoComposition', outputPath,
+      '--props=' + tempDataPath,
+      '--fps=24',
+      '--width=' + videoData.platformConfig.width,
+      '--height=' + videoData.platformConfig.height,
+      '--concurrency=1',
+      '--jpeg-quality=60',
+      '--memory-limit=1024',
+      '--codec=h264',
+      '--crf=28'
+    ];
+    
+    childProcess = spawn('npx', remotionArgs, { 
       env,
-      timeout: RENDER_TIMEOUT 
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    
+    // Store the process in the job for cancellation
+    const currentJob = jobStore.get(jobId);
+    if (currentJob) {
+      currentJob.process = childProcess;
+      jobStore.set(jobId, currentJob);
+    }
+    
+    // Set up cancellation check interval
+    const cancellationCheck = setInterval(() => {
+      const currentJob = jobStore.get(jobId);
+      if (currentJob?.cancelled) {
+        console.log(`[Job ${jobId}] Cancellation requested, killing process...`);
+        childProcess.kill('SIGTERM');
+        clearInterval(cancellationCheck);
+      }
+    }, 1000);
+    
+    // Wait for process to complete
+    await new Promise<void>((resolve, reject) => {
+      childProcess.on('close', (code: number) => {
+        clearInterval(cancellationCheck);
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Process exited with code ${code}`));
+        }
+      });
+      
+      childProcess.on('error', (error: any) => {
+        clearInterval(cancellationCheck);
+        reject(error);
+      });
+      
+      // Set timeout
+      setTimeout(() => {
+        clearInterval(cancellationCheck);
+        childProcess.kill('SIGTERM');
+        reject(new Error('Render timeout'));
+      }, RENDER_TIMEOUT);
     });
     
     console.log(`[Job ${jobId}] Render completed successfully`);
@@ -184,6 +242,36 @@ export async function GET(request: NextRequest) {
   if (action === 'reset') {
     resetQueue();
     return NextResponse.json({ message: 'Queue reset successfully' });
+  }
+  
+  // Cancel job action
+  if (action === 'cancel' && jobId) {
+    const job = jobStore.get(jobId);
+    if (!job) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
+    
+    if (job.status === 'completed' || job.status === 'failed') {
+      return NextResponse.json({ error: 'Cannot cancel completed or failed job' }, { status: 400 });
+    }
+    
+    // Mark job as cancelled
+    job.cancelled = true;
+    job.status = 'cancelled';
+    job.completedAt = new Date();
+    jobStore.set(jobId, job);
+    
+    // Kill the process if it's running
+    if (job.process) {
+      try {
+        job.process.kill('SIGTERM');
+        console.log(`[Job ${jobId}] Process killed due to cancellation`);
+      } catch (error) {
+        console.error(`[Job ${jobId}] Error killing process:`, error);
+      }
+    }
+    
+    return NextResponse.json({ message: 'Job cancelled successfully' });
   }
   
   if (jobId) {

@@ -44,7 +44,7 @@ const VariationDownloadProgressModal: React.FC<VariationDownloadProgressModalPro
         {isCompleted ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 space-y-4">
             <div className="flex flex-col items-center space-y-1 text-center">
-              <div className="font-semibold text-green-600">
+              				<div className="font-semibold" style={{ color: 'rgb(80, 118, 178)' }}>
                 <CircleCheckIcon className="w-12 h-12" />
               </div>
               <div className="font-bold text-lg">Variation Downloaded!</div>
@@ -59,7 +59,7 @@ const VariationDownloadProgressModal: React.FC<VariationDownloadProgressModalPro
           </div>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            <div className="text-5xl font-semibold text-blue-600">
+            				<div className="text-5xl font-semibold" style={{ color: 'rgb(80, 118, 178)' }}>
               {Math.floor(progress)}%
             </div>
             <div className="font-bold text-lg">Rendering Variation...</div>
@@ -69,7 +69,8 @@ const VariationDownloadProgressModal: React.FC<VariationDownloadProgressModalPro
             </div>
             <div className="w-full max-w-xs bg-gray-200 rounded-full h-2">
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                					className="h-2 rounded-full transition-all duration-300"
+					style={{ backgroundColor: 'rgb(80, 118, 178)' }}
                 style={{ width: `${progress}%` }}
               />
             </div>

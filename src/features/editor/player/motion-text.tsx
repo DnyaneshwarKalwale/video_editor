@@ -61,7 +61,7 @@ const TextLayer: React.FC<{
 						fontSize: style.fontSize || "16px",
 						fontFamily: style.fontFamily || "Arial",
 						fontWeight: style.fontWeight || "normal",
-						color: style.color || "black",
+						color: style.color || "rgba(255, 255, 255, 0.8)",
 						textAlign: style.textAlign || "left",
 						lineHeight: style.lineHeight || "normal",
 						// Keep textarea background transparent

@@ -9,6 +9,7 @@ import useStore from "../store/use-store";
 
 import { usePlatformStoreClient } from "../platform-preview";
 import { DroppableArea } from "./droppable";
+import { calculateVideoPositioning, getDefaultVideoSize } from "../utils/platform-positioning";
 
 const SceneEmpty = () => {
 	const { size: desiredSize } = useStore();
@@ -26,6 +27,7 @@ const SceneEmpty = () => {
 			
 			if (fileType.startsWith('image/')) {
 				// Create image payload with proper positioning based on current platform
+				const defaultImageSize = getDefaultVideoSize(currentPlatform); // Use same logic as video
 				const imagePayload = {
 					id: generateId(),
 					display: {
@@ -35,8 +37,10 @@ const SceneEmpty = () => {
 					type: "image",
 					details: {
 						src: fileUrl,
-						width: 400,
-						height: 300,
+						left: 0,
+						top: 0,
+						width: defaultImageSize.width,
+						height: defaultImageSize.height,
 					},
 				};
 				
@@ -55,7 +59,14 @@ const SceneEmpty = () => {
 				video.addEventListener('loadedmetadata', () => {
 					const videoDuration = Math.round(video.duration * 1000); // Convert to milliseconds
 					
-					// Create video payload with actual duration
+					// Calculate proper positioning for the video based on platform
+					const videoPositioning = calculateVideoPositioning(
+						video.videoWidth || 400,
+						video.videoHeight || 300,
+						currentPlatform
+					);
+					
+					// Create video payload with proper positioning
 					const videoPayload = {
 						id: generateId(),
 						display: {
@@ -65,8 +76,10 @@ const SceneEmpty = () => {
 						type: "video",
 						details: {
 							src: fileUrl,
-							width: video.videoWidth || 400,
-							height: video.videoHeight || 300,
+							left: videoPositioning.left,
+							top: videoPositioning.top,
+							width: videoPositioning.width,
+							height: videoPositioning.height,
 						},
 					};
 					
@@ -89,6 +102,8 @@ const SceneEmpty = () => {
 				
 				video.addEventListener('error', () => {
 					// Fallback to default duration if video metadata can't be loaded
+					const defaultVideoSize = getDefaultVideoSize(currentPlatform);
+					
 					const videoPayload = {
 						id: generateId(),
 						display: {
@@ -98,8 +113,10 @@ const SceneEmpty = () => {
 						type: "video",
 						details: {
 							src: fileUrl,
-							width: 400,
-							height: 300,
+							left: 0,
+							top: 0,
+							width: defaultVideoSize.width,
+							height: defaultVideoSize.height,
 						},
 					};
 					

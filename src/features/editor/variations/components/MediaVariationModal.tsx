@@ -244,8 +244,8 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
     
     if (element.elementType === 'audio') {
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-blue-600/40"></div>
+        			<div className="w-full h-full flex flex-col items-center justify-center rounded-lg relative overflow-hidden" style={{ background: 'linear-gradient(to bottom right, rgb(80, 118, 178), rgb(80, 118, 178))' }}>
+				<div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom right, rgba(80, 118, 178, 0.2), rgba(80, 118, 178, 0.4))' }}></div>
           <SoundOutlined style={{ fontSize: '48px', color: 'white', marginBottom: '8px' }} />
           <span className="text-white text-xs text-center px-2 truncate max-w-full">
             {fileName}
@@ -265,7 +265,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
     <Modal
       title={
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+          				<div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(80, 118, 178)' }}>
             {getElementIcon()}
           </div>
           <div>
@@ -290,7 +290,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
       <div className="flex-1 py-6 overflow-y-auto">
         <div 
           className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 justify-items-center px-2 ${
-            dragOver ? 'bg-blue-50 rounded-lg' : ''
+            				dragOver ? 'rounded-lg' : ''
           }`}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -315,7 +315,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
               )}
               
               {/* Original badge */}
-              <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-md font-medium">
+              				<div className="absolute top-2 left-2 text-white text-xs px-2 py-1 rounded-md font-medium" style={{ backgroundColor: 'rgb(80, 118, 178)' }}>
                 Original
               </div>
             </div>
@@ -402,7 +402,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
                   placeholder={`Variant ${index + 1}`}
                   value={variationNames[index] || ''}
                   onChange={(e) => handleVariationNameChange(index, e.target.value)}
-                  className="text-sm font-medium text-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors w-full max-w-[180px]"
+                  					className="text-sm font-medium text-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:border-transparent transition-colors w-full max-w-[180px]"
                 />
               </div>
             </div>
@@ -431,7 +431,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
           <div className="text-sm text-gray-600">
             {selectedFiles.length > 0 ? (
               <span className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                				<div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'rgb(80, 118, 178)' }}></div>
                 {selectedFiles.length + 1} variants total (including original)
               </span>
             ) : (
@@ -450,7 +450,8 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
               type="primary"
               onClick={handleUpload}
               disabled={isUploading || selectedFiles.length === 0}
-              className="bg-blue-600 hover:bg-blue-700 text-white min-w-[140px]"
+              				className="text-white min-w-[140px]"
+				style={{ backgroundColor: 'rgb(80, 118, 178)' }}
               icon={isUploading ? <LoadingOutlined /> : <UploadOutlined />}
             >
               {isUploading ? (
