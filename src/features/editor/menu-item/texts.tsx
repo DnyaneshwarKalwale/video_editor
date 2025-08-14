@@ -7,35 +7,25 @@ import { TEXT_ADD_PAYLOAD } from "../constants/payload";
 import { cn } from "@/lib/utils";
 import { nanoid } from "nanoid";
 import { usePlatformStoreClient } from "../platform-preview";
-import { calculateTextPositioning, getDefaultTextSize, getDefaultVideoSize } from "../utils/platform-positioning";
+
 
 export const Texts = () => {
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
 	const { currentPlatform } = usePlatformStoreClient();
 
 	const handleAddText = () => {
-		// Get default text size based on current platform
-		const defaultTextSize = getDefaultTextSize(currentPlatform);
-		
-		// Calculate proper positioning for the text
-		const textPositioning = calculateTextPositioning(
-			defaultTextSize.width,
-			defaultTextSize.height,
-			currentPlatform
-		);
-		
-		// Create text payload with proper positioning based on current platform
+		// Create text payload with simple positioning
 		const textPayload = {
 			...TEXT_ADD_PAYLOAD,
 			id: nanoid(),
 			details: {
 				...TEXT_ADD_PAYLOAD.details,
 				text: "Add your text here",
-				left: textPositioning.left,
-				top: textPositioning.top,
-				width: textPositioning.width,
-				height: textPositioning.height,
-				fontSize: defaultTextSize.fontSize,
+				left: currentPlatform.width / 2 - 200, // Center horizontally
+				top: currentPlatform.height / 2 - 50, // Center vertically
+				width: 400,
+				height: 100,
+				fontSize: 48,
 			},
 		};
 		
@@ -58,8 +48,7 @@ export const Texts = () => {
 	};
 
 	const handleAddImage = () => {
-		// Create image payload with proper positioning based on current platform
-		const defaultImageSize = getDefaultVideoSize(currentPlatform); // Use same logic as video
+		// Create image payload with simple positioning
 		const imagePayload = {
 			id: nanoid(),
 			display: {
@@ -71,8 +60,8 @@ export const Texts = () => {
 				src: "https://example.com/image.jpg",
 				left: 0,
 				top: 0,
-				width: defaultImageSize.width,
-				height: defaultImageSize.height,
+				width: currentPlatform.width,
+				height: currentPlatform.height,
 			},
 		};
 		

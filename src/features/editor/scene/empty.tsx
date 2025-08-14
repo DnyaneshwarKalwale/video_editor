@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Droppable } from "@/components/ui/droppable";
 import { ADD_IMAGE, ADD_VIDEO, ADD_AUDIO } from "@designcombo/state";
 import { dispatch } from "@designcombo/events";
@@ -9,25 +9,45 @@ import useStore from "../store/use-store";
 
 import { usePlatformStoreClient } from "../platform-preview";
 import { DroppableArea } from "./droppable";
-import { calculateVideoPositioning, getDefaultVideoSize } from "../utils/platform-positioning";
 
 const SceneEmpty = () => {
-	const { size: desiredSize } = useStore();
-	const { currentPlatform } = usePlatformStoreClient();
 	const containerRef = useRef<HTMLDivElement>(null);
-	const [isLoading, setIsLoading] = useState(false);
+	const [isLoading, setIsLoading] = useState(true);
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
+	const [desiredSize, setDesiredSize] = useState({ width: 0, height: 0 });
+	const { size } = useStore();
+	const { currentPlatform } = usePlatformStoreClient();
+
+	useEffect(() => {
+		const container = containerRef.current!;
+		const PADDING = 96;
+		const containerHeight = container.clientHeight - PADDING;
+		const containerWidth = container.clientWidth - PADDING;
+		const { width, height } = size;
+
+		const desiredZoom = Math.min(
+			containerWidth / width,
+			containerHeight / height,
+		);
+		setDesiredSize({
+			width: width * desiredZoom,
+			height: height * desiredZoom,
+		});
+		setIsLoading(false);
+	}, [size]);
 
 	const onSelectFiles = (files: File[]) => {
+		console.log("onSelectFiles called with files:", files);
 		setIsLoading(true);
 		
 		files.forEach((file) => {
+			console.log("Processing file:", file.name, file.type);
 			const fileType = file.type;
 			const fileUrl = URL.createObjectURL(file);
 			
 			if (fileType.startsWith('image/')) {
-				// Create image payload with proper positioning based on current platform
-				const defaultImageSize = getDefaultVideoSize(currentPlatform); // Use same logic as video
+				console.log("Adding image file");
+				// Create image payload with simple positioning
 				const imagePayload = {
 					id: generateId(),
 					display: {
@@ -39,8 +59,8 @@ const SceneEmpty = () => {
 						src: fileUrl,
 						left: 0,
 						top: 0,
-						width: defaultImageSize.width,
-						height: defaultImageSize.height,
+						width: currentPlatform.width,
+						height: currentPlatform.height,
 					},
 				};
 				
@@ -52,21 +72,16 @@ const SceneEmpty = () => {
 					options: {},
 				});
 			} else if (fileType.startsWith('video/')) {
+				console.log("Adding video file");
 				// Get video duration first
 				const video = document.createElement('video');
 				video.src = fileUrl;
 				
 				video.addEventListener('loadedmetadata', () => {
 					const videoDuration = Math.round(video.duration * 1000); // Convert to milliseconds
+					console.log("Video duration:", videoDuration);
 					
-					// Calculate proper positioning for the video based on platform
-					const videoPositioning = calculateVideoPositioning(
-						video.videoWidth || 400,
-						video.videoHeight || 300,
-						currentPlatform
-					);
-					
-					// Create video payload with proper positioning
+					// Create video payload with simple positioning
 					const videoPayload = {
 						id: generateId(),
 						display: {
@@ -76,10 +91,10 @@ const SceneEmpty = () => {
 						type: "video",
 						details: {
 							src: fileUrl,
-							left: videoPositioning.left,
-							top: videoPositioning.top,
-							width: videoPositioning.width,
-							height: videoPositioning.height,
+							left: 0,
+							top: 0,
+							width: currentPlatform.width,
+							height: currentPlatform.height,
 						},
 					};
 					
@@ -100,10 +115,9 @@ const SceneEmpty = () => {
 					});
 				});
 				
-				video.addEventListener('error', () => {
+				video.addEventListener('error', (error) => {
+					console.error("Video metadata error:", error);
 					// Fallback to default duration if video metadata can't be loaded
-					const defaultVideoSize = getDefaultVideoSize(currentPlatform);
-					
 					const videoPayload = {
 						id: generateId(),
 						display: {
@@ -115,8 +129,8 @@ const SceneEmpty = () => {
 							src: fileUrl,
 							left: 0,
 							top: 0,
-							width: defaultVideoSize.width,
-							height: defaultVideoSize.height,
+							width: currentPlatform.width,
+							height: currentPlatform.height,
 						},
 					};
 					
@@ -134,6 +148,7 @@ const SceneEmpty = () => {
 					});
 				});
 			} else if (fileType.startsWith('audio/')) {
+				console.log("Adding audio file");
 				dispatch(ADD_AUDIO, {
 					payload: {
 						id: generateId(),
@@ -145,6 +160,8 @@ const SceneEmpty = () => {
 					},
 					options: {},
 				});
+			} else {
+				console.log("Unknown file type:", fileType);
 			}
 		});
 		
@@ -158,6 +175,7 @@ const SceneEmpty = () => {
 					maxFileCount={4}
 					maxSize={100 * 1024 * 1024}
 					disabled={false}
+					multiple={true}
 					onValueChange={onSelectFiles}
 					accept={{
 						"image/*": [],

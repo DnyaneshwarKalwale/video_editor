@@ -12,7 +12,7 @@ import { Search, Loader2, PlusIcon } from "lucide-react";
 import { usePexelsVideos } from "@/hooks/use-pexels-videos";
 import { ImageLoading } from "@/components/ui/image-loading";
 import { usePlatformStoreClient } from "../platform-preview";
-import { calculateVideoPositioning, getDefaultVideoSize } from "../utils/platform-positioning";
+
 
 export const Videos = () => {
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
@@ -38,17 +38,15 @@ export const Videos = () => {
 	}, [loadPopularVideos]);
 
 	const handleAddVideo = (payload: Partial<IVideo>) => {
-		// Calculate proper positioning for the video based on platform
-		const defaultVideoSize = getDefaultVideoSize(currentPlatform);
-		
+		// Create video payload with simple positioning
 		const updatedPayload = {
 			...payload,
 			details: {
 				...payload.details,
 				left: 0,
 				top: 0,
-				width: defaultVideoSize.width,
-				height: defaultVideoSize.height,
+				width: currentPlatform.width,
+				height: currentPlatform.height,
 			},
 		};
 		

@@ -101,7 +101,14 @@ export default function Navbar({
 
 	const handlePlatformChange = (platform: any) => {
 		setCurrentPlatform(platform);
-		// The size will be updated by the editor component
+		// Dispatch DESIGN_RESIZE to update canvas size like in old code
+		dispatch(DESIGN_RESIZE, {
+			payload: {
+				width: platform.width,
+				height: platform.height,
+				name: platform.aspectRatio,
+			},
+		});
 	};
 
 	const handleOpenVariations = () => {
@@ -228,7 +235,7 @@ export default function Navbar({
 					<Popover>
 						<PopoverTrigger asChild>
 							<Button variant="outline" className="flex items-center gap-2">
-								{getPlatformIcon(currentPlatform.iconName)}
+								{getPlatformIcon(currentPlatform.icon)}
 								<span className="font-medium hidden sm:inline">{currentPlatform.name}</span>
 								<span className="text-xs text-gray-500 hidden md:inline">({currentPlatform.description})</span>
 								<ChevronDown className="w-4 h-4" />
@@ -240,21 +247,24 @@ export default function Navbar({
 								<div className="grid grid-cols-2 gap-2">
 									{PLATFORM_CONFIGS.map((platform) => (
 										<Button
-											key={platform.name}
-											variant={currentPlatform.name === platform.name ? "default" : "outline"}
+											key={platform.id}
+											variant={currentPlatform.id === platform.id ? "default" : "outline"}
 											size="sm"
 											onClick={() => handlePlatformChange(platform)}
 											className="h-auto p-3 flex flex-col items-center gap-2 text-xs"
 										>
 											<div className="flex items-center gap-2">
-												{getPlatformIcon(platform.iconName)}
+												{getPlatformIcon(platform.icon)}
 												<span className="font-medium">{platform.name}</span>
 											</div>
-											<span className="text-xs text-gray-500">{platform.description}</span>
+											<div className="flex flex-col items-center gap-1">
+												<span className="text-xs font-medium text-gray-700">{platform.label}</span>
+												<span className="text-xs text-gray-500">{platform.description}</span>
+											</div>
 										</Button>
 									))}
 								</div>
-			</div>
+							</div>
 						</PopoverContent>
 					</Popover>
 					<Button

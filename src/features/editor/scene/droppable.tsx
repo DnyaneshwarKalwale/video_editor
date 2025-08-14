@@ -4,7 +4,6 @@ import { dispatch } from "@designcombo/events";
 import { generateId } from "@designcombo/timeline";
 
 import { usePlatformStoreClient } from "../platform-preview";
-import { calculateVideoPositioning, getDefaultVideoSize } from "../utils/platform-positioning";
 
 enum AcceptedDropTypes {
 	IMAGE = "image",
@@ -33,8 +32,7 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 	const handleDrop = useCallback((draggedData: DraggedData) => {
 		switch (draggedData.type) {
 			case AcceptedDropTypes.IMAGE:
-				// Create image payload with proper positioning based on current platform
-				const defaultImageSize = getDefaultVideoSize(currentPlatform); // Use same logic as video
+				// Create image payload with simple positioning
 				const imagePayload = {
 					id: generateId(),
 					display: {
@@ -46,8 +44,8 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 						src: draggedData.src || "https://cdn.designcombo.dev/rect-gray.png",
 						left: 0,
 						top: 0,
-						width: defaultImageSize.width,
-						height: defaultImageSize.height,
+						width: currentPlatform.width,
+						height: currentPlatform.height,
 					},
 				};
 				dispatch(ADD_IMAGE, { 
@@ -55,8 +53,7 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 				});
 				break;
 			case AcceptedDropTypes.VIDEO:
-				// Create video payload with proper positioning based on current platform
-				const defaultVideoSize = getDefaultVideoSize(currentPlatform);
+				// Create video payload with simple positioning
 				const videoPayload = {
 					id: generateId(),
 					display: {
@@ -68,8 +65,8 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 						src: draggedData.src || "",
 						left: 0,
 						top: 0,
-						width: defaultVideoSize.width,
-						height: defaultVideoSize.height,
+						width: currentPlatform.width,
+						height: currentPlatform.height,
 					},
 				};
 				dispatch(ADD_VIDEO, { 
@@ -88,8 +85,11 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 		(e: React.DragEvent<HTMLDivElement>) => {
 			e.preventDefault();
 			try {
-				// Check if we have application/json data
-				if (!e.dataTransfer.types.includes("application/json")) return;
+				// Only handle application/json data (sidebar elements), let files pass through
+				if (!e.dataTransfer.types.includes("application/json")) {
+					// This is a file drag, let it pass through to parent Droppable
+					return;
+				}
 				
 				const draggedDataString = e.dataTransfer.getData("application/json");
 				if (!draggedDataString) return;
@@ -111,6 +111,10 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 	const onDragOver = useCallback(
 		(e: React.DragEvent<HTMLDivElement>) => {
 			e.preventDefault();
+			// Only handle if we're dragging JSON data
+			if (!e.dataTransfer.types.includes("application/json")) {
+				return;
+			}
 			if (isPointerInside) {
 				setIsDraggingOver(true);
 				onDragStateChange?.(true);
@@ -121,15 +125,16 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 
 	const onDrop = useCallback(
 		(e: React.DragEvent<HTMLDivElement>) => {
+			// Only handle JSON data drops
+			if (!e.dataTransfer.types.includes("application/json")) {
+				return;
+			}
 			if (!isDraggingOver) return;
 			e.preventDefault();
 			setIsDraggingOver(false);
 			onDragStateChange?.(false);
 
 			try {
-				// Check if we have application/json data
-				if (!e.dataTransfer.types.includes("application/json")) return;
-				
 				const draggedDataString = e.dataTransfer.getData("application/json");
 				if (!draggedDataString) return;
 				
@@ -145,6 +150,10 @@ const useDragAndDrop = (onDragStateChange?: (isDragging: boolean) => void) => {
 	const onDragLeave = useCallback(
 		(e: React.DragEvent<HTMLDivElement>) => {
 			e.preventDefault();
+			// Only handle if we're dragging JSON data
+			if (!e.dataTransfer.types.includes("application/json")) {
+				return;
+			}
 			if (!e.currentTarget.contains(e.relatedTarget as Node)) {
 				setIsDraggingOver(false);
 				setIsPointerInside(false);
