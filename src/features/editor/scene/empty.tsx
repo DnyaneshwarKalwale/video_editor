@@ -36,52 +36,86 @@ const SceneEmpty = () => {
 		setIsLoading(false);
 	}, [size]);
 
-	const onSelectFiles = (files: File[]) => {
+	const onSelectFiles = async (files: File[]) => {
 		console.log("onSelectFiles called with files:", files);
 		setIsLoading(true);
 		
-		files.forEach((file) => {
-			console.log("Processing file:", file.name, file.type);
-			const fileType = file.type;
-			const fileUrl = URL.createObjectURL(file);
+		// Check file size limit (50MB)
+		const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
+		
+		for (const file of files) {
+			console.log("Processing file:", file.name, file.type, "Size:", file.size);
 			
-			if (fileType.startsWith('image/')) {
-				console.log("Adding image file");
-				// Create image payload with simple positioning
-				const imagePayload = {
-					id: generateId(),
-					display: {
-						from: 0,
-						to: 5000,
-					},
-					type: "image",
-					details: {
-						src: fileUrl,
-						left: 0,
-						top: 0,
-						width: currentPlatform.width,
-						height: currentPlatform.height,
-					},
-				};
+			// Check file size
+			if (file.size > MAX_FILE_SIZE) {
+				console.error(`File ${file.name} is too large. Max size: 50MB`);
+				alert(`File ${file.name} is too large. Maximum file size is 50MB.`);
+				continue;
+			}
+			
+			const fileType = file.type;
+			
+			try {
+				// Upload file to Cloudinary first
+				const formData = new FormData();
+				formData.append('file', file);
+				formData.append('userId', 'default-user-id'); // You can replace this with actual user ID
 				
-				dispatch(ADD_IMAGE, {
-					payload: {
-						...imagePayload,
-						metadata: {},
-					},
-					options: {},
+				console.log(`Uploading ${file.name} to Cloudinary...`);
+				const uploadResponse = await fetch('/api/upload', {
+					method: 'POST',
+					body: formData,
 				});
-			} else if (fileType.startsWith('video/')) {
-				console.log("Adding video file");
-				// Get video duration first
-				const video = document.createElement('video');
-				video.src = fileUrl;
 				
-				video.addEventListener('loadedmetadata', () => {
-					const videoDuration = Math.round(video.duration * 1000); // Convert to milliseconds
-					console.log("Video duration:", videoDuration);
+				if (!uploadResponse.ok) {
+					throw new Error('Upload failed');
+				}
+				
+				const uploadResult = await uploadResponse.json();
+				const cloudinaryUrl = uploadResult.asset.cloudinaryUrl;
+				
+				console.log("File uploaded to Cloudinary:", cloudinaryUrl);
+				
+				if (fileType.startsWith('image/')) {
+					console.log("Adding image file");
+					// Create image payload with Cloudinary URL
+					const imagePayload = {
+						id: generateId(),
+						display: {
+							from: 0,
+							to: 5000,
+						},
+						type: "image",
+						details: {
+							src: cloudinaryUrl, // Use Cloudinary URL instead of local URL
+							left: 0,
+							top: 0,
+							width: currentPlatform.width,
+							height: currentPlatform.height,
+						},
+					};
 					
-					// Create video payload with simple positioning
+					dispatch(ADD_IMAGE, {
+						payload: {
+							...imagePayload,
+							metadata: {
+								cloudinaryUrl: cloudinaryUrl,
+								assetId: uploadResult.asset.id,
+							},
+						},
+						options: {},
+					});
+				} else if (fileType.startsWith('video/')) {
+					console.log("Adding video file");
+					
+					// Get duration from Cloudinary upload result (more reliable)
+					const videoDuration = uploadResult.asset.metadata?.duration 
+						? Math.round(uploadResult.asset.metadata.duration * 1000) // Convert seconds to milliseconds
+						: 5000; // Fallback duration
+					
+					console.log("Video duration from Cloudinary:", videoDuration, "ms");
+					
+					// Create video payload with Cloudinary URL
 					const videoPayload = {
 						id: generateId(),
 						display: {
@@ -90,7 +124,7 @@ const SceneEmpty = () => {
 						},
 						type: "video",
 						details: {
-							src: fileUrl,
+							src: cloudinaryUrl, // Use Cloudinary URL instead of local URL
 							left: 0,
 							top: 0,
 							width: currentPlatform.width,
@@ -102,10 +136,12 @@ const SceneEmpty = () => {
 						payload: {
 							...videoPayload,
 							metadata: {
-								previewUrl: fileUrl,
+								previewUrl: cloudinaryUrl,
 								duration: videoDuration,
-								originalWidth: video.videoWidth,
-								originalHeight: video.videoHeight,
+								originalWidth: uploadResult.asset.metadata?.width || 1920,
+								originalHeight: uploadResult.asset.metadata?.height || 1080,
+								cloudinaryUrl: cloudinaryUrl,
+								assetId: uploadResult.asset.id,
 							},
 						},
 						options: {
@@ -113,57 +149,30 @@ const SceneEmpty = () => {
 							scaleMode: "fit",
 						},
 					});
-				});
-				
-				video.addEventListener('error', (error) => {
-					console.error("Video metadata error:", error);
-					// Fallback to default duration if video metadata can't be loaded
-					const videoPayload = {
-						id: generateId(),
-						display: {
-							from: 0,
-							to: 5000,
-						},
-						type: "video",
-						details: {
-							src: fileUrl,
-							left: 0,
-							top: 0,
-							width: currentPlatform.width,
-							height: currentPlatform.height,
-						},
-					};
-					
-					dispatch(ADD_VIDEO, {
+				} else if (fileType.startsWith('audio/')) {
+					console.log("Adding audio file");
+					dispatch(ADD_AUDIO, {
 						payload: {
-							...videoPayload,
+							id: generateId(),
+							type: 'audio',
+							details: {
+								src: cloudinaryUrl, // Use Cloudinary URL instead of local URL
+							},
 							metadata: {
-								previewUrl: fileUrl,
+								cloudinaryUrl: cloudinaryUrl,
+								assetId: uploadResult.asset.id,
 							},
 						},
-						options: {
-							resourceId: "main",
-							scaleMode: "fit",
-						},
+						options: {},
 					});
-				});
-			} else if (fileType.startsWith('audio/')) {
-				console.log("Adding audio file");
-				dispatch(ADD_AUDIO, {
-					payload: {
-						id: generateId(),
-						type: 'audio',
-						details: {
-							src: fileUrl,
-						},
-						metadata: {},
-					},
-					options: {},
-				});
-			} else {
-				console.log("Unknown file type:", fileType);
+				} else {
+					console.log("Unknown file type:", fileType);
+				}
+			} catch (error) {
+				console.error("Error uploading file:", error);
+				alert(`Failed to upload ${file.name}. Please try again.`);
 			}
-		});
+		}
 		
 		setIsLoading(false);
 	};
@@ -173,8 +182,8 @@ const SceneEmpty = () => {
 			{!isLoading ? (
 				<Droppable
 					maxFileCount={4}
-					maxSize={100 * 1024 * 1024}
-					disabled={false}
+					maxSize={50 * 1024 * 1024} // 50MB limit
+					disabled={isLoading}
 					multiple={true}
 					onValueChange={onSelectFiles}
 					accept={{
@@ -206,15 +215,24 @@ const SceneEmpty = () => {
 							
 							{/* Upload Area */}
 							<div className="flex flex-col items-center justify-center gap-4">
-								<div className="hover:bg-primary-dark cursor-pointer rounded-md border bg-primary p-2 text-secondary transition-colors duration-200">
-									<PlusIcon className="h-5 w-5" aria-hidden="true" />
-								</div>
-								<div className="flex flex-col gap-px">
-									<p className="text-sm text-muted-foreground">Click to upload</p>
-									<p className="text-xs text-muted-foreground/70">
-										Or drag and drop files here
-									</p>
-								</div>
+								{isLoading ? (
+									<div className="flex flex-col items-center gap-2">
+										<div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+										<p className="text-sm text-muted-foreground">Uploading to Cloudinary...</p>
+									</div>
+								) : (
+									<>
+										<div className="hover:bg-primary-dark cursor-pointer rounded-md border bg-primary p-2 text-secondary transition-colors duration-200">
+											<PlusIcon className="h-5 w-5" aria-hidden="true" />
+										</div>
+										<div className="flex flex-col gap-px">
+											<p className="text-sm text-muted-foreground">Click to upload</p>
+											<p className="text-xs text-muted-foreground/70">
+												Or drag and drop files here (Max 50MB)
+											</p>
+										</div>
+									</>
+								)}
 							</div>
 						</div>
 					</DroppableArea>

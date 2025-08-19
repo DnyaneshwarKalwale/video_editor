@@ -75,12 +75,16 @@ export const useDownloadManager = create<DownloadManagerState>()(
         // If the download is currently processing and has a jobId, cancel it on the server
         if (download?.status === 'downloading' && download.jobId) {
           try {
-            await fetch(`/api/render-video?jobId=${download.jobId}&action=cancel`, {
-              method: 'GET'
+            // Note: Lambda renders cannot be cancelled once started, but we can mark as cancelled locally
+            console.log(`[Download Manager] Marking Lambda job ${download.jobId} as cancelled for download ${id}`);
+            // Update the download status to cancelled
+            get().updateDownload(id, {
+              status: 'failed',
+              error: 'Download was cancelled',
+              completedAt: new Date()
             });
-            console.log(`[Download Manager] Cancelled job ${download.jobId} for download ${id}`);
           } catch (error) {
-            console.error(`[Download Manager] Failed to cancel job ${download.jobId}:`, error);
+            console.error(`[Download Manager] Failed to cancel Lambda job ${download.jobId}:`, error);
           }
         }
         
@@ -180,8 +184,8 @@ export const useDownloadManager = create<DownloadManagerState>()(
           throw new Error('No video data provided');
         }
 
-        // Start the render job
-        const response = await fetch('/api/render-video', {
+        // Start the Lambda render job
+        const response = await fetch('/api/render-lambda', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -191,7 +195,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Failed to start video rendering: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to start Lambda video rendering: ${response.status} ${response.statusText}`);
         }
 
         const jobResponse = await response.json();
@@ -200,12 +204,12 @@ export const useDownloadManager = create<DownloadManagerState>()(
         // Update download with job ID
         get().updateDownload(download.id, { jobId });
 
-        // Poll for completion with longer intervals
+        // Poll for completion with Lambda-optimized intervals
         let attempts = 0;
-        const maxAttempts = 1200; // Increased to 20 minutes for server processing
+        const maxAttempts = 600; // 20 minutes for Lambda (faster than local)
         
         while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Increased polling interval
+          await new Promise(resolve => setTimeout(resolve, 3000)); // 3-second polling for Lambda
           attempts++;
           
           // Check if download was cancelled
@@ -220,37 +224,29 @@ export const useDownloadManager = create<DownloadManagerState>()(
           get().updateDownload(download.id, { progress: estimatedProgress });
           
           // Check job status
-          const statusResponse = await fetch(`/api/render-video?jobId=${jobId}`);
+          const statusResponse = await fetch(`/api/render-lambda?jobId=${jobId}`);
           
           if (!statusResponse.ok) {
-            console.error(`Failed to check job status for ${download.name}:`, statusResponse.status);
+            console.error(`Failed to check Lambda job status for ${download.name}:`, statusResponse.status);
             continue;
           }
           
           const statusData = await statusResponse.json();
           
-          if (statusData.status === 'cancelled') {
-            // Job was cancelled, update status and stop polling
-            get().updateDownload(download.id, {
-              status: 'failed',
-              error: 'Download was cancelled',
-              completedAt: new Date()
-            });
-            return;
-          } else if (statusData.status === 'completed') {
-            // Download the completed video
-            const downloadResponse = await fetch(`/api/render-video?jobId=${jobId}`, {
+          if (statusData.status === 'completed') {
+            // Download the completed video from Lambda
+            const downloadResponse = await fetch(`/api/render-lambda?jobId=${jobId}`, {
               method: 'PUT'
             });
             
             if (!downloadResponse.ok) {
-              throw new Error(`Failed to download video: ${downloadResponse.status}`);
+              throw new Error(`Failed to download Lambda video: ${downloadResponse.status}`);
             }
             
             const videoBlob = await downloadResponse.blob();
             
             if (videoBlob.size === 0) {
-              throw new Error('Received empty video file');
+              throw new Error('Received empty video file from Lambda');
             }
             
             // Create download link
@@ -269,16 +265,16 @@ export const useDownloadManager = create<DownloadManagerState>()(
               completedAt: new Date()
             });
             
-            // Process next in queue with longer delay
+            // Process next in queue
             setTimeout(() => get().processQueue(), 1000);
             return;
             
           } else if (statusData.status === 'failed') {
-            throw new Error(`Video rendering failed: ${statusData.error || 'Unknown error'}`);
+            throw new Error(`Lambda video rendering failed: ${statusData.error || 'Unknown error'}`);
           }
         }
         
-        throw new Error('Video rendering timed out after 20 minutes');
+        throw new Error('Lambda video rendering timed out after 20 minutes');
       },
 
       downloadVariation: async (download: DownloadItem) => {
@@ -286,8 +282,8 @@ export const useDownloadManager = create<DownloadManagerState>()(
           throw new Error('No variation data provided');
         }
 
-        // Start the render job for variation
-        const response = await fetch('/api/render-video', {
+        // Start the Lambda render job for variation
+        const response = await fetch('/api/render-lambda', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -297,7 +293,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Failed to start variation rendering: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to start Lambda variation rendering: ${response.status} ${response.statusText}`);
         }
 
         const jobResponse = await response.json();
@@ -306,12 +302,12 @@ export const useDownloadManager = create<DownloadManagerState>()(
         // Update download with job ID
         get().updateDownload(download.id, { jobId });
 
-        // Poll for completion with longer intervals
+        // Poll for completion with Lambda-optimized intervals
         let attempts = 0;
-        const maxAttempts = 1200; // Increased to 20 minutes for server processing
+        const maxAttempts = 600; // 20 minutes for Lambda (faster than local)
         
         while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Increased polling interval
+          await new Promise(resolve => setTimeout(resolve, 3000)); // 3-second polling for Lambda
           attempts++;
           
           // Check if download was cancelled
@@ -326,26 +322,18 @@ export const useDownloadManager = create<DownloadManagerState>()(
           get().updateDownload(download.id, { progress: estimatedProgress });
           
           // Check job status
-          const statusResponse = await fetch(`/api/render-video?jobId=${jobId}`);
+          const statusResponse = await fetch(`/api/render-lambda?jobId=${jobId}`);
           
           if (!statusResponse.ok) {
-            console.error(`Failed to check job status for ${download.name}:`, statusResponse.status);
+            console.error(`Failed to check Lambda job status for ${download.name}:`, statusResponse.status);
             continue;
           }
           
           const statusData = await statusResponse.json();
           
-          if (statusData.status === 'cancelled') {
-            // Job was cancelled, update status and stop polling
-            get().updateDownload(download.id, {
-              status: 'failed',
-              error: 'Download was cancelled',
-              completedAt: new Date()
-            });
-            return;
-          } else if (statusData.status === 'completed') {
-            // Download the completed variation
-            const downloadResponse = await fetch(`/api/render-video?jobId=${jobId}`, {
+          if (statusData.status === 'completed') {
+            // Download the completed variation from Lambda
+            const downloadResponse = await fetch(`/api/render-lambda?jobId=${jobId}`, {
               method: 'PUT'
             });
             

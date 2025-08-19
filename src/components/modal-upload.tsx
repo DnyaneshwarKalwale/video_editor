@@ -163,40 +163,94 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 		return result.upload;
 	}
 	const handleUpload = async () => {
-		// Prepare UploadFile objects for files
-		const fileUploads = files
-			.filter((f) => f.file?.type)
-			.map((f) => ({
-				id: f.id,
-				file: f.file,
-				type: f.file?.type,
-				status: "pending" as const,
-				progress: 0,
-			}));
-
-		// Prepare UploadFile object for URL if present
-		const urlUploads = videoUrl.trim()
-			? [
-					{
-						id: crypto.randomUUID(),
-						url: videoUrl.trim(),
-						type: "url",
-						status: "pending" as const,
-						progress: 0,
+		setIsUploading(true);
+		
+		try {
+			// Check file size limit (50MB)
+			const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
+			
+			// Upload files to Cloudinary
+			for (const fileObj of files) {
+				if (!fileObj.file) continue;
+				
+				const file = fileObj.file;
+				
+				// Check file size
+				if (file.size > MAX_FILE_SIZE) {
+					alert(`File ${file.name} is too large. Maximum file size is 50MB.`);
+					continue;
+				}
+				
+				try {
+					// Upload to Cloudinary
+					const formData = new FormData();
+					formData.append('file', file);
+					formData.append('userId', 'default-user-id'); // You can replace this with actual user ID
+					
+					console.log(`Uploading ${file.name} to Cloudinary...`);
+					const uploadResponse = await fetch('/api/upload', {
+						method: 'POST',
+						body: formData,
+					});
+					
+					if (!uploadResponse.ok) {
+						throw new Error('Upload failed');
+					}
+					
+					const uploadResult = await uploadResponse.json();
+					const cloudinaryUrl = uploadResult.asset.cloudinaryUrl;
+					
+					console.log("File uploaded to Cloudinary:", cloudinaryUrl);
+					
+					// Add to uploads store with Cloudinary URL
+					const uploadData = {
+						id: fileObj.id,
+						url: cloudinaryUrl,
+						type: getTypeFromContentType(file.type),
+						file: file,
+						metadata: {
+							uploadedUrl: cloudinaryUrl,
+							assetId: uploadResult.asset.id,
+							cloudinaryUrl: cloudinaryUrl,
+						},
+					};
+					
+					// Add to uploads (you might need to update the upload store to handle this)
+					// For now, we'll add it to the uploads array
+					// This depends on how your upload store is structured
+					
+				} catch (error) {
+					console.error(`Error uploading ${file.name}:`, error);
+					alert(`Failed to upload ${file.name}. Please try again.`);
+				}
+			}
+			
+			// Handle URL uploads if any
+			if (videoUrl.trim()) {
+				// For URL uploads, you might want to validate the URL and add it directly
+				const urlUploadData = {
+					id: crypto.randomUUID(),
+					url: videoUrl.trim(),
+					type: "video", // Assuming it's a video URL
+					metadata: {
+						uploadedUrl: videoUrl.trim(),
 					},
-				]
-			: [];
-
-		// Add to pending uploads
-		addPendingUploads([...fileUploads, ...urlUploads]);
-
-		setTimeout(() => {
-			processUploads();
+				};
+				
+				// Add to uploads
+				// This depends on how your upload store is structured
+			}
+			
+		} catch (error) {
+			console.error('Upload error:', error);
+			alert('Upload failed. Please try again.');
+		} finally {
+			setIsUploading(false);
 			// Clear modal state and close
 			setFiles([]);
 			setShowUploadModal(false);
 			setVideoUrl("");
-		}, 0);
+		}
 	};
 	const getAcceptType = () => {
 		switch (type) {
@@ -244,7 +298,7 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 							>
 								<UploadIcon className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
 								<p className="text-sm text-muted-foreground mb-2">
-									Drag and drop files here, or
+									Drag and drop files here (Max 50MB), or
 								</p>
 								<Button onClick={triggerFileInput} variant="outline" size="sm">
 									browse files
@@ -350,7 +404,14 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 							onClick={handleUpload}
 							disabled={(files.length === 0 && !videoUrl) || isUploading}
 						>
-							Upload
+							{isUploading ? (
+								<>
+									<div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+									Uploading...
+								</>
+							) : (
+								'Upload'
+							)}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

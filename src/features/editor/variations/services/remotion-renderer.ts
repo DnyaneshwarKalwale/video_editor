@@ -16,7 +16,7 @@ export interface RenderVideoOptions {
 export class RemotionRendererService {
   static async renderVideo(options: RenderVideoOptions): Promise<Blob> {
     try {
-      const response = await fetch('/api/render-video', {
+      	       	const response = await fetch('/api/render-lambda', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -26,13 +26,13 @@ export class RemotionRendererService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to render video');
+        throw new Error(errorData.error || 'Failed to render video on Lambda');
       }
 
       return await response.blob();
     } catch (error) {
-      console.error('Error rendering video:', error);
-      throw new Error(error instanceof Error ? error.message : 'Failed to render video');
+      console.error('Error rendering video on Lambda:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to render video on Lambda');
     }
   }
 

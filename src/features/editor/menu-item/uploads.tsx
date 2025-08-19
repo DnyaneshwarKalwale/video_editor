@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ADD_AUDIO, ADD_IMAGE, ADD_VIDEO } from "@designcombo/state";
 import { dispatch } from "@designcombo/events";
@@ -17,20 +17,64 @@ export const Uploads = () => {
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
 	const { currentPlatform } = usePlatformStoreClient();
 	const { uploads, pendingUploads, activeUploads, setShowUploadModal } = useUploadStore();
+	
+	// State for assets from database
+	const [assets, setAssets] = useState<any[]>([]);
+	const [loading, setLoading] = useState(true);
 
-	const videos = uploads.filter((upload: any) => upload.type === "video");
-	const images = uploads.filter((upload: any) => upload.type === "image");
-	const audios = uploads.filter((upload: any) => upload.type === "audio");
+	// Fetch assets from database
+	const fetchAssets = async () => {
+		try {
+			setLoading(true);
+			const response = await fetch('/api/assets');
+			if (response.ok) {
+				const data = await response.json();
+				setAssets(data.assets || []);
+			}
+		} catch (error) {
+			console.error('Error fetching assets:', error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	useEffect(() => {
+		fetchAssets();
+	}, []);
+
+	// Combine local uploads with database assets
+	const allUploads = [...uploads, ...assets];
+	const videos = allUploads.filter((upload: any) => 
+		upload.type === "video" || upload.fileType?.startsWith("video/")
+	);
+	const images = allUploads.filter((upload: any) => 
+		upload.type === "image" || upload.fileType?.startsWith("image/")
+	);
+	const audios = allUploads.filter((upload: any) => 
+		upload.type === "audio" || upload.fileType?.startsWith("audio/")
+	);
 
 	const handleAddVideo = (video: any) => {
-		const srcVideo = video.metadata?.uploadedUrl || video.url;
+		// Use Cloudinary URL from database assets or fallback to local uploads
+		const srcVideo = video.url || video.metadata?.uploadedUrl || video.metadata?.cloudinaryUrl;
+
+		// Get duration from metadata (convert seconds to milliseconds if needed)
+		let videoDuration = 5000; // Default fallback
+		if (video.metadata?.duration) {
+			// If duration is in seconds, convert to milliseconds
+			videoDuration = video.metadata.duration > 1000 
+				? video.metadata.duration // Already in milliseconds
+				: Math.round(video.metadata.duration * 1000); // Convert seconds to milliseconds
+		}
+
+		console.log("Adding video with duration:", videoDuration, "ms");
 
 		// Create video payload with simple positioning
 		const videoPayload = {
 			id: generateId(),
 			display: {
 				from: 0,
-				to: 5000,
+				to: videoDuration,
 			},
 			type: "video",
 			details: {
@@ -41,8 +85,12 @@ export const Uploads = () => {
 				height: currentPlatform.height,
 			},
 			metadata: {
-				previewUrl:
-					"https://cdn.designcombo.dev/caption_previews/static_preset1.webp",
+				previewUrl: srcVideo,
+				duration: videoDuration,
+				cloudinaryUrl: srcVideo,
+				assetId: video.id,
+				originalWidth: video.metadata?.width || 1920,
+				originalHeight: video.metadata?.height || 1080,
 			},
 		};
 
@@ -56,7 +104,8 @@ export const Uploads = () => {
 	};
 
 	const handleAddImage = (image: any) => {
-		const srcImage = image.metadata?.uploadedUrl || image.url;
+		// Use Cloudinary URL from database assets or fallback to local uploads
+		const srcImage = image.url || image.metadata?.uploadedUrl || image.metadata?.cloudinaryUrl;
 
 		// Create image payload with simple positioning
 		const imagePayload = {
@@ -74,7 +123,10 @@ export const Uploads = () => {
 				width: currentPlatform.width,
 				height: currentPlatform.height,
 			},
-			metadata: {},
+			metadata: {
+				cloudinaryUrl: srcImage,
+				assetId: image.id,
+			},
 		};
 
 		dispatch(ADD_IMAGE, {
@@ -84,7 +136,9 @@ export const Uploads = () => {
 	};
 
 	const handleAddAudio = (audio: any) => {
-		const srcAudio = audio.metadata?.uploadedUrl || audio.url;
+		// Use Cloudinary URL from database assets or fallback to local uploads
+		const srcAudio = audio.url || audio.metadata?.uploadedUrl || audio.metadata?.cloudinaryUrl;
+		
 		dispatch(ADD_AUDIO, {
 			payload: {
 				id: generateId(),
@@ -92,7 +146,10 @@ export const Uploads = () => {
 				details: {
 					src: srcAudio,
 				},
-				metadata: {},
+				metadata: {
+					cloudinaryUrl: srcAudio,
+					assetId: audio.id,
+				},
 			},
 			options: {},
 		});
@@ -112,8 +169,17 @@ export const Uploads = () => {
 
 	return (
 		<div className="flex flex-1 flex-col">
-			<div className="text-text-primary flex h-12 flex-none items-center px-4 text-sm font-medium">
-				Your uploads
+			<div className="text-text-primary flex h-12 flex-none items-center justify-between px-4 text-sm font-medium">
+				<span>Your uploads</span>
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={fetchAssets}
+					disabled={loading}
+					className="h-6 w-6 p-0"
+				>
+					<Loader2 className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+				</Button>
 			</div>
 			<ModalUpload />
 			<UploadPrompt />
@@ -153,8 +219,17 @@ export const Uploads = () => {
 			)}
 
 			<div className="flex flex-col gap-10 p-4">
-				{/* Videos Section */}
-				{videos.length > 0 && (
+				{loading ? (
+					<div className="flex items-center justify-center py-8">
+						<div className="flex items-center gap-2">
+							<Loader2 className="w-4 h-4 animate-spin" />
+							<span className="text-sm text-muted-foreground">Loading your uploads...</span>
+						</div>
+					</div>
+				) : (
+					<>
+						{/* Videos Section */}
+						{videos.length > 0 && (
 					<div>
 						<div className="flex items-center gap-2 mb-2">
 							<VideoIcon className="w-4 h-4 text-muted-foreground" />
@@ -173,7 +248,7 @@ export const Uploads = () => {
 										<VideoIcon className="w-8 h-8 text-muted-foreground" />
 									</div>
 									<div className="text-xs text-muted-foreground truncate w-full text-center">
-										{video.file?.name || video.url || "Video"}
+										{video.fileName || video.file?.name || video.url || "Video"}
 									</div>
 								</div>
 							))}
@@ -201,7 +276,7 @@ export const Uploads = () => {
 										<ImageIcon className="w-8 h-8 text-muted-foreground" />
 									</div>
 									<div className="text-xs text-muted-foreground truncate w-full text-center">
-										{image.file?.name || image.url || "Image"}
+										{image.fileName || image.file?.name || image.url || "Image"}
 									</div>
 								</div>
 							))}
@@ -229,12 +304,14 @@ export const Uploads = () => {
 										<Music className="w-8 h-8 text-muted-foreground" />
 									</div>
 									<div className="text-xs text-muted-foreground truncate w-full text-center">
-										{audio.file?.name || audio.url || "Audio"}
+										{audio.fileName || audio.file?.name || audio.url || "Audio"}
 									</div>
 								</div>
 							))}
 						</div>
 					</div>
+				)}
+					</>
 				)}
 			</div>
 		</div>
