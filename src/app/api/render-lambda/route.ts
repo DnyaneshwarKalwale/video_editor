@@ -75,8 +75,8 @@ async function processLambdaJob(jobId: string, videoData: any) {
     fs.writeFileSync(tempDataPath, JSON.stringify(videoData, null, 2));
 
     // Build the Lambda render command with optimized settings for speed
-    // Note: Using concurrency=10 to match current AWS account limit (2000 request pending)
-    const lambdaCommand = `npx remotion lambda render ${LAMBDA_CONFIG.serveUrl} ${LAMBDA_CONFIG.compositionId} --props=${tempDataPath} --region=${LAMBDA_CONFIG.region} --function-name=${LAMBDA_CONFIG.functionName} --concurrency=10`;
+    // Note: Using concurrency=50 to stay well under current AWS account limit (likely 1000)
+    const lambdaCommand = `npx remotion lambda render ${LAMBDA_CONFIG.serveUrl} ${LAMBDA_CONFIG.compositionId} --props=${tempDataPath} --region=${LAMBDA_CONFIG.region} --function-name=${LAMBDA_CONFIG.functionName} --concurrency=5`;
 
     console.log(`[Lambda Job ${jobId}] Executing: ${lambdaCommand}`);
 
