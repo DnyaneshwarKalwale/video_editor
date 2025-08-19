@@ -33,18 +33,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Job ID required' }, { status: 400 });
   }
   
-  // This endpoint will be handled by the main route's PUT method
-  // We'll redirect the request
-  const url = new URL(request.url);
-  url.pathname = '/api/render-lambda';
+  // Redirect to the main route's PUT endpoint
+  const redirectUrl = new URL(request.url);
+  redirectUrl.pathname = '/api/render-lambda';
   
-  const newRequest = new Request(url.toString(), {
-    method: 'PUT',
-    headers: request.headers,
-    body: request.body
-  });
-  
-  // Import and call the PUT handler from the main route
-  const { PUT } = await import('../route');
-  return PUT(newRequest);
+  return NextResponse.redirect(redirectUrl.toString());
 }

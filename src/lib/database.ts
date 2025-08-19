@@ -6,10 +6,14 @@ if (!MONGODB_URL) {
   throw new Error('Please define the MONGODB_URL environment variable inside .env');
 }
 
-let cached = global.mongoose;
+declare global {
+  var mongoose: { conn: any; promise: any } | undefined;
+}
 
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+let cached = global.mongoose || { conn: null, promise: null };
+
+if (!global.mongoose) {
+  global.mongoose = cached;
 }
 
 async function connectDB() {

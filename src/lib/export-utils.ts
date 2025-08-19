@@ -14,7 +14,7 @@ export async function saveExportToDatabase(
     await connectDB();
 
     // Upload the rendered video to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
+    const uploadResult = await new Promise<any>((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
           resource_type: 'video',
