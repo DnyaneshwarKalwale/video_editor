@@ -47,7 +47,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get authenticated user session
@@ -58,7 +58,7 @@ export async function POST(
     }
 
     const userId = session.user.id;
-    const projectId = params.id;
+    const { id: projectId } = await params;
     const { elementId, originalText, variations } = await request.json();
     
     await connectDB();
