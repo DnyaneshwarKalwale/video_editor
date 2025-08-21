@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, RefreshCw, Download } from 'lucide-react';
+import ScalezLoader from "@/components/ui/scalez-loader";
 import { VariationModalProps, VideoVariation, TextOverlayData } from '../types/variation-types';
 import VideoPreview from './VideoPreview';
 import { AIVariationService } from '../services/openai-service';
@@ -29,7 +30,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const { trackItemsMap, trackItemIds } = useStore();
   const { addDownload } = useDownloadManager();
 
-  const loadVariationsFromSidebar = () => {
+  const loadVariationsFromSidebar = async () => {
     // Get all timeline elements
     const timelineElements = trackItemIds
       .map(id => {
@@ -44,25 +45,98 @@ const VariationModal: React.FC<VariationModalProps> = ({
       })
       .filter(Boolean);
 
-    // Load variations from localStorage for each element
+    // Load variations from backend for each element
     const elementVariations: { [elementId: string]: any[] } = {};
     
-    timelineElements.forEach(element => {
-      if (element) {
-        const storageKey = `simple_variations_${element.id}`;
-        const savedVariations = localStorage.getItem(storageKey);
-        
-        if (savedVariations) {
-          try {
-            const variations = JSON.parse(savedVariations);
-            elementVariations[element.id] = variations.map((v: any) => ({
-              ...v,
-              elementId: element.id,
-              originalValue: element.content // Store original value for mapping
-            }));
-          } catch (error) {
-            console.error('Error parsing variations:', error);
-            // If no variations found, use original
+    try {
+      // Get project ID from URL
+      const projectId = window.location.pathname.split('/')[2];
+      
+      // Load text variations
+      const textResponse = await fetch(`/api/projects/${projectId}/text-variations`);
+      const textData = textResponse.ok ? await textResponse.json() : { textVariations: [] };
+      
+      // Load media variations
+      const mediaResponse = await fetch(`/api/projects/${projectId}/media-variations`);
+      const mediaData = mediaResponse.ok ? await mediaResponse.json() : { mediaVariations: [] };
+      
+      timelineElements.forEach(element => {
+        if (element) {
+          if (element.type === 'text') {
+            // Handle text variations
+            const elementVariationData = textData.textVariations.find((v: any) => v.elementId === element.id);
+            
+            if (elementVariationData && elementVariationData.variations.length > 0) {
+              // Create variations array with original + generated variations
+              const variations = [
+                {
+                  id: 'original',
+                  key: `${element.type.toUpperCase()}0`,
+                  value: element.content,
+                  type: element.type,
+                  elementId: element.id,
+                  originalValue: element.content
+                },
+                ...elementVariationData.variations.map((v: any, index: number) => ({
+                  id: v.id,
+                  key: `${element.type.toUpperCase()}${index + 1}`,
+                  value: v.text,
+                  type: element.type,
+                  elementId: element.id,
+                  originalValue: element.content
+                }))
+              ];
+              elementVariations[element.id] = variations;
+            } else {
+              // If no variations found, use original
+              elementVariations[element.id] = [{
+                id: 'original',
+                key: `${element.type.toUpperCase()}0`,
+                value: element.content,
+                type: element.type,
+                elementId: element.id,
+                originalValue: element.content
+              }];
+            }
+          } else if (['video', 'image', 'audio'].includes(element.type)) {
+            // Handle media variations
+            const elementVariationData = mediaData.mediaVariations.find((v: any) => v.elementId === element.id);
+            
+            if (elementVariationData && elementVariationData.variations.length > 0) {
+              // Create variations array with original + uploaded variations
+              const variations = [
+                {
+                  id: 'original',
+                  key: `${element.type.toUpperCase()}0`,
+                  value: element.content,
+                  type: element.type,
+                  elementId: element.id,
+                  originalValue: element.content
+                },
+                ...elementVariationData.variations.map((v: any, index: number) => ({
+                  id: v.id,
+                  key: `${element.type.toUpperCase()}${index + 1}`,
+                  value: v.videoUrl, // Use the uploaded URL
+                  type: element.type,
+                  elementId: element.id,
+                  originalValue: element.content,
+                  metadata: v.metadata
+                }))
+              ];
+              elementVariations[element.id] = variations;
+            } else {
+              // If no variations found, use original
+              elementVariations[element.id] = [{
+                id: 'original',
+                key: `${element.type.toUpperCase()}0`,
+                value: element.content,
+                type: element.type,
+                elementId: element.id,
+                originalValue: element.content
+              }];
+            }
+          } else {
+            // For other types, use original
             elementVariations[element.id] = [{
               id: 'original',
               key: `${element.type.toUpperCase()}0`,
@@ -72,8 +146,13 @@ const VariationModal: React.FC<VariationModalProps> = ({
               originalValue: element.content
             }];
           }
-        } else {
-          // If no variations found, use original
+        }
+      });
+    } catch (error) {
+      console.error('Error loading variations from backend:', error);
+      // Fallback to original values
+      timelineElements.forEach(element => {
+        if (element) {
           elementVariations[element.id] = [{
             id: 'original',
             key: `${element.type.toUpperCase()}0`,
@@ -83,11 +162,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
             originalValue: element.content
           }];
         }
-      }
-    });
+      });
+    }
 
-    console.log('Element variations loaded:', elementVariations);
-
+    console.log('Element variations loaded from backend:', elementVariations);
+    
     // Generate all combinations
     const allVideoCombinations: VideoVariation[] = [];
     
@@ -219,6 +298,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
     setVariations(allVideoCombinations);
   };
 
+  // Load variations when modal opens
   useEffect(() => {
     if (isOpen) {
       loadVariationsFromSidebar();
@@ -228,88 +308,209 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const generateVariations = async () => {
     setIsGenerating(true);
     setError(null);
-    
+
     try {
-      // Get all text overlays that have text content
-      const textOverlaysWithContent = project.textOverlays.filter(overlay => 
-        overlay.text && overlay.text.trim().length > 0
-      );
-
-      console.log('Text overlays found:', textOverlaysWithContent.map(o => ({ id: o.id, text: o.text, timing: o.timing })));
-      console.log('Total text overlays with content:', textOverlaysWithContent.length);
-
-      if (textOverlaysWithContent.length === 0) {
-        setError('No text overlays found to generate variations for');
-        setIsGenerating(false);
-        return;
+      // Get project ID from URL
+      const projectId = window.location.pathname.split('/')[2];
+      
+      // Load variations from backend first
+      const response = await fetch(`/api/projects/${projectId}/text-variations`);
+      let backendVariations: any[] = [];
+      
+      if (response.ok) {
+        const data = await response.json();
+        backendVariations = data.textVariations || [];
       }
 
-      const allVariations: VideoVariation[] = [];
+      // Get current timeline elements
+      const currentState = useStore.getState();
+      const timelineElements = Object.values(currentState.trackItemsMap)
+        .map((item: any) => {
+          if (item.type === 'text') {
+            return {
+              id: item.id,
+              type: item.type,
+              content: item.details?.text,
+              variations: []
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
 
-      // Create original variation for the entire video composition
-      const originalVariation: VideoVariation = {
-        id: 'original-composition',
-        text: textOverlaysWithContent[0].text, // Use first text as main text
-        originalTextId: textOverlaysWithContent[0].id,
-        isOriginal: true,
-        editable: false,
-        allTextOverlays: textOverlaysWithContent, // Store all text overlays
-      };
-      allVariations.push(originalVariation);
-
-      // Generate variations for ALL text overlays that have content
-      const generatedVariations: VideoVariation[] = [];
+      // Create element variations from backend data
+      const elementVariations: { [elementId: string]: any[] } = {};
       
-      for (let i = 0; i < 9; i++) { // Generate 9 variations
-        const variationTexts: TextOverlayData[] = [];
-        
-        console.log(`Generating variation ${i + 1} for ${textOverlaysWithContent.length} text overlays`);
-        
-        // Generate variation for each text overlay
-        for (const textOverlay of textOverlaysWithContent) {
-          console.log(`Processing text overlay ${textOverlay.id}: "${textOverlay.text}"`);
+      timelineElements.forEach(element => {
+        if (element) {
+          const elementVariationData = backendVariations.find((v: any) => v.elementId === element.id);
           
-          const response = await openAIService.generateTextVariations({
-            originalText: textOverlay.text,
-            variationType: 'auto',
-            count: 10
-          });
+          if (elementVariationData && elementVariationData.variations.length > 0) {
+            // Create variations array with original + generated variations
+            const variations = [
+              {
+                id: 'original',
+                key: `${element.type.toUpperCase()}0`,
+                value: element.content,
+                type: element.type,
+                elementId: element.id,
+                originalValue: element.content
+              },
+              ...elementVariationData.variations.map((v: any, index: number) => ({
+                id: v.id,
+                key: `${element.type.toUpperCase()}${index + 1}`,
+                value: v.text,
+                type: element.type,
+                elementId: element.id,
+                originalValue: element.content
+              }))
+            ];
+            elementVariations[element.id] = variations;
+          } else {
+            // If no variations found, use original
+            elementVariations[element.id] = [{
+              id: 'original',
+              key: `${element.type.toUpperCase()}0`,
+              value: element.content,
+              type: element.type,
+              elementId: element.id,
+              originalValue: element.content
+            }];
+          }
+        }
+      });
 
-          const textVariations = response.variations;
-
-          // Use the i-th variation (or fallback to original if not enough variations)
-          const variationText = textVariations[i] || textOverlay.text;
-          console.log(`Using variation text: "${variationText}" for overlay ${textOverlay.id}`);
+      console.log('Element variations loaded from backend:', elementVariations);
+      
+      // Generate all combinations
+      const allVideoCombinations: VideoVariation[] = [];
+      
+      if (Object.keys(elementVariations).length === 0) {
+        // No elements, create original video
+        const originalVariation: VideoVariation = {
+          id: 'original-composition',
+          text: 'Original Video',
+          originalTextId: 'original',
+          isOriginal: true,
+          editable: false,
+          allTextOverlays: []
+        };
+        allVideoCombinations.push(originalVariation);
+      } else {
+        // Generate all possible combinations
+        const elementIds = Object.keys(elementVariations);
+        const variationArrays = elementIds.map(id => elementVariations[id]);
+        
+        function generateCombinations(arrays: any[][], current: any[] = [], index = 0): any[][] {
+          if (index === arrays.length) {
+            return [current];
+          }
           
-          variationTexts.push({
-            ...textOverlay,
-            text: variationText
-          });
+          const results: any[][] = [];
+          for (const item of arrays[index]) {
+            results.push(...generateCombinations(arrays, [...current, item], index + 1));
+          }
+          return results;
         }
         
-        console.log(`Variation ${i + 1} complete with ${variationTexts.length} text overlays`);
-
-        // Create variation object for this composition
-        const variation: VideoVariation = {
-          id: `variation-composition-${i + 1}`,
-          text: variationTexts[0]?.text || textOverlaysWithContent[0].text,
-          originalTextId: textOverlaysWithContent[0].id,
-          isOriginal: false,
-          editable: true,
-          allTextOverlays: variationTexts,
-        };
+        const combinations = generateCombinations(variationArrays);
         
-        generatedVariations.push(variation);
+        console.log(`Generated ${combinations.length} total combinations`);
+        
+        combinations.forEach((combination, index) => {
+          // Build video data for this combination
+          const textElements = combination.filter(item => item.type === 'text');
+          const videoElements = combination.filter(item => item.type === 'video');
+          const imageElements = combination.filter(item => item.type === 'image');
+          const audioElements = combination.filter(item => item.type === 'audio');
+          
+          // Create unique title for this combination
+          const combinationParts = combination.map(item => item.key).join(' + ');
+          const title = `Video ${index + 1} (${combinationParts})`;
+          
+          // Create text overlays with proper structure for this combination
+          const textOverlaysForCombination: TextOverlayData[] = textElements.map((textItem) => {
+            // Find the original trackItem to get the correct ID and positioning
+            const originalTrackItem = Object.values(trackItemsMap).find((item: any) => 
+              item.type === 'text' && item.id === textItem.elementId
+            ) as any;
+            
+            if (originalTrackItem) {
+              return {
+                id: originalTrackItem.id, // Use the actual track item ID
+                text: textItem.value, // Use the variation text
+                position: {
+                  top: typeof originalTrackItem.details.top === 'string' ? parseFloat(originalTrackItem.details.top) || 50 : originalTrackItem.details.top || 50,
+                  left: typeof originalTrackItem.details.left === 'string' ? parseFloat(originalTrackItem.details.left) || 50 : originalTrackItem.details.left || 50,
+                },
+                style: {
+                  fontSize: originalTrackItem.details.fontSize || 48,
+                  fontFamily: originalTrackItem.details.fontFamily || 'Arial, sans-serif',
+                  color: originalTrackItem.details.color || 'white',
+                  backgroundColor: originalTrackItem.details.backgroundColor || 'transparent',
+                  textAlign: originalTrackItem.details.textAlign || 'center',
+                  fontWeight: originalTrackItem.details.fontWeight || 'bold',
+                  opacity: originalTrackItem.details.opacity || 100,
+                  borderWidth: originalTrackItem.details.borderWidth,
+                  borderColor: originalTrackItem.details.borderColor,
+                  textDecoration: originalTrackItem.details.textDecoration,
+                },
+                timing: {
+                  from: originalTrackItem.display.from,
+                  to: originalTrackItem.display.to,
+                },
+                width: originalTrackItem.details.width,
+                height: originalTrackItem.details.height,
+              };
+            } else {
+              // Fallback if trackItem not found
+              return {
+                id: textItem.elementId,
+                text: textItem.value,
+                position: { top: 50, left: 50 },
+                style: {
+                  fontSize: 48,
+                  fontFamily: 'Arial, sans-serif',
+                  color: 'white',
+                  backgroundColor: 'transparent',
+                  textAlign: 'center' as const,
+                  opacity: 100
+                },
+                timing: { from: 0, to: 5000 },
+                width: 600,
+                height: 100,
+              };
+            }
+          });
+          
+          const videoVariation: VideoVariation = {
+            id: `combination-${index}`,
+            text: title,
+            originalTextId: textElements[0]?.elementId || 'original',
+            isOriginal: index === 0, // First combination is considered "original"
+            editable: false,
+            allTextOverlays: textOverlaysForCombination,
+            // Store video/media variations for potential use
+            metadata: {
+              videoElements,
+              imageElements,
+              audioElements,
+              combination
+            }
+          };
+          
+          allVideoCombinations.push(videoVariation);
+        });
       }
-      
-      allVariations.push(...generatedVariations);
 
-      console.log('Generated variations:', allVariations.map(v => ({ id: v.id, originalTextId: v.originalTextId, text: v.text, isOriginal: v.isOriginal })));
-      
-      setVariations(allVariations);
-      
-      // Store variations in localStorage for sharing with sidebar
-      localStorage.setItem('generatedVariations', JSON.stringify(allVariations));
+      console.log(`Setting ${allVideoCombinations.length} video combinations`);
+      console.log('Video combinations preview:', allVideoCombinations.map(v => ({
+        id: v.id,
+        text: v.text,
+        allTextOverlaysCount: v.allTextOverlays?.length || 0,
+        textContents: v.allTextOverlays?.map(o => o.text) || []
+      })));
+      setVariations(allVideoCombinations);
       
     } catch (err) {
       console.error('Error generating variations:', err);
@@ -317,11 +518,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const handleSave = () => {
-    onSave(variations);
-    onClose();
   };
 
   const handleRegenerateVariations = () => {
@@ -367,35 +563,9 @@ const VariationModal: React.FC<VariationModalProps> = ({
             width: overlay.width,
             height: overlay.height,
           }))
-        : Object.values(storeState.trackItemsMap)
-            .filter((item: any) => item.type === 'text')
-            .map((item: any) => ({
-              id: item.id,
-              text: item.details.text || '',
-              position: {
-                top: typeof item.details.top === 'string' ? parseFloat(item.details.top) || 50 : item.details.top || 50,
-                left: typeof item.details.left === 'string' ? parseFloat(item.details.left) || 50 : item.details.left || 50,
-              },
-              style: {
-                fontSize: item.details.fontSize || 48,
-                fontFamily: item.details.fontFamily || 'Arial, sans-serif',
-                color: item.details.color || 'white',
-                backgroundColor: item.details.backgroundColor || 'transparent',
-                textAlign: item.details.textAlign || 'center',
-                fontWeight: item.details.fontWeight?.toString() || 'bold',
-                opacity: item.details.opacity || 100,
-                borderWidth: item.details.borderWidth,
-                borderColor: item.details.borderColor,
-                textDecoration: item.details.textDecoration,
-              },
-              timing: {
-                from: item.display.from,
-                to: item.display.to,
-              },
-              width: item.details.width,
-              height: item.details.height,
-            }));
+        : [];
 
+      // Handle video track items with variations
       const videoTrackItems = Object.values(storeState.trackItemsMap)
         .filter((item: any) => item.type === 'video')
         .map((item: any) => {
@@ -567,6 +737,10 @@ const VariationModal: React.FC<VariationModalProps> = ({
     }
   };
 
+  const handleSave = () => {
+    onSave(variations);
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -640,25 +814,25 @@ const VariationModal: React.FC<VariationModalProps> = ({
             {isGenerating ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  					<Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" style={{ color: 'rgb(80, 118, 178)' }} />
-                  <p className="text-gray-600">Generating variations with AI...</p>
+                  <ScalezLoader />
+                  <p className="text-gray-600 mt-4">Generating variations with AI...</p>
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 sm:gap-8 lg:gap-10 auto-rows-max pb-6 px-4 sm:px-6">
-                  {variations.map((variation, index) => {
-                    // Calculate exact video size - responsive sizing
-                    const maxVideoWidth = window.innerWidth < 640 ? 200 : window.innerWidth < 1024 ? 240 : 280;
-                    const videoWidth = Math.min(project.platformConfig.width * 0.6, maxVideoWidth);
-                    const videoHeight = (videoWidth * project.platformConfig.height) / project.platformConfig.width;
-                    
-                    console.log(`Rendering variation ${variation.id}:`, {
-                      hasAllTextOverlays: !!variation.allTextOverlays,
-                      allTextOverlaysCount: variation.allTextOverlays?.length || 0,
-                      allTextOverlays: variation.allTextOverlays?.map(o => ({ id: o.id, text: o.text, timing: o.timing })) || []
-                    });
-                    
-                    return (
+                {variations.map((variation, index) => {
+                  // Calculate exact video size - responsive sizing
+                  const maxVideoWidth = window.innerWidth < 640 ? 200 : window.innerWidth < 1024 ? 240 : 280;
+                  const videoWidth = Math.min(project.platformConfig.width * 0.6, maxVideoWidth);
+                  const videoHeight = (videoWidth * project.platformConfig.height) / project.platformConfig.width;
+                  
+                  console.log(`Rendering variation ${variation.id}:`, {
+                    hasAllTextOverlays: !!variation.allTextOverlays,
+                    allTextOverlaysCount: variation.allTextOverlays?.length || 0,
+                    allTextOverlays: variation.allTextOverlays?.map(o => ({ id: o.id, text: o.text, timing: o.timing })) || []
+                  });
+                  
+                  return (
                     <div key={variation.id} className="flex flex-col items-center space-y-3 w-full max-w-full p-2">
                       {/* Video Container - Fixed size matching platform */}
                       <div 
@@ -703,20 +877,20 @@ const VariationModal: React.FC<VariationModalProps> = ({
                         </div>
                       </div>
                     </div>
-                    );
-                  })}
-                  
-                  {/* Show placeholders if not enough variations */}
-                  {Array.from({ length: Math.max(0, 6 - variations.length) }).map((_, index) => (
-                    <div 
-                      key={`placeholder-${index}`}
-                      className="bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center"
-                      style={{ height: '200px' }}
-                    >
-                      <p className="text-gray-500 text-sm">Generating...</p>
-                    </div>
-                  ))}
-                </div>
+                  );
+                })}
+                
+                {/* Show placeholders if not enough variations */}
+                {Array.from({ length: Math.max(0, 6 - variations.length) }).map((_, index) => (
+                  <div 
+                    key={`placeholder-${index}`}
+                    className="bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center"
+                    style={{ height: '200px' }}
+                  >
+                    <p className="text-gray-500 text-sm">Generating...</p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 

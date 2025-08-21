@@ -48,7 +48,8 @@ const Scene = forwardRef<
 			}}
 			ref={containerRef}
 		>
-			{trackItemIds.length === 0 && <SceneEmpty />}
+					{trackItemIds.length === 0 && <SceneEmpty />}
+		{trackItemIds.length > 0 && (
 			<div
 				style={{
 					width: size.width,
@@ -86,6 +87,7 @@ const Scene = forwardRef<
 					)}
 				</Board>
 			</div>
+		)}
 		</div>
 	);
 });

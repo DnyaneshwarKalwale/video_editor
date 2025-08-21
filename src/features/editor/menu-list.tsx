@@ -11,6 +11,16 @@ import {
 } from "@/components/ui/drawer";
 import { MenuItem } from "./menu-item/menu-item";
 import { useIsLargeScreen } from "@/hooks/use-media-query";
+import { useSession, signOut } from "next-auth/react";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Define menu items configuration for better maintainability
 const MENU_ITEMS = [
@@ -85,6 +95,68 @@ const MenuButton = memo<{
 
 MenuButton.displayName = "MenuButton";
 
+// User profile component for the sidebar
+const UserProfile = memo(() => {
+	const { data: session } = useSession();
+
+	if (!session?.user) {
+		return null;
+	}
+
+	const handleSignOut = async () => {
+		await signOut({ callbackUrl: "/login" });
+	};
+
+	const getInitials = (name: string) => {
+		return name
+			.split(" ")
+			.map((n) => n[0])
+			.join("")
+			.toUpperCase()
+			.slice(0, 2);
+	};
+
+	return (
+		<div className="mt-auto border-t border-border/80 pt-2">
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="w-10 h-10 rounded-full mx-auto"
+						aria-label="User menu"
+					>
+						<Avatar className="w-8 h-8">
+							<AvatarImage src={session.user.image || ""} alt={session.user.name || ""} />
+							<AvatarFallback className="text-xs">
+								{session.user.name ? getInitials(session.user.name) : "U"}
+							</AvatarFallback>
+						</Avatar>
+					</Button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent className="w-56" align="end" forceMount>
+					<DropdownMenuLabel className="font-normal">
+						<div className="flex flex-col space-y-1">
+							<p className="text-sm font-medium leading-none">
+								{session.user.name}
+							</p>
+							<p className="text-xs leading-none text-muted-foreground">
+								{session.user.email}
+							</p>
+						</div>
+					</DropdownMenuLabel>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onClick={handleSignOut}>
+						Sign out
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		</div>
+	);
+});
+
+UserProfile.displayName = "UserProfile";
+
 // Main MenuList component
 function MenuList() {
 	const {
@@ -139,6 +211,7 @@ function MenuList() {
 						/>
 					);
 				})}
+				<UserProfile />
 			</nav>
 
 			{/* Drawer only on mobile/tablet - conditionally mounted */}

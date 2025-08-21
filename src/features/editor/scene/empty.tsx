@@ -6,6 +6,7 @@ import { generateId } from "@designcombo/timeline";
 import { PlusIcon } from "lucide-react";
 import { LogoIcons } from "@/components/shared/logos";
 import useStore from "../store/use-store";
+import ScalezLoader from "@/components/ui/scalez-loader";
 
 import { usePlatformStoreClient } from "../platform-preview";
 import { DroppableArea } from "./droppable";
@@ -19,21 +20,38 @@ const SceneEmpty = () => {
 	const { currentPlatform } = usePlatformStoreClient();
 
 	useEffect(() => {
-		const container = containerRef.current!;
+		const container = containerRef.current;
+		if (!container) {
+			console.log("Container not ready yet");
+			return;
+		}
+
 		const PADDING = 96;
 		const containerHeight = container.clientHeight - PADDING;
 		const containerWidth = container.clientWidth - PADDING;
 		const { width, height } = size;
 
+		console.log("SceneEmpty sizing:", { containerHeight, containerWidth, size });
+
+		if (containerHeight <= 0 || containerWidth <= 0 || !width || !height) {
+			console.log("Invalid dimensions, keeping loading state");
+			return;
+		}
+
 		const desiredZoom = Math.min(
 			containerWidth / width,
 			containerHeight / height,
 		);
-		setDesiredSize({
+		
+		const calculatedSize = {
 			width: width * desiredZoom,
 			height: height * desiredZoom,
-		});
+		};
+		
+		console.log("SceneEmpty calculated size:", calculatedSize);
+		setDesiredSize(calculatedSize);
 		setIsLoading(false);
+		console.log("SceneEmpty loading complete");
 	}, [size]);
 
 	const onSelectFiles = async (files: File[]) => {
@@ -59,7 +77,7 @@ const SceneEmpty = () => {
 				// Upload file to Cloudinary first
 				const formData = new FormData();
 				formData.append('file', file);
-				formData.append('userId', 'default-user-id'); // You can replace this with actual user ID
+				formData.append('projectId', window.location.pathname.split('/')[2]); // Get project ID from URL
 				
 				console.log(`Uploading ${file.name} to Cloudinary...`);
 				const uploadResponse = await fetch('/api/upload', {
@@ -204,11 +222,11 @@ const SceneEmpty = () => {
 						}}
 					>
 						<div className="flex flex-col items-center justify-center gap-6 pb-12">
-							{/* Ignite Logo and Brand */}
+							{/* Scalez Logo and Brand */}
 							<div className="flex flex-col items-center gap-3 mb-4">
 								<div className="flex items-center gap-3">
-									<LogoIcons.ignite className="h-8 w-8" />
-									<h1 className="text-2xl font-bold text-gray-900">Ignite</h1>
+									<LogoIcons.scalez className="h-8 w-8" />
+									<h1 className="text-2xl font-bold text-gray-900">Scalez</h1>
 								</div>
 								<p className="text-sm text-gray-600">AI Video Generator</p>
 							</div>
@@ -217,7 +235,7 @@ const SceneEmpty = () => {
 							<div className="flex flex-col items-center justify-center gap-4">
 								{isLoading ? (
 									<div className="flex flex-col items-center gap-2">
-										<div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+										<ScalezLoader />
 										<p className="text-sm text-muted-foreground">Uploading to Cloudinary...</p>
 									</div>
 								) : (
@@ -238,8 +256,8 @@ const SceneEmpty = () => {
 					</DroppableArea>
 				</Droppable>
 			) : (
-				<div className="flex flex-1 items-center justify-center bg-background-subtle text-sm text-muted-foreground">
-					Loading...
+				<div className="flex flex-1 items-center justify-center bg-background-subtle">
+					<ScalezLoader />
 				</div>
 			)}
 		</div>

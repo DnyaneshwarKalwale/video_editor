@@ -28,6 +28,10 @@ const assetSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  isVariation: {
+    type: Boolean,
+    default: false,
+  },
   metadata: {
     duration: Number,
     width: Number,

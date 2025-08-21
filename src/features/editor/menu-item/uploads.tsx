@@ -6,7 +6,8 @@ import { useIsDraggingOverTimeline } from "../hooks/is-dragging-over-timeline";
 import Draggable from "@/components/shared/draggable";
 import { cn } from "@/lib/utils";
 import { generateId } from "@designcombo/timeline";
-import { UploadIcon, VideoIcon, ImageIcon, Music, Loader2 } from "lucide-react";
+import { UploadIcon, VideoIcon, ImageIcon, Music, Loader2, RefreshCw } from "lucide-react";
+import ScalezLoader from "@/components/ui/scalez-loader";
 import ModalUpload from "@/components/modal-upload";
 import useUploadStore from "../store/use-upload-store";
 
@@ -26,7 +27,8 @@ export const Uploads = () => {
 	const fetchAssets = async () => {
 		try {
 			setLoading(true);
-			const response = await fetch('/api/assets');
+			const projectId = window.location.pathname.split('/')[2]; // Get project ID from URL
+			const response = await fetch(`/api/assets?projectId=${projectId}`);
 			if (response.ok) {
 				const data = await response.json();
 				setAssets(data.assets || []);
@@ -40,6 +42,17 @@ export const Uploads = () => {
 
 	useEffect(() => {
 		fetchAssets();
+		
+		// Listen for refresh events
+		const handleRefresh = () => {
+			fetchAssets();
+		};
+		
+		window.addEventListener('refreshUploads', handleRefresh);
+		
+		return () => {
+			window.removeEventListener('refreshUploads', handleRefresh);
+		};
 	}, []);
 
 	// Combine local uploads with database assets
@@ -178,7 +191,13 @@ export const Uploads = () => {
 					disabled={loading}
 					className="h-6 w-6 p-0"
 				>
-					<Loader2 className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+					{loading ? (
+						<div className="scale-50">
+							<ScalezLoader />
+						</div>
+					) : (
+						<RefreshCw className="h-3 w-3" />
+					)}
 				</Button>
 			</div>
 			<ModalUpload />
@@ -188,7 +207,9 @@ export const Uploads = () => {
 			{(pendingUploads.length > 0 || activeUploads.length > 0) && (
 				<div className="p-4">
 					<div className="font-medium text-sm mb-2 flex items-center gap-2">
-						<Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+						<div className="scale-50">
+							<ScalezLoader />
+						</div>
 						Uploads in Progress
 					</div>
 					<div className="flex flex-col gap-2">
@@ -206,7 +227,9 @@ export const Uploads = () => {
 									{upload.file?.name || upload.url || "Unknown"}
 								</span>
 								<div className="flex items-center gap-1">
-									<Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+									<div className="scale-50">
+										<ScalezLoader />
+									</div>
 									<span className="text-xs">{upload.progress ?? 0}%</span>
 									<span className="text-xs text-muted-foreground ml-2">
 										{upload.status}
@@ -221,8 +244,10 @@ export const Uploads = () => {
 			<div className="flex flex-col gap-10 p-4">
 				{loading ? (
 					<div className="flex items-center justify-center py-8">
-						<div className="flex items-center gap-2">
-							<Loader2 className="w-4 h-4 animate-spin" />
+						<div className="flex flex-col items-center gap-4">
+							<div className="scale-50">
+								<ScalezLoader />
+							</div>
 							<span className="text-sm text-muted-foreground">Loading your uploads...</span>
 						</div>
 					</div>

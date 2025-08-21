@@ -196,7 +196,7 @@ export default function Navbar({
 
 			<div className="flex items-center gap-2">
 				<div className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md text-gray-900">
-					<LogoIcons.ignite />
+					<LogoIcons.scalez />
 				</div>
 
 				<div className=" pointer-events-auto flex h-10 items-center px-1.5">

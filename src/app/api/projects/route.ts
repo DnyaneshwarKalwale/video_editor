@@ -1,74 +1,137 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/database';
 import Project from '@/models/Project';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../auth/[...nextauth]/options';
+import { generateId } from '@designcombo/timeline';
+
+export async function GET(request: NextRequest) {
+  try {
+    // Get authenticated user session
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+    
+    await connectDB();
+
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search');
+
+    // Build query
+    const query: any = { userId, status: { $ne: 'deleted' } };
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+
+    const projects = await Project.find(query)
+      .sort({ updatedAt: -1 })
+      .select('projectId name platform aspectRatio createdAt updatedAt thumbnail duration status')
+      .limit(50); // Limit to prevent loading too many projects at once
+
+    return NextResponse.json({
+      success: true,
+      projects: projects.map(project => ({
+        id: project._id,
+        projectId: project.projectId,
+        name: project.name,
+        platform: project.platform,
+        aspectRatio: project.aspectRatio,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
+        thumbnail: project.thumbnail,
+        duration: project.duration,
+        status: project.status,
+      })),
+    });
+  } catch (error) {
+    console.error('Projects fetch error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch projects' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
-
-    const body = await request.json();
-    const { userId, name, platform, trackItems, size, metadata } = body;
-
-    if (!userId || !name || !platform) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    // Get authenticated user session
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    const userId = session.user.id;
+    
+    await connectDB();
+
+    const { name, platform } = await request.json();
+
+    if (!name || !platform) {
+      return NextResponse.json({ error: 'Name and platform are required' }, { status: 400 });
+    }
+
+    // Get platform configuration
+    const platformConfigs = {
+      'instagram-reel': { width: 1080, height: 1920, aspectRatio: '9:16' },
+      'instagram-post': { width: 1080, height: 1080, aspectRatio: '1:1' },
+      'youtube-landscape': { width: 1920, height: 1080, aspectRatio: '16:9' },
+      'facebook-feed': { width: 1200, height: 628, aspectRatio: '1.91:1' },
+      'tiktok': { width: 1080, height: 1920, aspectRatio: '9:16' },
+    };
+
+    const platformConfig = platformConfigs[platform as keyof typeof platformConfigs];
+    if (!platformConfig) {
+      return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
+    }
+
+    // Generate unique project ID
+    const projectId = generateId();
+
+    // Create new project with initial data
     const project = await Project.create({
       userId,
+      projectId,
       name,
       platform,
-      trackItems,
-      size,
-      metadata,
+      aspectRatio: platformConfig.aspectRatio,
+      width: platformConfig.width,
+      height: platformConfig.height,
+      status: 'active',
+      trackItems: [],
+      size: {
+        width: platformConfig.width,
+        height: platformConfig.height,
+      },
+      metadata: {},
+      assets: [],
+      textVariations: [],
+      videoVariations: [],
+      exports: [],
     });
 
     return NextResponse.json({
       success: true,
       project: {
         id: project._id,
+        projectId: project.projectId,
         name: project.name,
         platform: project.platform,
+        aspectRatio: project.aspectRatio,
+        width: project.width,
+        height: project.height,
         createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
       },
     });
   } catch (error) {
     console.error('Project creation error:', error);
     return NextResponse.json(
       { error: 'Failed to create project' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    await connectDB();
-
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID required' },
-        { status: 400 }
-      );
-    }
-
-    const projects = await Project.find({ userId })
-      .sort({ updatedAt: -1 })
-      .select('name platform createdAt updatedAt');
-
-    return NextResponse.json({
-      success: true,
-      projects,
-    });
-  } catch (error) {
-    console.error('Project fetch error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch projects' },
       { status: 500 }
     );
   }

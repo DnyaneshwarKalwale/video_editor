@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Player } from '@remotion/player';
 import { VideoVariation, TextOverlayData } from '../types/variation-types';
+import ScalezLoader from '@/components/ui/scalez-loader';
 import TextOverlayEditor from './TextOverlayEditor';
 import VariationComposition from './VariationComposition';
 import { VideoTrackItem, AudioTrackItem } from '../types/variation-types';

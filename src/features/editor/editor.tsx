@@ -32,6 +32,7 @@ import ControlItemHorizontal from "./control-item-horizontal";
 import { PlatformPreview, usePlatformStoreClient, PLATFORM_CONFIGS } from "./platform-preview";
 import { DownloadManager } from './components/DownloadManager';
 
+// Create stateManager instance for components that need it
 const stateManager = new StateManager({
 	size: {
 		width: 1080,
@@ -48,6 +49,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 	const { activeIds, trackItemsMap, transitionsMap } = useStore();
 	const [loaded, setLoaded] = useState(false);
 	const [trackItem, setTrackItem] = useState<ITrackItem | null>(null);
+	const [trackItems, setTrackItems] = useState<any[]>([]);
+	const [size, setSizeState] = useState({ width: 1080, height: 1920 });
 	const {
 		setTrackItem: setLayoutTrackItem,
 		setFloatingControl,
@@ -92,7 +95,6 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 						throw new Error(`HTTP error! status: ${response.status}`);
 					}
 					const data = await response.json();
-					console.log("Fetched scene data:", data);
 
 					if (data.success && data.scene) {
 						// Set project name if available
@@ -101,27 +103,122 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 						}
 
 						// Load the scene content into the editor
-						if (data.scene.content) {
-							dispatch(DESIGN_LOAD, { payload: data.scene.content });
+						if (data.scene.content && data.scene.content.trackItems) {
+							// Convert trackItems array to trackItemsMap object
+							const trackItemsMap: Record<string, any> = {};
+							const trackItemIds: string[] = [];
+							data.scene.content.trackItems.forEach((item: any) => {
+								trackItemsMap[item.id] = item;
+								trackItemIds.push(item.id);
+							});
+							
+							// Group track items by type for tracks array
+							const tracksByType: Record<string, string[]> = {};
+							data.scene.content.trackItems.forEach((item: any) => {
+								if (!tracksByType[item.type]) {
+									tracksByType[item.type] = [];
+								}
+								tracksByType[item.type].push(item.id);
+							});
+							
+							// Create tracks array
+							const tracks = Object.entries(tracksByType).map(([type, items]) => ({
+								id: `track-${type}-${Date.now()}`,
+								type: type,
+								items: items
+							}));
+							
+							// Ensure we have valid data before dispatching
+							const validContent = {
+								trackItemsMap: trackItemsMap,
+								trackItemIds: trackItemIds,
+								tracks: tracks,
+								transitionIds: [],
+								transitionsMap: {},
+								size: data.scene.content.size || { width: 1080, height: 1920 },
+								metadata: data.scene.content.metadata || {},
+							};
+							
+							// Update the trackItems state
+							setTrackItems(data.scene.content.trackItems);
+							
+							// Load scene data immediately when available
+							try {
+								// Ensure validContent is not null/undefined
+								if (validContent && validContent.trackItemsMap) {
+									// Dispatch data immediately
+									dispatch(DESIGN_LOAD, { payload: validContent });
+									
+									// Trigger a custom event to notify that project is loaded
+									window.dispatchEvent(new CustomEvent('projectLoaded', { 
+										detail: { 
+											projectId: id,
+											trackItems: data.scene.content.trackItems 
+										} 
+									}));
+								}
+							} catch (error) {
+								console.error('Error loading scene data:', error);
+							}
+						} else {
+							console.log('No valid scene content found, using default state');
+							// Initialize with empty state
+							const emptyContent = {
+								trackItemsMap: {},
+								trackItemIds: [],
+								tracks: [],
+								transitionIds: [],
+								transitionsMap: {},
+								size: { width: 1080, height: 1920 },
+								metadata: {},
+							};
+							setTrackItems([]);
+							
+							// Load empty scene immediately
+							dispatch(DESIGN_LOAD, { payload: emptyContent });
 						}
 					} else {
 						console.error("Failed to fetch scene:", data.error);
+						// Initialize with empty state on error
+						const emptyContent = {
+							trackItemsMap: {},
+							trackItemIds: [],
+							tracks: [],
+							transitionIds: [],
+							transitionsMap: {},
+							size: { width: 1080, height: 1920 },
+							metadata: {},
+						};
+						setTrackItems([]);
+						
+						// Load empty scene immediately
+						dispatch(DESIGN_LOAD, { payload: emptyContent });
 					}
 				} catch (error) {
 					console.error("Error fetching scene by ID:", error);
+					// Initialize with empty scene on error
+					const emptyContent = {
+						trackItemsMap: {},
+						trackItemIds: [],
+						tracks: [],
+						transitionIds: [],
+						transitionsMap: {},
+						size: { width: 1080, height: 1920 },
+						metadata: {},
+					};
+					setTrackItems([]);
+					
+					// Load empty scene immediately
+					dispatch(DESIGN_LOAD, { payload: emptyContent });
 				}
 			};
 			fetchSceneById();
 		}
-	}, [id, tempId]);
+	}, [id, tempId, loaded]);
 
 	useEffect(() => {
 		console.log("scene", scene);
 		console.log("timeline", timeline);
-		if (scene && timeline) {
-			console.log("scene", scene);
-			dispatch(DESIGN_LOAD, { payload: scene });
-		}
 	}, [scene, timeline]);
 
 	useEffect(() => {
@@ -185,6 +282,17 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 		}
 	}, [activeIds, trackItemsMap]);
 
+	// Update trackItems state when trackItemsMap changes
+	useEffect(() => {
+		const currentTrackItems = Object.values(trackItemsMap || {});
+		setTrackItems(currentTrackItems);
+		
+		// Trigger state change event when trackItemsMap changes
+		if (currentTrackItems.length > 0) {
+			window.dispatchEvent(new CustomEvent('stateChanged'));
+		}
+	}, [trackItemsMap]);
+
 	useEffect(() => {
 		setFloatingControl("");
 		setLabelControlItem("");
@@ -207,10 +315,12 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 	// Effect to handle platform changes and update canvas size
 	useEffect(() => {
 		if (currentPlatform) {
-			setSize({
+			const newSize = {
 				width: currentPlatform.width,
 				height: currentPlatform.height,
-			});
+			};
+			setSize(newSize);
+			setSizeState(newSize);
 			// Recalculate zoom after size change
 			setTimeout(() => {
 				sceneRef.current?.recalculateZoom();
@@ -218,6 +328,145 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 		}
 	}, [currentPlatform, setSize]);
 
+	// Auto-save scene data to backend
+	useEffect(() => {
+		if (id) {
+			const saveSceneData = async () => {
+				try {
+					// Get current state from the timeline
+					const currentTrackItems = Object.values(trackItemsMap || {});
+					const currentSize = size;
+					
+					console.log('Auto-saving - Track items to save:', currentTrackItems.length);
+					console.log('Auto-saving - Track items:', currentTrackItems);
+					
+					const response = await fetch(`/api/scene/${id}`, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({
+							trackItems: currentTrackItems,
+							size: currentSize,
+							metadata: {
+								lastSaved: new Date().toISOString(),
+								platform: currentPlatform?.id,
+							},
+						}),
+					});
+
+					if (response.ok) {
+						console.log('Scene data auto-saved to backend');
+					} else {
+						console.error('Failed to auto-save scene data');
+					}
+				} catch (error) {
+					console.error('Error auto-saving scene data:', error);
+				}
+			};
+
+			// Save immediately when project is loaded
+			if (trackItems.length > 0) {
+				saveSceneData();
+			}
+
+			// Debounce the save to avoid too many requests
+			const timeoutId = setTimeout(saveSceneData, 5000);
+			return () => clearTimeout(timeoutId);
+		}
+	}, [id, trackItems, size, currentPlatform]);
+
+	// Listen for state changes and save to backend
+	useEffect(() => {
+		if (id) {
+			let saveTimeout: NodeJS.Timeout;
+			
+			const handleStateChange = () => {
+				// Clear previous timeout
+				clearTimeout(saveTimeout);
+				
+				// Debounced save when state changes
+				saveTimeout = setTimeout(async () => {
+					try {
+						const currentTrackItems = Object.values(trackItemsMap || {});
+						const currentSize = size;
+						
+						console.log('Saving state changes to backend:', currentTrackItems.length, 'items');
+						
+						const response = await fetch(`/api/scene/${id}`, {
+							method: 'PUT',
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify({
+								trackItems: currentTrackItems,
+								size: currentSize,
+								metadata: {
+									lastSaved: new Date().toISOString(),
+									platform: currentPlatform?.id,
+								},
+							}),
+						});
+
+						if (response.ok) {
+							console.log('State changes saved to backend');
+						} else {
+							console.error('Failed to save state changes');
+						}
+					} catch (error) {
+						console.error('Error saving state changes:', error);
+					}
+				}, 3000); // 3 second debounce
+			};
+
+			// Listen for custom events from state changes
+			const handleCustomEvent = () => handleStateChange();
+			window.addEventListener('stateChanged', handleCustomEvent);
+			
+			return () => {
+				clearTimeout(saveTimeout);
+				window.removeEventListener('stateChanged', handleCustomEvent);
+			};
+		}
+	}, [id, trackItemsMap, size, currentPlatform]);
+
+	// Immediate save when track items change
+	useEffect(() => {
+		if (id && trackItems.length > 0) {
+			const saveImmediately = async () => {
+				try {
+					const currentTrackItems = Object.values(trackItemsMap || {});
+					const currentSize = size;
+					
+					const response = await fetch(`/api/scene/${id}`, {
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+						},
+						body: JSON.stringify({
+							trackItems: currentTrackItems,
+							size: currentSize,
+							metadata: {
+								lastSaved: new Date().toISOString(),
+								platform: currentPlatform?.id,
+							},
+						}),
+					});
+
+					if (response.ok) {
+						console.log('Scene data saved immediately');
+					} else {
+						console.error('Failed to save scene data immediately');
+					}
+				} catch (error) {
+					console.error('Error saving scene data immediately:', error);
+				}
+			};
+
+			// Save immediately when track items change
+			saveImmediately();
+		}
+	}, [trackItems, id, trackItemsMap, size, currentPlatform]);
 
 
 	return (
@@ -262,7 +511,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 						defaultSize={30}
 						onResize={handleTimelineResize}
 					>
-						{playerRef && <Timeline stateManager={stateManager} />}
+						<Timeline stateManager={stateManager} />
 					</ResizablePanel>
 					{!isLargeScreen && !trackItem && loaded && <MenuListHorizontal />}
 					{!isLargeScreen && trackItem && <ControlItemHorizontal />}

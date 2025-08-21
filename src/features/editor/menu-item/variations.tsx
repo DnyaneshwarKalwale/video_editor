@@ -86,74 +86,30 @@ const Variations: React.FC<VariationsProps> = ({
 
       setGeneratedTextVariations(response.variations);
       
-      // Automatically save the variations to localStorage with proper format
+      // Automatically save the variations to backend
       if (selectedElement) {
-        // Get the original element data from the timeline
-        const originalElementData = {
-          id: selectedElement.id,
-          text: selectedElement.content,
-          position: { top: 652.922, left: 147.346 }, // Default position
-          style: {
-            fontSize: 120,
-            fontFamily: "Roboto-Bold",
-            color: "#000000",
-            backgroundColor: "transparent",
-            textAlign: "center",
-            opacity: 100
-          },
-          timing: { from: 0, to: 5000 }, // Default timing
-          width: 600,
-          height: 434.4,
-          editable: false
-        };
+        // Save to backend
+        await saveTextVariations(selectedElement.id, selectedElement.content, response.variations);
 
+        // Update the element with new variations
         const allVariations = [
-          {
-            id: 'original-composition',
-            text: selectedElement.content,
-            originalTextId: selectedElement.id,
-          isOriginal: true,
-            allTextOverlays: [originalElementData]
-          },
-                  ...response.variations.map((text: string, index: number) => ({
-          id: `variation-${index}`,
-          text: text,
-          originalTextId: selectedElement.id,
-          isOriginal: false,
-          allTextOverlays: [{
-            ...originalElementData,
-            text: text
-          }]
-        }))
-        ];
-
-        // Save to local storage in the format expected by navbar
-        const storageKey = `variations_${selectedElement.id}`;
-        localStorage.setItem(storageKey, JSON.stringify(allVariations));
-
-        // Also save in the simple format for sidebar display
-        const simpleVariations = [
           {
             id: 'original',
             key: 'TO',
             value: selectedElement.content,
             type: 'text'
           },
-                  ...response.variations.map((text: string, index: number) => ({
-          id: `variation-${index}`,
-          key: `T${index + 1}`,
-          value: text,
-          type: 'text'
-        }))
+          ...response.variations.map((text: string, index: number) => ({
+            id: `variation-${index}`,
+            key: `T${index + 1}`,
+            value: text,
+            type: 'text'
+          }))
         ];
 
-        const simpleStorageKey = `simple_variations_${selectedElement.id}`;
-        localStorage.setItem(simpleStorageKey, JSON.stringify(simpleVariations));
-
-        // Update the element with new variations
         const updatedElement = {
           ...selectedElement,
-          variations: simpleVariations
+          variations: allVariations
         };
 
         const updatedElements = timelineElements.map(el => 
@@ -161,9 +117,10 @@ const Variations: React.FC<VariationsProps> = ({
         );
         
         onVariationsChange(updatedElements);
+        
+        message.success(`Generated and saved ${response.variations.length} variations!`);
       }
       
-      message.success(`Generated ${response.variations.length} text variations! You can now edit, delete, or add more variations.`);
     } catch (error) {
       message.error('Failed to generate variations');
     } finally {
@@ -171,7 +128,75 @@ const Variations: React.FC<VariationsProps> = ({
     }
   };
 
-  const saveVariations = () => {
+  // Load variations from backend when element is selected
+  useEffect(() => {
+    if (selectedElement) {
+      loadTextVariations(selectedElement.id);
+    }
+  }, [selectedElement]);
+
+  const saveTextVariations = async (elementId: string, originalText: string, variations: string[]) => {
+    if (!selectedElement) return;
+
+    try {
+      // Get project ID from URL
+      const projectId = window.location.pathname.split('/')[2];
+      
+      // Save to backend
+      const response = await fetch(`/api/projects/${projectId}/text-variations`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          elementId,
+          originalText,
+          variations: variations.map((text, index) => ({
+            id: `variation-${index}`,
+            text,
+            language: 'English',
+            style: {}
+          }))
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Text variations saved to backend for element:', elementId);
+        message.success('Variations saved successfully!');
+      } else {
+        console.error('Failed to save text variations to backend');
+        message.error('Failed to save variations');
+      }
+    } catch (error) {
+      console.error('Error saving text variations:', error);
+      message.error('Error saving variations');
+    }
+  };
+
+  const loadTextVariations = async (elementId: string) => {
+    if (!selectedElement) return [];
+
+    try {
+      // Get project ID from URL
+      const projectId = window.location.pathname.split('/')[2];
+      
+      const response = await fetch(`/api/projects/${projectId}/text-variations`);
+      if (response.ok) {
+        const data = await response.json();
+        const elementVariations = data.textVariations.find((v: any) => v.elementId === elementId);
+        if (elementVariations) {
+          const loadedVariations = elementVariations.variations.map((v: any) => v.text);
+          setGeneratedTextVariations(loadedVariations);
+          return loadedVariations;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading text variations:', error);
+    }
+    return [];
+  };
+
+  const saveVariations = async () => {
     if (selectedElement) {
       // Create variations array with original text + generated variations
       const allVariations = [
@@ -189,12 +214,8 @@ const Variations: React.FC<VariationsProps> = ({
         }))
       ];
 
-      // Save to BOTH storage keys to keep them in sync
-      const storageKey = `variations_${selectedElement.id}`;
-      const simpleStorageKey = `simple_variations_${selectedElement.id}`;
-      
-      localStorage.setItem(storageKey, JSON.stringify(allVariations));
-      localStorage.setItem(simpleStorageKey, JSON.stringify(allVariations));
+      // Save to backend
+      await saveTextVariations(selectedElement.id, selectedElement.content, generatedTextVariations);
 
       // Update the element with new variations
       const updatedElement = {
@@ -213,45 +234,13 @@ const Variations: React.FC<VariationsProps> = ({
     }
   };
 
-  const handleDeleteVariation = (index: number) => {
+  const handleDeleteVariation = async (index: number) => {
     const newVariations = generatedTextVariations.filter((_, i) => i !== index);
     setGeneratedTextVariations(newVariations);
     
-    // Update local storage immediately
+    // Save updated variations to backend
     if (selectedElement) {
-      const allVariations = [
-        {
-          id: 'original',
-          key: 'TO',
-          value: selectedElement.content,
-          type: 'text'
-        },
-        ...newVariations.map((text, idx) => ({
-          id: `variation-${idx}`,
-          key: `T${idx + 1}`,
-          value: text,
-          type: 'text'
-        }))
-      ];
-      
-      // Update BOTH storage keys to keep them in sync
-      const storageKey = `variations_${selectedElement.id}`;
-      const simpleStorageKey = `simple_variations_${selectedElement.id}`;
-      
-      localStorage.setItem(storageKey, JSON.stringify(allVariations));
-      localStorage.setItem(simpleStorageKey, JSON.stringify(allVariations));
-      
-      // Update the element immediately
-      const updatedElement = {
-        ...selectedElement,
-        variations: allVariations
-      };
-      
-      const updatedElements = timelineElements.map(el => 
-        el.id === selectedElement.id ? updatedElement : el
-      );
-      
-      onVariationsChange(updatedElements);
+      await saveTextVariations(selectedElement.id, selectedElement.content, newVariations);
     }
   };
 
@@ -264,53 +253,6 @@ const Variations: React.FC<VariationsProps> = ({
       setSelectedElement(element);
     }
   }, [timelineElements]);
-
-  // Load existing variations when selected element changes
-  useEffect(() => {
-    console.log('Selected element changed:', selectedElement);
-    if (selectedElement) {
-      // Try both storage keys to be sure
-      const storageKey = `variations_${selectedElement.id}`;
-      const simpleStorageKey = `simple_variations_${selectedElement.id}`;
-      console.log('Loading variations from storage keys:', storageKey, simpleStorageKey);
-      
-      let savedVariations = localStorage.getItem(storageKey);
-      if (!savedVariations) {
-        savedVariations = localStorage.getItem(simpleStorageKey);
-      }
-      
-      if (savedVariations) {
-        try {
-          const parsedVariations = JSON.parse(savedVariations);
-          console.log('Parsed variations:', parsedVariations);
-          
-          // Handle both formats - the new format and the simple format
-          let textVariations: string[] = [];
-          
-          if (Array.isArray(parsedVariations)) {
-            // Simple format: array of objects with 'value' property
-            textVariations = parsedVariations
-              .filter((v: any) => v.id !== 'original' && v.type === 'text')
-              .map((v: any) => v.value);
-          } else if (parsedVariations.variations) {
-            // New format: object with variations array
-            textVariations = parsedVariations.variations
-              .filter((v: any) => v.id !== 'original' && v.type === 'text')
-              .map((v: any) => v.value);
-          }
-          
-          console.log('Setting generated text variations:', textVariations);
-          setGeneratedTextVariations(textVariations);
-        } catch (error) {
-          console.error('Error parsing saved variations:', error);
-          setGeneratedTextVariations([]);
-        }
-      } else {
-        console.log('No saved variations found, clearing');
-        setGeneratedTextVariations([]);
-      }
-    }
-  }, [selectedElement]);
 
     console.log('Rendering variations modal with generatedTextVariations:', generatedTextVariations);
     
@@ -340,14 +282,11 @@ const Variations: React.FC<VariationsProps> = ({
                         value={selectedElement?.content || ''}
                         placeholder="Enter text content"
                         style={{ width: '100%' }}
+                        readOnly
                       />
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center', verticalAlign: 'middle' }}>
-                      <Button 
-                        type="text" 
-                        danger 
-                        icon={<DeleteOutlined />}
-                      />
+                      {/* No delete button for original text */}
                     </td>
                   </tr>
                   

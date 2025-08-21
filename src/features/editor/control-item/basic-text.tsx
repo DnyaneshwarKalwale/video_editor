@@ -119,6 +119,11 @@ const BasicText = ({
 	}, [trackItem.id]);
 
 	const handleChangeFontStyle = async (font: IFont) => {
+		if (!trackItem?.id) {
+			console.warn('trackItem or trackItem.id is undefined');
+			return;
+		}
+		
 		const fontName = font.postScriptName;
 		const fontUrl = font.url;
 		const styleName = getStyleNameFromFontName(fontName);
@@ -215,6 +220,11 @@ const BasicText = ({
 	};
 
 	const onChangeFontSize = (v: number) => {
+		if (!trackItem?.id) {
+			console.warn('trackItem or trackItem.id is undefined');
+			return;
+		}
+		
 		dispatch(EDIT_OBJECT, {
 			payload: {
 				[trackItem.id]: {
@@ -233,6 +243,11 @@ const BasicText = ({
 	};
 
 	const onChangeFontFamily = async (font: ICompactFont) => {
+		if (!trackItem?.id) {
+			console.warn('trackItem or trackItem.id is undefined');
+			return;
+		}
+		
 		const fontName = font.default.postScriptName;
 		const fontUrl = font.default.url;
 
@@ -262,6 +277,11 @@ const BasicText = ({
 	};
 
 	const handleColorChange = (color: string) => {
+		if (!trackItem?.id) {
+			console.warn('trackItem or trackItem.id is undefined');
+			return;
+		}
+		
 		setProperties((prev) => {
 			return {
 				...prev,
@@ -281,6 +301,11 @@ const BasicText = ({
 	};
 
 	const handleBackgroundChange = (color: string) => {
+		if (!trackItem?.id) {
+			console.warn('trackItem or trackItem.id is undefined');
+			return;
+		}
+		
 		setProperties((prev) => {
 			return {
 				...prev,
@@ -300,6 +325,11 @@ const BasicText = ({
 	};
 
 	const onChangeTextAlign = (v: string) => {
+		if (!trackItem?.id) {
+			console.warn('trackItem or trackItem.id is undefined');
+			return;
+		}
+		
 		setProperties((prev) => {
 			return {
 				...prev,
@@ -318,6 +348,11 @@ const BasicText = ({
 	};
 
 	const onChangeTextDecoration = (v: string) => {
+		if (!trackItem?.id) {
+			console.warn('trackItem or trackItem.id is undefined');
+			return;
+		}
+		
 		setProperties({
 			...properties,
 			textDecoration: v,

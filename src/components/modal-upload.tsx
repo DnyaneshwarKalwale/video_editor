@@ -185,7 +185,7 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 					// Upload to Cloudinary
 					const formData = new FormData();
 					formData.append('file', file);
-					formData.append('userId', 'default-user-id'); // You can replace this with actual user ID
+					formData.append('projectId', window.location.pathname.split('/')[2]); // Get project ID from URL
 					
 					console.log(`Uploading ${file.name} to Cloudinary...`);
 					const uploadResponse = await fetch('/api/upload', {
@@ -247,6 +247,12 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 		} finally {
 			setIsUploading(false);
 			// Clear modal state and close
+			setFiles([]);
+			setVideoUrl('');
+			setShowUploadModal(false);
+			
+			// Refresh the uploads list
+			window.dispatchEvent(new CustomEvent('refreshUploads'));
 			setFiles([]);
 			setShowUploadModal(false);
 			setVideoUrl("");

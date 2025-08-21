@@ -8,6 +8,7 @@ import {
 import { QueryProvider } from "@/components/query-provider";
 import { Analytics } from "@vercel/analytics/react";
 import { Outfit } from "next/font/google";
+import { SessionProvider } from "@/components/session-provider";
 
 import "./globals.css";
 
@@ -30,8 +31,8 @@ const outfit = Outfit({
 
 export const metadata = createMetadata({
 	title: {
-		template: "%s | Ignite",
-		default: "Ignite",
+		template: "%s | Scalez",
+		default: "Scalez",
 	},
 	description: "AI Video generator for the next gen web.",
 	metadataBase: baseUrl,
@@ -48,12 +49,14 @@ export default async function RootLayout({
 				className={`${geistMono.variable} ${geist.variable} ${outfit.variable} antialiased font-sans bg-background`}
 				suppressHydrationWarning={true}
 			>
-				<QueryProvider>
-					{children}
-					<StoreInitializer />
-					<BackgroundUploadRunner />
-					<Toaster />
-				</QueryProvider>
+				<SessionProvider>
+					<QueryProvider>
+						{children}
+						<StoreInitializer />
+						<BackgroundUploadRunner />
+						<Toaster />
+					</QueryProvider>
+				</SessionProvider>
 				<Analytics />
 			</body>
 		</html>

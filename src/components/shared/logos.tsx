@@ -60,6 +60,106 @@ export const LogoIcons = {
 			<circle cx="16" cy="6" r="0.5" fill="#FFD700" />
 		</svg>
 	),
+	scalez: ({ ...props }: LucideProps) => (
+		<svg
+			width="24"
+			height="24"
+			viewBox="0 0 623 628"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+			{...props}
+		>
+			<defs>
+				<linearGradient id="blue-gradient" gradientUnits="userSpaceOnUse" y2="2" x2="0" y1="62" x1="0">
+					<stop stopColor="#00D4FF" stopOpacity="1" />
+					<stop stopColor="#00A3FF" stopOpacity="1" offset="1" />
+				</linearGradient>
+				<linearGradient id="blue-spin" gradientUnits="userSpaceOnUse" y2="0" x2="0" y1="64" x1="0">
+					<stop stopColor="#00D4FF" stopOpacity="1" />
+					<stop stopColor="#00A3FF" stopOpacity="1" offset="1" />
+				</linearGradient>
+			</defs>
+			{/* Logo circle with animation */}
+			<circle
+				cx="311.5"
+				cy="314"
+				r="300"
+				stroke="url(#blue-gradient)"
+				strokeWidth="8"
+				fill="none"
+				style={{
+					animation: 'dashArray 6s ease-in-out infinite, dashOffset 6s linear infinite'
+				}}
+				pathLength={360}
+			/>
+			{/* Letter S */}
+			<path
+				d="M150 200 C150 150, 200 150, 200 200 C200 250, 150 250, 150 300"
+				stroke="url(#blue-gradient)"
+				strokeWidth="12"
+				fill="none"
+				style={{
+					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
+				}}
+				pathLength={360}
+			/>
+			{/* Letter C */}
+			<path
+				d="M250 150 C300 150, 300 200, 300 250 C300 300, 250 300, 250 250"
+				stroke="url(#blue-gradient)"
+				strokeWidth="12"
+				fill="none"
+				style={{
+					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
+				}}
+				pathLength={360}
+			/>
+			{/* Letter A */}
+			<path
+				d="M350 300 L380 150 L410 300 M360 250 L400 250"
+				stroke="url(#blue-gradient)"
+				strokeWidth="12"
+				fill="none"
+				style={{
+					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
+				}}
+				pathLength={360}
+			/>
+			{/* Letter L */}
+			<path
+				d="M450 150 L450 300 L500 300"
+				stroke="url(#blue-gradient)"
+				strokeWidth="12"
+				fill="none"
+				style={{
+					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
+				}}
+				pathLength={360}
+			/>
+			{/* Letter E */}
+			<path
+				d="M520 150 L580 150 M520 150 L520 300 M520 150 L580 150 M520 225 L560 225 M520 300 L580 300"
+				stroke="url(#blue-gradient)"
+				strokeWidth="12"
+				fill="none"
+				style={{
+					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
+				}}
+				pathLength={360}
+			/>
+			{/* Letter Z */}
+			<path
+				d="M600 150 L650 150 L600 300 L650 300"
+				stroke="url(#blue-gradient)"
+				strokeWidth="12"
+				fill="none"
+				style={{
+					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
+				}}
+				pathLength={360}
+			/>
+		</svg>
+	),
 	scenify: ({ ...props }: LucideProps) => (
 		<svg
 			width="24"

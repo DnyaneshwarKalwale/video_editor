@@ -56,33 +56,21 @@ export class AIVariationService {
   private buildAutoGenerationPrompt(originalText: string, count: number): string {
     return `You are a top-tier direct response copywriter trained in the principles of Sabri Suby, Dan Kennedy, and Russell Brunson.
 
-Your job is to take a short headline used at the start of a video ad (displayed as bold on-screen text) and generate:
-
-An enhanced version of the original headline — applying proven copywriting techniques.
-
-Then, generate ${count} variations that:
+Your job is to take a short headline used at the start of a video ad (displayed as bold on-screen text) and generate ${count} variations that:
 
 Keep the core message intact
-
 Fit within 1–2 lines max (10–12 words or less)
-
 Are clear, visual, high-contrast (to be used in story/feed ads)
-
 Are written with attention-grabbing direct-response copywriting principles, such as:
-
-Pattern interrupts
-
-Big benefit first
-
-Curiosity or contrast
-
-"Reason why" or "how to" formats
-
-Power words, specificity, emotional payoff
+- Pattern interrupts
+- Big benefit first
+- Curiosity or contrast
+- "Reason why" or "how to" formats
+- Power words, specificity, emotional payoff
 
 Original text: "${originalText}"
 
-Output as a numbered list (1-${count}).`;
+IMPORTANT: Output ONLY the variations as a numbered list (1-${count}). Do NOT include any prefixes like "Enhanced headline:" or quotes around the text. Just the clean variations.`;
   }
 
   private buildLanguageGenerationPrompt(originalText: string, language: string, count: number): string {
@@ -96,7 +84,8 @@ Each variation must:
 - Vary the tone (some urgent, some casual, some formal).
 
 Original text: "${originalText}"
-Output as a numbered list (1-${count}) in ${language}.`;
+
+IMPORTANT: Output ONLY the variations as a numbered list (1-${count}) in ${language}. Do NOT include any prefixes or quotes around the text. Just the clean variations.`;
   }
 
   private async simulateAIGeneration(prompt: string, count: number): Promise<string[]> {

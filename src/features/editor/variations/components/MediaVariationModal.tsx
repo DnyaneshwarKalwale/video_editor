@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Modal, Button, Input, Upload, message } from 'antd';
 import { 
   UploadOutlined, 
@@ -14,7 +14,7 @@ import {
   DownloadOutlined
 } from '@ant-design/icons';
 import { TimelineElement, MediaVariation } from '../types/variation-types';
-import { processFileUpload } from '../../../../utils/upload-service';
+
 
 interface MediaVariationModalProps {
   isOpen: boolean;
@@ -33,6 +33,9 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [variationNames, setVariationNames] = useState<{[key: number]: string}>({});
   const [dragOver, setDragOver] = useState(false);
+  const [existingVariations, setExistingVariations] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Platform configuration
@@ -79,6 +82,85 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
         return '.mp3,.wav,.aac,.ogg,.m4a';
       default:
         return '*';
+    }
+  };
+
+  // Load existing variations when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadExistingVariations();
+    }
+  }, [isOpen, element.id]);
+
+  const loadExistingVariations = async () => {
+    setIsLoading(true);
+    try {
+      const projectId = window.location.pathname.split('/')[2];
+      const response = await fetch(`/api/projects/${projectId}/media-variations`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Loaded media variations data:', data);
+        
+        // Handle the nested structure according to the schema
+        let allVariations = [];
+        if (data.mediaVariations && Array.isArray(data.mediaVariations)) {
+          // Find the entry for this element
+          const elementEntry = data.mediaVariations.find((item: any) => item.elementId === element.id);
+          if (elementEntry && elementEntry.variations && Array.isArray(elementEntry.variations)) {
+            allVariations = elementEntry.variations;
+          }
+        }
+        
+        // No need to filter since we already got the right element's variations
+        const elementVariations = allVariations;
+        console.log('Filtered variations for element', element.id, ':', elementVariations);
+        console.log('First variation videoUrl:', elementVariations[0]?.videoUrl);
+        console.log('First variation metadata:', elementVariations[0]?.metadata);
+        
+        if (elementVariations && elementVariations.length > 0) {
+          setExistingVariations(elementVariations);
+        } else {
+          setExistingVariations([]);
+        }
+      } else {
+        setExistingVariations([]);
+      }
+    } catch (error) {
+      console.error('Error loading existing variations:', error);
+      setExistingVariations([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteVariation = async (variationId: string) => {
+    setIsDeleting(variationId);
+    try {
+      const projectId = window.location.pathname.split('/')[2];
+      const response = await fetch(`/api/projects/${projectId}/media-variations`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          elementId: element.id,
+          variationId: variationId
+        }),
+      });
+
+      if (response.ok) {
+        message.success('Variation deleted successfully');
+        // Reload variations
+        await loadExistingVariations();
+      } else {
+        message.error('Failed to delete variation');
+      }
+    } catch (error) {
+      console.error('Error deleting variation:', error);
+      message.error('Error deleting variation');
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -148,37 +230,51 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
     try {
       const variations: MediaVariation[] = [];
       
-      // Upload each file to the proper storage
+      // Upload each file using the upload API
       for (let index = 0; index < selectedFiles.length; index++) {
         const file = selectedFiles[index];
-        const uploadId = `upload-${Date.now()}-${index}`;
         
         try {
-          // Use the same upload service as the main app
-          const uploadData = await processFileUpload(uploadId, file, {
-            onProgress: (id: string, percent: number) => {
-              console.log(`Upload progress for ${file.name}: ${percent}%`);
-            },
-            onStatus: (id: string, status: string, error?: string) => {
-              console.log(`Upload status for ${file.name}: ${status}`, error);
-            }
+          // Get project ID from URL
+          const projectId = window.location.pathname.split('/')[2];
+          
+          // Create form data for upload
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('projectId', projectId);
+          formData.append('isVariation', 'true'); // Mark as variation upload
+          
+          // Upload to the upload API
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
           });
 
-          // Create variation with the proper uploaded URL
-          const variation: MediaVariation = {
-            id: `variation-${Date.now()}-${index}`,
-            content: uploadData.metadata.uploadedUrl, // Use the actual uploaded URL
-            type: 'manual',
-            metadata: {
-              fileName: variationNames[index] || file.name,
-              fileSize: file.size,
-              fileType: file.type,
-              uploadedUrl: uploadData.metadata.uploadedUrl,
-              filePath: uploadData.filePath
-            } as any
-          };
-          
-          variations.push(variation);
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            
+            // Create variation with the uploaded URL
+            const variation: MediaVariation = {
+              id: `variation-${Date.now()}-${index}`,
+              content: uploadData.asset.cloudinaryUrl,
+              type: 'manual',
+              metadata: {
+                fileName: variationNames[index] || file.name,
+                fileSize: file.size,
+                fileType: file.type,
+                uploadedUrl: uploadData.asset.cloudinaryUrl,
+                cloudinaryPublicId: uploadData.asset.cloudinaryPublicId,
+                ...uploadData.asset.metadata
+              } as any
+            };
+            
+            variations.push(variation);
+            console.log(`Successfully uploaded ${file.name}`);
+          } else {
+            const errorData = await uploadResponse.json();
+            console.error(`Failed to upload ${file.name}:`, errorData);
+            message.error(`Failed to upload ${file.name}: ${errorData.error}`);
+          }
         } catch (uploadError) {
           console.error(`Failed to upload ${file.name}:`, uploadError);
           message.error(`Failed to upload ${file.name}`);
@@ -186,9 +282,21 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
       }
 
       if (variations.length > 0) {
-      onAddVariations(variations);
+        console.log('Calling onAddVariations with:', variations);
+        onAddVariations(variations);
         message.success(`Successfully uploaded ${variations.length} file(s)`);
-      handleClose();
+        
+        // Wait a bit for the backend save to complete, then reload
+        setTimeout(async () => {
+          await loadExistingVariations();
+        }, 500);
+        
+        // Clear selected files
+        setSelectedFiles([]);
+        setVariationNames({});
+        
+        // Refresh the uploads list to show new assets
+        window.dispatchEvent(new CustomEvent('refreshUploads'));
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -214,10 +322,18 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const renderMediaPreview = (src: string, type: string, fileName?: string, isFile?: boolean) => {
+  const renderMediaPreview = (src: string | undefined, type: string, fileName?: string, isFile?: boolean) => {
     const baseClasses = "w-full h-full object-cover rounded-lg";
     
     if (element.elementType === 'video') {
+      if (!src) {
+        return (
+          <div className="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
+            <VideoCameraOutlined style={{ fontSize: '32px', color: '#9ca3af' }} />
+          </div>
+        );
+      }
+      
       return (
         <div className="relative w-full h-full">
           <video 
@@ -283,7 +399,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
       footer={null}
       width="95vw"
       style={{ top: 20 }}
-      destroyOnClose={true}
+      destroyOnHidden={true}
       maskClosable={false}
       className="media-variation-modal"
     >
@@ -329,7 +445,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
           </div>
 
           {/* Upload Card */}
-          {selectedFiles.length < 4 && (
+          {selectedFiles.length < (4 - existingVariations.length) && (
             <div className="flex flex-col items-center space-y-3">
               <Button
                 type="dashed"
@@ -364,7 +480,49 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
             </div>
           )}
 
-          {/* File Preview Cards */}
+          {/* Existing Variations */}
+          {existingVariations.map((variation, index) => (
+            <div key={variation.id} className="flex flex-col items-center space-y-3">
+              <div 
+                className="relative bg-gray-100 rounded-xl overflow-hidden shadow-lg border border-gray-200 group"
+                style={{
+                  width: `${mediaSize.width}px`,
+                  height: `${mediaSize.height}px`
+                }}
+              >
+                {renderMediaPreview(variation.videoUrl, element.elementType, variation.metadata?.fileName || `Variation ${index + 1}`)}
+                
+                {/* Delete Button */}
+                <Button
+                  type="primary"
+                  danger
+                  size="small"
+                  loading={isDeleting === variation.id}
+                  onClick={() => handleDeleteVariation(variation.id)}
+                  className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg rounded-full"
+                  icon={<DeleteOutlined />}
+                />
+
+                {/* File info overlay */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="text-xs">
+                    <div className="truncate font-medium">{variation.metadata?.fileName || `Variation ${index + 1}`}</div>
+                    <div className="text-white/70">
+                      {variation.metadata?.fileSize ? formatFileSize(variation.metadata.fileSize) : ''} • {element.elementType.toUpperCase()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-center space-y-2 w-full">
+                <div className="text-sm font-medium text-gray-900">
+                  {variation.metadata?.fileName || `Variation ${index + 1}`}
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* File Preview Cards for New Uploads */}
           {selectedFiles.map((file, index) => (
             <div key={index} className="flex flex-col items-center space-y-3">
               <div 
@@ -399,7 +557,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
               
               <div className="text-center space-y-2 w-full">
                 <Input
-                  placeholder={`Variant ${index + 1}`}
+                  placeholder={`Variant ${existingVariations.length + index + 1}`}
                   value={variationNames[index] || ''}
                   onChange={(e) => handleVariationNameChange(index, e.target.value)}
                   					className="text-sm font-medium text-center bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:border-transparent transition-colors w-full max-w-[180px]"
@@ -409,7 +567,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
           ))}
           
           {/* Empty Placeholder Slots */}
-          {Array.from({ length: Math.max(0, 4 - selectedFiles.length) }).map((_, index) => (
+          {Array.from({ length: Math.max(0, 4 - selectedFiles.length - existingVariations.length) }).map((_, index) => (
             <div 
               key={`placeholder-${index}`}
               className="flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl opacity-40"
@@ -429,10 +587,10 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
       <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex-shrink-0 rounded-b-lg">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="text-sm text-gray-600">
-            {selectedFiles.length > 0 ? (
+            {selectedFiles.length > 0 || existingVariations.length > 0 ? (
               <span className="flex items-center gap-2">
                 				<div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'rgb(80, 118, 178)' }}></div>
-                {selectedFiles.length + 1} variants total (including original)
+                {selectedFiles.length + existingVariations.length + 1} variants total (including original)
               </span>
             ) : (
               <span>Add up to 4 additional variants</span>

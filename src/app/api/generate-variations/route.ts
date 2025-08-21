@@ -43,7 +43,14 @@ export async function POST(request: NextRequest) {
     const variations = lines
       .map((line: string) => {
         // Remove numbering (1., 2., etc.) and clean up
-        const cleaned = line.replace(/^\d+\.\s*/, '').trim();
+        let cleaned = line.replace(/^\d+\.\s*/, '').trim();
+        
+        // Remove common placeholder prefixes
+        cleaned = cleaned.replace(/^(Enhanced headline:|Headline:|Variation:|Text:)\s*/i, '');
+        
+        // Remove quotes at the beginning and end
+        cleaned = cleaned.replace(/^["""']\s*/, '').replace(/\s*["""']$/, '');
+        
         return cleaned;
       })
       .filter((variation: string) => variation.length > 0)

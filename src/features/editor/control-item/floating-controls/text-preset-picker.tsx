@@ -145,6 +145,8 @@ export const getTextShadow = (boxShadow?: IBoxShadow): string | undefined => {
 	}`;
 };
 export const applyPreset = (preset: any, trackItem: ITrackItem & any) => {
+	if (!trackItem?.id) return;
+	
 	console.log(preset);
 	const overrides: any = {};
 	if (preset.boxShadow === undefined) {

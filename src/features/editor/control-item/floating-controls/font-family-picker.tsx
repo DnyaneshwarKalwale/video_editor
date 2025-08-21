@@ -15,6 +15,8 @@ export const onChangeFontFamily = async (
 	font: ICompactFont,
 	trackItem: ITrackItem,
 ) => {
+	if (!trackItem?.id) return;
+	
 	const fontName = font.default.postScriptName;
 	const fontUrl = font.default.url;
 
@@ -27,7 +29,7 @@ export const onChangeFontFamily = async (
 
 	dispatch(EDIT_OBJECT, {
 		payload: {
-			[trackItem?.id as string]: {
+			[trackItem.id]: {
 				details: {
 					fontFamily: fontName,
 					fontUrl: fontUrl,
