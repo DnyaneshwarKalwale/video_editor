@@ -7,7 +7,7 @@ import { generateId } from '@designcombo/timeline';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get authenticated user session
@@ -18,7 +18,7 @@ export async function GET(
     }
 
     const userId = session.user.id;
-    const projectId = params.id;
+    const { id: projectId } = await params;
     
     await connectDB();
 
