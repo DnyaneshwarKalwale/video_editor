@@ -67,7 +67,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get authenticated user session
@@ -78,7 +78,7 @@ export async function PUT(
     }
 
     const userId = session.user.id;
-    const projectId = params.id;
+    const { id: projectId } = await params;
     const { name, platform, trackItems, size, metadata, assets, textVariations, videoVariations } = await request.json();
     
     await connectDB();
@@ -143,7 +143,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get authenticated user session
@@ -154,7 +154,7 @@ export async function DELETE(
     }
 
     const userId = session.user.id;
-    const projectId = params.id;
+    const { id: projectId } = await params;
     
     await connectDB();
 
