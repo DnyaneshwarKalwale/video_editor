@@ -59,9 +59,9 @@ const VariationModal: React.FC<VariationModalProps> = ({
       // Load media variations
       const mediaResponse = await fetch(`/api/projects/${projectId}/media-variations`);
       const mediaData = mediaResponse.ok ? await mediaResponse.json() : { mediaVariations: [] };
-      
-      timelineElements.forEach(element => {
-        if (element) {
+    
+    timelineElements.forEach(element => {
+      if (element) {
           if (element.type === 'text') {
             // Handle text variations
             const elementVariationData = textData.textVariations.find((v: any) => v.elementId === element.id);
@@ -118,14 +118,14 @@ const VariationModal: React.FC<VariationModalProps> = ({
                   key: `${element.type.toUpperCase()}${index + 1}`,
                   value: v.videoUrl, // Use the uploaded URL
                   type: element.type,
-                  elementId: element.id,
+              elementId: element.id,
                   originalValue: element.content,
                   metadata: v.metadata
                 }))
               ];
               elementVariations[element.id] = variations;
             } else {
-              // If no variations found, use original
+            // If no variations found, use original
               elementVariations[element.id] = [{
                 id: 'original',
                 key: `${element.type.toUpperCase()}0`,
@@ -163,10 +163,10 @@ const VariationModal: React.FC<VariationModalProps> = ({
           }];
         }
       });
-    }
+      }
 
     console.log('Element variations loaded from backend:', elementVariations);
-    
+
     // Generate all combinations
     const allVideoCombinations: VideoVariation[] = [];
     
@@ -308,7 +308,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const generateVariations = async () => {
     setIsGenerating(true);
     setError(null);
-
+    
     try {
       // Get project ID from URL
       const projectId = window.location.pathname.split('/')[2];
@@ -387,12 +387,12 @@ const VariationModal: React.FC<VariationModalProps> = ({
       
       if (Object.keys(elementVariations).length === 0) {
         // No elements, create original video
-        const originalVariation: VideoVariation = {
-          id: 'original-composition',
+      const originalVariation: VideoVariation = {
+        id: 'original-composition',
           text: 'Original Video',
           originalTextId: 'original',
-          isOriginal: true,
-          editable: false,
+        isOriginal: true,
+        editable: false,
           allTextOverlays: []
         };
         allVideoCombinations.push(originalVariation);
@@ -820,19 +820,19 @@ const VariationModal: React.FC<VariationModalProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 sm:gap-8 lg:gap-10 auto-rows-max pb-6 px-4 sm:px-6">
-                {variations.map((variation, index) => {
-                  // Calculate exact video size - responsive sizing
-                  const maxVideoWidth = window.innerWidth < 640 ? 200 : window.innerWidth < 1024 ? 240 : 280;
-                  const videoWidth = Math.min(project.platformConfig.width * 0.6, maxVideoWidth);
-                  const videoHeight = (videoWidth * project.platformConfig.height) / project.platformConfig.width;
-                  
-                  console.log(`Rendering variation ${variation.id}:`, {
-                    hasAllTextOverlays: !!variation.allTextOverlays,
-                    allTextOverlaysCount: variation.allTextOverlays?.length || 0,
-                    allTextOverlays: variation.allTextOverlays?.map(o => ({ id: o.id, text: o.text, timing: o.timing })) || []
-                  });
-                  
-                  return (
+                  {variations.map((variation, index) => {
+                    // Calculate exact video size - responsive sizing
+                    const maxVideoWidth = window.innerWidth < 640 ? 200 : window.innerWidth < 1024 ? 240 : 280;
+                    const videoWidth = Math.min(project.platformConfig.width * 0.6, maxVideoWidth);
+                    const videoHeight = (videoWidth * project.platformConfig.height) / project.platformConfig.width;
+                    
+                    console.log(`Rendering variation ${variation.id}:`, {
+                      hasAllTextOverlays: !!variation.allTextOverlays,
+                      allTextOverlaysCount: variation.allTextOverlays?.length || 0,
+                      allTextOverlays: variation.allTextOverlays?.map(o => ({ id: o.id, text: o.text, timing: o.timing })) || []
+                    });
+                    
+                    return (
                     <div key={variation.id} className="flex flex-col items-center space-y-3 w-full max-w-full p-2">
                       {/* Video Container - Fixed size matching platform */}
                       <div 
@@ -877,20 +877,20 @@ const VariationModal: React.FC<VariationModalProps> = ({
                         </div>
                       </div>
                     </div>
-                  );
-                })}
-                
-                {/* Show placeholders if not enough variations */}
-                {Array.from({ length: Math.max(0, 6 - variations.length) }).map((_, index) => (
-                  <div 
-                    key={`placeholder-${index}`}
-                    className="bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center"
-                    style={{ height: '200px' }}
-                  >
-                    <p className="text-gray-500 text-sm">Generating...</p>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                  
+                  {/* Show placeholders if not enough variations */}
+                  {Array.from({ length: Math.max(0, 6 - variations.length) }).map((_, index) => (
+                    <div 
+                      key={`placeholder-${index}`}
+                      className="bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center"
+                      style={{ height: '200px' }}
+                    >
+                      <p className="text-gray-500 text-sm">Generating...</p>
+                    </div>
+                  ))}
+                </div>
             )}
           </div>
 

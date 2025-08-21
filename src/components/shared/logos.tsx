@@ -62,99 +62,27 @@ export const LogoIcons = {
 	),
 	scalez: ({ ...props }: LucideProps) => (
 		<svg
-			width="24"
-			height="24"
+			width="48"
+			height="48"
 			viewBox="0 0 623 628"
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
 			{...props}
 		>
 			<defs>
-				<linearGradient id="blue-gradient" gradientUnits="userSpaceOnUse" y2="2" x2="0" y1="62" x1="0">
-					<stop stopColor="#00D4FF" stopOpacity="1" />
-					<stop stopColor="#00A3FF" stopOpacity="1" offset="1" />
-				</linearGradient>
-				<linearGradient id="blue-spin" gradientUnits="userSpaceOnUse" y2="0" x2="0" y1="64" x1="0">
+				<linearGradient id="blue-gradient-logo" gradientUnits="userSpaceOnUse" y2="2" x2="0" y1="62" x1="0">
 					<stop stopColor="#00D4FF" stopOpacity="1" />
 					<stop stopColor="#00A3FF" stopOpacity="1" offset="1" />
 				</linearGradient>
 			</defs>
-			{/* Logo circle with animation */}
-			<circle
-				cx="311.5"
-				cy="314"
-				r="300"
-				stroke="url(#blue-gradient)"
-				strokeWidth="8"
+			{/* SCALEZ Logo with animation */}
+			<path 
+				d="M152.012 148.274L159.488 149.52L219.296 173.194L279.104 196.868L291.564 201.852L300.286 200.606L351.372 180.67L401.212 160.734L432.362 148.274H437.346L434.854 174.44L429.87 215.558L426.132 241.724L416.164 323.96L413.672 326.452L378.784 313.992L362.586 307.762L361.34 301.532L371.308 234.248L356.356 240.478L321.468 256.676L297.794 267.89L289.072 266.644L260.414 254.184L241.724 245.462L213.066 233.002L219.296 274.12L220.542 277.858L259.168 292.81L296.548 307.762L352.618 330.19L404.95 351.372L402.458 356.356L391.244 370.062L375.046 388.752L358.848 407.442L342.65 426.132L326.452 444.822L312.746 459.774L302.778 472.234L296.548 479.71L291.564 478.464L280.35 464.758L266.644 448.56L252.938 431.116L236.74 412.426L225.526 398.72L211.82 382.522L200.606 368.816L186.9 352.618L184.408 346.388L190.638 348.88L221.788 366.324L255.43 385.014L285.334 402.458L291.564 406.196L296.548 404.95L317.73 383.768L323.96 376.292L299.04 366.324L272.874 356.356L220.542 336.42L198.114 327.698L176.932 320.222L171.948 317.73L166.964 281.596L152.012 159.488V148.274Z" 
 				fill="none"
+				stroke="url(#blue-gradient-logo)"
+				strokeWidth="10"
 				style={{
 					animation: 'dashArray 6s ease-in-out infinite, dashOffset 6s linear infinite'
-				}}
-				pathLength={360}
-			/>
-			{/* Letter S */}
-			<path
-				d="M150 200 C150 150, 200 150, 200 200 C200 250, 150 250, 150 300"
-				stroke="url(#blue-gradient)"
-				strokeWidth="12"
-				fill="none"
-				style={{
-					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
-				}}
-				pathLength={360}
-			/>
-			{/* Letter C */}
-			<path
-				d="M250 150 C300 150, 300 200, 300 250 C300 300, 250 300, 250 250"
-				stroke="url(#blue-gradient)"
-				strokeWidth="12"
-				fill="none"
-				style={{
-					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
-				}}
-				pathLength={360}
-			/>
-			{/* Letter A */}
-			<path
-				d="M350 300 L380 150 L410 300 M360 250 L400 250"
-				stroke="url(#blue-gradient)"
-				strokeWidth="12"
-				fill="none"
-				style={{
-					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
-				}}
-				pathLength={360}
-			/>
-			{/* Letter L */}
-			<path
-				d="M450 150 L450 300 L500 300"
-				stroke="url(#blue-gradient)"
-				strokeWidth="12"
-				fill="none"
-				style={{
-					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
-				}}
-				pathLength={360}
-			/>
-			{/* Letter E */}
-			<path
-				d="M520 150 L580 150 M520 150 L520 300 M520 150 L580 150 M520 225 L560 225 M520 300 L580 300"
-				stroke="url(#blue-gradient)"
-				strokeWidth="12"
-				fill="none"
-				style={{
-					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
-				}}
-				pathLength={360}
-			/>
-			{/* Letter Z */}
-			<path
-				d="M600 150 L650 150 L600 300 L650 300"
-				stroke="url(#blue-gradient)"
-				strokeWidth="12"
-				fill="none"
-				style={{
-					animation: 'dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite'
 				}}
 				pathLength={360}
 			/>

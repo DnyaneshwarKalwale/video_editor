@@ -18,7 +18,7 @@ export const Uploads = () => {
 	const isDraggingOverTimeline = useIsDraggingOverTimeline();
 	const { currentPlatform } = usePlatformStoreClient();
 	const { uploads, pendingUploads, activeUploads, setShowUploadModal } = useUploadStore();
-	
+
 	// State for assets from database
 	const [assets, setAssets] = useState<any[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -253,8 +253,8 @@ export const Uploads = () => {
 					</div>
 				) : (
 					<>
-						{/* Videos Section */}
-						{videos.length > 0 && (
+				{/* Videos Section */}
+				{videos.length > 0 && (
 					<div>
 						<div className="flex items-center gap-2 mb-2">
 							<VideoIcon className="w-4 h-4 text-muted-foreground" />
