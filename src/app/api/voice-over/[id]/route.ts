@@ -4,7 +4,7 @@ import { authOptions } from '../../auth/[...nextauth]/options';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get authenticated user session
@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const voiceOverId = params.id;
+    const { id: voiceOverId } = await params;
 
     // For now, return a mock response
     // In a real implementation, this would check the actual status from a TTS service
