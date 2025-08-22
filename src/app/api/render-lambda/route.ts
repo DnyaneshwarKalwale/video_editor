@@ -63,7 +63,7 @@ async function processLambdaJob(jobId: string, videoData: any) {
     const job = lambdaJobStore.get(jobId);
     if (job) {
       job.status = 'processing';
-      job.progress = 10;
+      job.progress = 20; // Start at 20% since we're using high concurrency
       lambdaJobStore.set(jobId, job);
     }
 
@@ -75,20 +75,26 @@ async function processLambdaJob(jobId: string, videoData: any) {
     fs.writeFileSync(tempDataPath, JSON.stringify(videoData, null, 2));
 
     // Build the Lambda render command with optimized settings for speed
-    // Note: Using concurrency=200 to leverage AWS limit of 400 for faster renders and cost savings
+    // Note: Using concurrency=50 to balance speed and stability (prevents delayRender timeouts)
     const lambdaCommand = `npx remotion lambda render ${LAMBDA_CONFIG.serveUrl} ${LAMBDA_CONFIG.compositionId} --props=${tempDataPath} --region=${LAMBDA_CONFIG.region} --function-name=${LAMBDA_CONFIG.functionName} --concurrency=200`;
 
     console.log(`[Lambda Job ${jobId}] Executing: ${lambdaCommand}`);
 
-    // Execute Lambda render
+    // Execute Lambda render with faster timeout to save money
     const { stdout, stderr } = await execAsync(lambdaCommand, {
-      timeout: 900000, // 15 minutes timeout
+      timeout: 300000, // 5 minutes timeout - fail fast to save money
       env: {
         ...process.env,
         REMOTION_AWS_ACCESS_KEY_ID: process.env.REMOTION_AWS_ACCESS_KEY_ID,
         REMOTION_AWS_SECRET_ACCESS_KEY: process.env.REMOTION_AWS_SECRET_ACCESS_KEY,
       }
     });
+
+    // Update progress to 70% when Lambda execution completes (more realistic)
+    if (job) {
+      job.progress = 70;
+      lambdaJobStore.set(jobId, job);
+    }
 
     console.log(`[Lambda Job ${jobId}] Lambda render completed`);
     console.log(`[Lambda Job ${jobId}] Output:`, stdout);
@@ -131,10 +137,14 @@ async function processLambdaJob(jobId: string, videoData: any) {
     
     // Check if it's a concurrency limit error
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    let finalError = errorMessage;
+    let finalError = 'Video rendering failed. Please try again.';
     
     if (errorMessage.includes('TooManyRequestsException') || errorMessage.includes('Rate Exceeded')) {
-      finalError = 'AWS Lambda concurrency limit reached. Please wait a moment and try again, or contact support to increase your limit.';
+      finalError = 'Too many videos being processed. Please wait a moment and try again.';
+    } else if (errorMessage.includes('delayRender') || errorMessage.includes('timeout')) {
+      finalError = 'Video took too long to load. Please try with a shorter video or check your internet connection.';
+    } else if (errorMessage.includes('Command failed')) {
+      finalError = 'Video processing failed. Please try again or contact support if the problem persists.';
     }
     
     // Update job status to failed

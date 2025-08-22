@@ -195,7 +195,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Failed to start Lambda video rendering: ${response.status} ${response.statusText}`);
+          throw new Error('Failed to start video rendering. Please try again.');
         }
 
         const jobResponse = await response.json();
@@ -209,7 +209,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
         const maxAttempts = 600; // 20 minutes for Lambda (faster than local)
         
         while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 3000)); // 3-second polling for Lambda
+          await new Promise(resolve => setTimeout(resolve, 1000)); // 1-second polling for faster updates
           attempts++;
           
           // Check if download was cancelled
@@ -219,19 +219,29 @@ export const useDownloadManager = create<DownloadManagerState>()(
             return;
           }
           
-          // Update progress (estimate)
-          const estimatedProgress = Math.min(90, (attempts / maxAttempts) * 90);
-          get().updateDownload(download.id, { progress: estimatedProgress });
-          
-          // Check job status
+          // Check job status to get real progress
           const statusResponse = await fetch(`/api/render-lambda?jobId=${jobId}`);
           
           if (!statusResponse.ok) {
             console.error(`Failed to check Lambda job status for ${download.name}:`, statusResponse.status);
+            // Use estimated progress as fallback
+            const estimatedProgress = Math.min(90, (attempts / maxAttempts) * 90);
+            get().updateDownload(download.id, { progress: estimatedProgress });
             continue;
           }
           
           const statusData = await statusResponse.json();
+          
+          // Update progress based on actual status
+          if (statusData.status === 'processing') {
+            // Use actual progress from Lambda API if available, otherwise estimate
+            const actualProgress = statusData.progress || Math.min(90, (attempts / maxAttempts) * 90);
+            get().updateDownload(download.id, { progress: actualProgress });
+          } else if (statusData.status === 'pending') {
+            // Show initial progress for pending jobs
+            const initialProgress = Math.min(10, attempts * 2);
+            get().updateDownload(download.id, { progress: initialProgress });
+          }
           
           if (statusData.status === 'completed') {
             // Download the completed video from Lambda
@@ -240,13 +250,13 @@ export const useDownloadManager = create<DownloadManagerState>()(
             });
             
             if (!downloadResponse.ok) {
-              throw new Error(`Failed to download Lambda video: ${downloadResponse.status}`);
+              throw new Error('Failed to download video. Please try again.');
             }
             
             const videoBlob = await downloadResponse.blob();
             
             if (videoBlob.size === 0) {
-              throw new Error('Received empty video file from Lambda');
+              throw new Error('Video file is corrupted. Please try again.');
             }
             
             // Create download link
@@ -270,11 +280,13 @@ export const useDownloadManager = create<DownloadManagerState>()(
             return;
             
           } else if (statusData.status === 'failed') {
-            throw new Error(`Lambda video rendering failed: ${statusData.error || 'Unknown error'}`);
+            // Use the user-friendly error message from the API
+            const errorMessage = statusData.error || 'Video rendering failed. Please try again.';
+            throw new Error(errorMessage);
           }
         }
         
-        throw new Error('Lambda video rendering timed out after 20 minutes');
+        throw new Error('Video rendering timed out. Please try with a shorter video or check your internet connection.');
       },
 
       downloadVariation: async (download: DownloadItem) => {
@@ -293,7 +305,7 @@ export const useDownloadManager = create<DownloadManagerState>()(
 
         if (!response.ok) {
           const errorText = await response.text();
-          throw new Error(`Failed to start Lambda variation rendering: ${response.status} ${response.statusText}`);
+          throw new Error('Failed to start video rendering. Please try again.');
         }
 
         const jobResponse = await response.json();
@@ -338,13 +350,13 @@ export const useDownloadManager = create<DownloadManagerState>()(
             });
             
             if (!downloadResponse.ok) {
-              throw new Error(`Failed to download variation: ${downloadResponse.status}`);
+              throw new Error('Failed to download video. Please try again.');
             }
             
             const videoBlob = await downloadResponse.blob();
             
             if (videoBlob.size === 0) {
-              throw new Error('Received empty video file');
+              throw new Error('Video file is corrupted. Please try again.');
             }
             
             // Create download link
