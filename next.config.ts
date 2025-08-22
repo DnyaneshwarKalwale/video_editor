@@ -3,9 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
 	/* config options here */
 	reactStrictMode: false,
-	experimental: {
-		serverComponentsExternalPackages: ['mongoose'],
-	},
+	serverExternalPackages: ['mongoose'],
+	// Configure for large file uploads
 	async headers() {
 		return [
 			{
@@ -18,6 +17,10 @@ const nextConfig: NextConfig = {
 				],
 			},
 		];
+	},
+	// Increase the maximum payload size
+	serverRuntimeConfig: {
+		maxFileSize: '100mb',
 	},
 };
 
