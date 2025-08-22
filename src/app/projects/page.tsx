@@ -234,7 +234,6 @@ export default function ProjectsPage() {
             </Button>
             <Button 
               onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 text-white hover:bg-blue-700"
             >
               <Plus className="w-4 h-4 mr-2" />
               New project
@@ -271,7 +270,6 @@ export default function ProjectsPage() {
             </p>
             <Button 
               onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 text-white hover:bg-blue-700"
               size="lg"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -415,7 +413,7 @@ export default function ProjectsPage() {
               </Button>
               <Button
                 onClick={createProject}
-                className="flex-1 bg-black text-white hover:bg-gray-800"
+                className="flex-1"
                 disabled={!newProjectName.trim()}
               >
                 Create Project
@@ -457,7 +455,7 @@ export default function ProjectsPage() {
               </Button>
               <Button
                 onClick={renameProject}
-                className="flex-1 bg-black text-white hover:bg-gray-800"
+                className="flex-1"
                 disabled={!renameProjectName.trim()}
               >
                 Rename

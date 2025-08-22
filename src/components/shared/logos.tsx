@@ -71,8 +71,8 @@ export const LogoIcons = {
 		>
 			<defs>
 				<linearGradient id="blue-gradient-logo" gradientUnits="userSpaceOnUse" y2="2" x2="0" y1="62" x1="0">
-					<stop stopColor="#00D4FF" stopOpacity="1" />
-					<stop stopColor="#00A3FF" stopOpacity="1" offset="1" />
+					<stop stopColor="hsl(var(--primary))" stopOpacity="1" />
+					<stop stopColor="hsl(var(--primary))" stopOpacity="0.8" offset="1" />
 				</linearGradient>
 			</defs>
 			{/* SCALEZ Logo with animation */}

@@ -7,12 +7,12 @@ const ScalezLoader: React.FC = () => {
         <svg height={0} width={0} viewBox="0 0 623 628" className="absolute">
           <defs xmlns="http://www.w3.org/2000/svg">
             <linearGradient gradientUnits="userSpaceOnUse" y2={2} x2={0} y1={62} x1={0} id="blue-gradient">
-              <stop stopColor="#00D4FF" stopOpacity="1" />
-              <stop stopColor="#00A3FF" stopOpacity="1" offset={1} />
+              <stop stopColor="hsl(var(--primary))" stopOpacity="1" />
+              <stop stopColor="hsl(var(--primary))" stopOpacity="0.8" offset={1} />
             </linearGradient>
             <linearGradient gradientUnits="userSpaceOnUse" y2={0} x2={0} y1={64} x1={0} id="blue-spin">
-              <stop stopColor="#00D4FF" stopOpacity="1" />
-              <stop stopColor="#00A3FF" stopOpacity="1" offset={1} />
+              <stop stopColor="hsl(var(--primary))" stopOpacity="1" />
+              <stop stopColor="hsl(var(--primary))" stopOpacity="0.8" offset={1} />
               <animateTransform 
                 repeatCount="indefinite" 
                 keySplines=".42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1" 
