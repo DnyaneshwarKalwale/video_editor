@@ -107,9 +107,25 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 							// Convert trackItems array to trackItemsMap object
 							const trackItemsMap: Record<string, any> = {};
 							const trackItemIds: string[] = [];
-							data.scene.content.trackItems.forEach((item: any) => {
-								trackItemsMap[item.id] = item;
+							
+							// Process track items to ensure proper z-index and layer order
+							data.scene.content.trackItems.forEach((item: any, index: number) => {
+								// Ensure z-index is preserved or assigned properly
+								const processedItem = {
+									...item,
+									zIndex: item.zIndex || (data.scene.content.trackItems.length - index),
+									layerOrder: item.layerOrder || index,
+								};
+								
+								trackItemsMap[item.id] = processedItem;
 								trackItemIds.push(item.id);
+							});
+							
+							// Sort track items by z-index to maintain layer order
+							trackItemIds.sort((a, b) => {
+								const itemA = trackItemsMap[a];
+								const itemB = trackItemsMap[b];
+								return (itemB.zIndex || 0) - (itemA.zIndex || 0);
 							});
 							
 							// Group track items by type for tracks array
@@ -337,8 +353,17 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 					const currentTrackItems = Object.values(trackItemsMap || {});
 					const currentSize = size;
 					
-					console.log('Auto-saving - Track items to save:', currentTrackItems.length);
-					console.log('Auto-saving - Track items:', currentTrackItems);
+					// Ensure z-index/layer information is preserved
+					const trackItemsWithZIndex = currentTrackItems.map((item, index) => ({
+						...item,
+						// Preserve z-index if it exists, otherwise assign based on order
+						zIndex: (item as any).zIndex || (currentTrackItems.length - index),
+						// Ensure layer order is maintained
+						layerOrder: (item as any).layerOrder || index,
+					}));
+					
+					console.log('Auto-saving - Track items to save:', trackItemsWithZIndex.length);
+					console.log('Auto-saving - Track items:', trackItemsWithZIndex);
 					
 					const response = await fetch(`/api/scene/${id}`, {
 						method: 'PUT',
@@ -346,7 +371,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 							'Content-Type': 'application/json',
 						},
 						body: JSON.stringify({
-							trackItems: currentTrackItems,
+							trackItems: trackItemsWithZIndex,
 							size: currentSize,
 							metadata: {
 								lastSaved: new Date().toISOString(),
@@ -391,7 +416,16 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 						const currentTrackItems = Object.values(trackItemsMap || {});
 						const currentSize = size;
 						
-						console.log('Saving state changes to backend:', currentTrackItems.length, 'items');
+						// Ensure z-index/layer information is preserved
+						const trackItemsWithZIndex = currentTrackItems.map((item, index) => ({
+							...item,
+							// Preserve z-index if it exists, otherwise assign based on order
+							zIndex: (item as any).zIndex || (currentTrackItems.length - index),
+							// Ensure layer order is maintained
+							layerOrder: (item as any).layerOrder || index,
+						}));
+						
+						console.log('Saving state changes to backend:', trackItemsWithZIndex.length, 'items');
 						
 						const response = await fetch(`/api/scene/${id}`, {
 							method: 'PUT',
@@ -399,7 +433,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 								'Content-Type': 'application/json',
 							},
 							body: JSON.stringify({
-								trackItems: currentTrackItems,
+								trackItems: trackItemsWithZIndex,
 								size: currentSize,
 								metadata: {
 									lastSaved: new Date().toISOString(),
@@ -438,13 +472,22 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 					const currentTrackItems = Object.values(trackItemsMap || {});
 					const currentSize = size;
 					
+					// Ensure z-index/layer information is preserved
+					const trackItemsWithZIndex = currentTrackItems.map((item, index) => ({
+						...item,
+						// Preserve z-index if it exists, otherwise assign based on order
+						zIndex: (item as any).zIndex || (currentTrackItems.length - index),
+						// Ensure layer order is maintained
+						layerOrder: (item as any).layerOrder || index,
+					}));
+					
 					const response = await fetch(`/api/scene/${id}`, {
 						method: 'PUT',
 						headers: {
 							'Content-Type': 'application/json',
 						},
 						body: JSON.stringify({
-							trackItems: currentTrackItems,
+							trackItems: trackItemsWithZIndex,
 							size: currentSize,
 							metadata: {
 								lastSaved: new Date().toISOString(),
