@@ -1,6 +1,5 @@
 import React from 'react';
 import { Download, X, Check, AlertCircle } from 'lucide-react';
-import ScalezLoader from "@/components/ui/scalez-loader";
 import { useDownloadManager } from '../store/use-download-manager';
 
 export const DownloadManager: React.FC = () => {
@@ -18,9 +17,9 @@ export const DownloadManager: React.FC = () => {
       case 'pending':
         return <div className="w-4 h-4 bg-gray-300 rounded-full animate-pulse" />;
       case 'downloading':
-        		    return <ScalezLoader />;
+        return <div className="w-4 h-4 bg-[rgb(80,118,178)] rounded-full animate-pulse" />;
       case 'completed':
-        		return <Check className="w-4 h-4" style={{ color: 'rgb(80, 118, 178)' }} />;
+        return <Check className="w-4 h-4" style={{ color: 'rgb(80, 118, 178)' }} />;
       case 'failed':
         return <AlertCircle className="w-4 h-4 text-red-500" />;
       default:
