@@ -345,9 +345,9 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
           <video 
             src={isFile ? URL.createObjectURL(src as any) : src} 
             className={baseClasses}
-            style={{ backgroundColor: '#f3f4f6' }}
+            style={{ backgroundColor: '#f3f4f6', zIndex: 1 }}
           />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity" style={{ zIndex: 2 }}>
             <PlayCircleOutlined style={{ fontSize: '32px', color: 'white' }} />
           </div>
         </div>
@@ -360,6 +360,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
           src={src} 
           alt={fileName || 'Media preview'}
           className={baseClasses}
+          style={{ zIndex: 1 }}
         />
       );
     }
@@ -499,16 +500,18 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
                 {renderMediaPreview(variation.videoUrl, element.elementType, variation.metadata?.fileName || `Variation ${index + 1}`)}
                 
                 {/* Delete Button */}
-                <Button
-                  type="primary"
-                  danger
-                  size="small"
-                  loading={isDeleting === variation.id}
-                  onClick={() => handleDeleteVariation(variation.id)}
-                  className="absolute top-2 right-2 h-7 w-7 p-0 opacity-100 transition-opacity shadow-lg rounded-full z-10"
-                  icon={<DeleteOutlined />}
-                  title="Delete variation"
-                />
+                <div className="absolute top-2 right-2 z-[9999] pointer-events-auto">
+                  <Button
+                    type="primary"
+                    danger
+                    size="small"
+                    loading={isDeleting === variation.id}
+                    onClick={() => handleDeleteVariation(variation.id)}
+                    className="h-7 w-7 p-0 opacity-100 transition-opacity shadow-lg rounded-full"
+                    icon={<DeleteOutlined />}
+                    title="Delete variation"
+                  />
+                </div>
 
                 {/* File info overlay */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-3 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -542,14 +545,16 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
                 {renderMediaPreview(URL.createObjectURL(file), file.type, file.name, false)}
                 
                 {/* Remove Button */}
-                <Button
-                  type="primary"
-                  danger
-                  size="small"
-                  onClick={() => handleRemoveFile(index)}
-                  className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg rounded-full"
-                  icon={<DeleteOutlined />}
-                />
+                <div className="absolute top-2 right-2 z-[9999] pointer-events-auto">
+                  <Button
+                    type="primary"
+                    danger
+                    size="small"
+                    onClick={() => handleRemoveFile(index)}
+                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg rounded-full"
+                    icon={<DeleteOutlined />}
+                  />
+                </div>
 
                 {/* File info overlay */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white p-3 opacity-0 group-hover:opacity-100 transition-opacity">
