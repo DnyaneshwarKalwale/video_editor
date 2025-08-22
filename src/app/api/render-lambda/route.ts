@@ -76,7 +76,7 @@ async function processLambdaJob(jobId: string, videoData: any) {
 
     // Build the Lambda render command with optimized settings for speed
     // Note: Using concurrency=50 to balance speed and stability (prevents delayRender timeouts)
-    const lambdaCommand = `npx remotion lambda render ${LAMBDA_CONFIG.serveUrl} ${LAMBDA_CONFIG.compositionId} --props=${tempDataPath} --region=${LAMBDA_CONFIG.region} --function-name=${LAMBDA_CONFIG.functionName} --concurrency=200`;
+    const lambdaCommand = `npx remotion lambda render ${LAMBDA_CONFIG.serveUrl} ${LAMBDA_CONFIG.compositionId} --props=${tempDataPath} --region=${LAMBDA_CONFIG.region} --function-name=${LAMBDA_CONFIG.functionName} --concurrency=100 --timeout=60000`;
 
     console.log(`[Lambda Job ${jobId}] Executing: ${lambdaCommand}`);
 
