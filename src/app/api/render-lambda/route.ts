@@ -18,9 +18,12 @@ const lambdaJobStore = new Map<string, {
   videoData?: any; // Store video data for processing
 }>();
 
-// Queue system for handling concurrency limits
-let isProcessing = false;
+// Fair queue system for handling multiple users
+let activeJobs = 0;
+const maxConcurrentJobs = 5; // Allow 5 videos to render simultaneously
+const maxJobsPerUser = 2; // Each user can have max 2 active jobs
 const renderQueue: string[] = [];
+const userJobCounts = new Map<string, number>(); // Track active jobs per user
 
 // Lambda configuration
 const LAMBDA_CONFIG = {
@@ -30,29 +33,60 @@ const LAMBDA_CONFIG = {
   functionName: 'remotion-render-4-0-339-mem3008mb-disk2048mb-900sec' // Use the new function with 15-minute timeout
 };
 
-// Process next job in queue
+// Process next job in queue with fair user distribution
 async function processNextJob() {
-  if (isProcessing || renderQueue.length === 0) {
+  if (activeJobs >= maxConcurrentJobs || renderQueue.length === 0) {
     return;
   }
   
-  isProcessing = true;
-  const jobId = renderQueue.shift()!;
-  const job = lambdaJobStore.get(jobId);
+  // Find the next job from a user who has the least active jobs (but not at max limit)
+  let selectedJobId: string | null = null;
+  let minUserJobs = Infinity;
   
-  if (job && job.videoData) {
-    console.log(`[Queue] Processing job ${jobId} (${renderQueue.length} jobs remaining in queue)`);
-    try {
-      await processLambdaJob(jobId, job.videoData);
-    } finally {
-      isProcessing = false;
-      // Process next job if any
-      if (renderQueue.length > 0) {
-        setTimeout(processNextJob, 2000); // Wait 2 seconds before next job
+  for (let i = 0; i < renderQueue.length; i++) {
+    const jobId = renderQueue[i];
+    const job = lambdaJobStore.get(jobId);
+    if (job && job.videoData) {
+      const userId = job.videoData.userId || 'anonymous';
+      const userActiveJobs = userJobCounts.get(userId) || 0;
+      
+      // Only consider users who haven't reached their per-user limit
+      if (userActiveJobs < maxJobsPerUser && userActiveJobs < minUserJobs) {
+        minUserJobs = userActiveJobs;
+        selectedJobId = jobId;
       }
     }
-  } else {
-    isProcessing = false;
+  }
+  
+  if (!selectedJobId) {
+    return;
+  }
+  
+  // Remove the selected job from queue
+  const jobIndex = renderQueue.indexOf(selectedJobId);
+  renderQueue.splice(jobIndex, 1);
+  
+  const job = lambdaJobStore.get(selectedJobId);
+  if (job && job.videoData) {
+    const userId = job.videoData.userId || 'anonymous';
+    const currentUserJobs = userJobCounts.get(userId) || 0;
+    userJobCounts.set(userId, currentUserJobs + 1);
+    activeJobs++;
+    
+    console.log(`[Queue] Processing job ${selectedJobId} for user ${userId} (${renderQueue.length} jobs remaining, ${activeJobs} active, user has ${currentUserJobs + 1}/${maxJobsPerUser} slots)`);
+    
+    try {
+      await processLambdaJob(selectedJobId, job.videoData);
+    } finally {
+      activeJobs--;
+      const finalUserJobs = userJobCounts.get(userId) || 0;
+      userJobCounts.set(userId, Math.max(0, finalUserJobs - 1));
+      
+      // Process next job if any
+      if (renderQueue.length > 0) {
+        setTimeout(processNextJob, 1000); // Wait 1 second before next job
+      }
+    }
   }
 }
 
@@ -206,7 +240,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { variation, textOverlays, platformConfig, duration, videoTrackItems, audioTrackItems } = body;
+    const { variation, textOverlays, platformConfig, duration, videoTrackItems, audioTrackItems, userId } = body;
 
     // Create video data with duration limit for Lambda
     const maxDuration = 300000; // 5 minutes maximum for Lambda
@@ -226,6 +260,7 @@ export async function POST(request: NextRequest) {
       duration: actualDuration,
       videoTrackItems: videoTrackItems || [],
       audioTrackItems: audioTrackItems || [],
+      userId: userId || 'anonymous', // Include userId for fair queue
     };
     
     // Create job entry
@@ -243,10 +278,10 @@ export async function POST(request: NextRequest) {
 
     // Add to queue instead of processing immediately
     renderQueue.push(jobId);
-    console.log(`[Queue] Added job ${jobId} to queue (${renderQueue.length} jobs in queue, isProcessing: ${isProcessing})`);
+    console.log(`[Queue] Added job ${jobId} to queue (${renderQueue.length} jobs in queue, ${activeJobs} active)`);
     
-    // Start processing if not already processing
-    if (!isProcessing) {
+    // Start processing if not at max capacity
+    if (activeJobs < maxConcurrentJobs) {
       processNextJob();
     }
 
