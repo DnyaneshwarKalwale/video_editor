@@ -135,12 +135,6 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
   };
 
   const handleDeleteVariation = async (variationId: string) => {
-    // Show confirmation dialog
-    const confirmed = window.confirm('Are you sure you want to delete this variation? This action cannot be undone.');
-    if (!confirmed) {
-      return;
-    }
-
     setIsDeleting(variationId);
     try {
       const projectId = window.location.pathname.split('/')[2];
