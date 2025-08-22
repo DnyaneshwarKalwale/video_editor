@@ -28,7 +28,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
-  const { addDownload } = useDownloadManager();
+  const { addDownload, setOpen } = useDownloadManager();
 
   const loadVariationsFromSidebar = async () => {
     // Get all timeline elements
@@ -721,6 +721,15 @@ const VariationModal: React.FC<VariationModalProps> = ({
         // Small delay between adding each variation
         await new Promise(resolve => setTimeout(resolve, 100));
       }
+      
+      // Close the variation modal
+      onClose();
+      
+      // Navigate to download manager after a short delay
+      setTimeout(() => {
+        setOpen(true);
+      }, 500);
+      
     } catch (error) {
       console.error('Error adding all variations to download queue:', error);
     }

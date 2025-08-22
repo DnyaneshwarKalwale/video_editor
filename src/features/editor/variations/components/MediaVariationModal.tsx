@@ -135,6 +135,12 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
   };
 
   const handleDeleteVariation = async (variationId: string) => {
+    // Show confirmation dialog
+    const confirmed = window.confirm('Are you sure you want to delete this variation? This action cannot be undone.');
+    if (!confirmed) {
+      return;
+    }
+
     setIsDeleting(variationId);
     try {
       const projectId = window.location.pathname.split('/')[2];
@@ -499,8 +505,9 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
                   size="small"
                   loading={isDeleting === variation.id}
                   onClick={() => handleDeleteVariation(variation.id)}
-                  className="absolute top-2 right-2 h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg rounded-full"
+                  className="absolute top-2 right-2 h-7 w-7 p-0 opacity-100 transition-opacity shadow-lg rounded-full z-10"
                   icon={<DeleteOutlined />}
+                  title="Delete variation"
                 />
 
                 {/* File info overlay */}
