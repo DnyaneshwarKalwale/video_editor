@@ -6,6 +6,12 @@ import Project from '@/models/Project';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
 
+// Configure for large file uploads
+export const maxDuration = 300; // 5 minutes
+export const dynamic = 'force-dynamic';
+
+
+
 export async function POST(request: NextRequest) {
   try {
     // Get authenticated user session
@@ -28,7 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Check file size (50MB limit)
+    // Check file size (100MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB in bytes
     if (file.size > maxSize) {
       return NextResponse.json({ 
