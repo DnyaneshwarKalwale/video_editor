@@ -177,7 +177,7 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 				
 				// Check file size
 				if (file.size > MAX_FILE_SIZE) {
-					alert(`File ${file.name} is too large. Maximum file size is 50MB.`);
+					console.warn(`File ${file.name} is too large. Maximum file size is 50MB.`);
 					continue;
 				}
 				
@@ -221,7 +221,6 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 					
 				} catch (error) {
 					console.error(`Error uploading ${file.name}:`, error);
-					alert(`Failed to upload ${file.name}. Please try again.`);
 				}
 			}
 			
@@ -243,7 +242,6 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 			
 		} catch (error) {
 			console.error('Upload error:', error);
-			alert('Upload failed. Please try again.');
 		} finally {
 			setIsUploading(false);
 			// Clear modal state and close

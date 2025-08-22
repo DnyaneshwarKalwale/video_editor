@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Modal, Button, Input, Upload, message } from 'antd';
+import { Modal, Button, Input, Upload } from 'antd';
 import { 
   UploadOutlined, 
   VideoCameraOutlined, 
@@ -150,15 +150,11 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
       });
 
       if (response.ok) {
-        message.success('Variation deleted successfully');
         // Reload variations
         await loadExistingVariations();
-      } else {
-        message.error('Failed to delete variation');
       }
     } catch (error) {
       console.error('Error deleting variation:', error);
-      message.error('Error deleting variation');
     } finally {
       setIsDeleting(null);
     }
@@ -273,18 +269,15 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
           } else {
             const errorData = await uploadResponse.json();
             console.error(`Failed to upload ${file.name}:`, errorData);
-            message.error(`Failed to upload ${file.name}: ${errorData.error}`);
           }
         } catch (uploadError) {
           console.error(`Failed to upload ${file.name}:`, uploadError);
-          message.error(`Failed to upload ${file.name}`);
         }
       }
 
       if (variations.length > 0) {
         console.log('Calling onAddVariations with:', variations);
         onAddVariations(variations);
-        message.success(`Successfully uploaded ${variations.length} file(s)`);
         
         // Wait a bit for the backend save to complete, then reload
         setTimeout(async () => {
@@ -300,7 +293,6 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
       }
     } catch (error) {
       console.error('Upload error:', error);
-      message.error('Failed to upload files');
     } finally {
       setIsUploading(false);
     }

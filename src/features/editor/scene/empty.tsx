@@ -67,7 +67,6 @@ const SceneEmpty = () => {
 			// Check file size
 			if (file.size > MAX_FILE_SIZE) {
 				console.error(`File ${file.name} is too large. Max size: 50MB`);
-				alert(`File ${file.name} is too large. Maximum file size is 50MB.`);
 				continue;
 			}
 			
@@ -188,7 +187,6 @@ const SceneEmpty = () => {
 				}
 			} catch (error) {
 				console.error("Error uploading file:", error);
-				alert(`Failed to upload ${file.name}. Please try again.`);
 			}
 		}
 		
