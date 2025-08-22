@@ -20,7 +20,7 @@ export function createMetadata(override: Metadata): Metadata {
 			...override.twitter,
 		},
 		icons: {
-			icon: "/icon.svg",
+			icon: "/SCALEZ.svg",
 		},
 	};
 }
