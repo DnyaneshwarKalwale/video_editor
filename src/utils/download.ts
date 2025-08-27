@@ -5,7 +5,9 @@ export const download = (url: string, filename: string) => {
 			const url = window.URL.createObjectURL(blob);
 			const link = document.createElement("a");
 			link.href = url;
-			link.setAttribute("download", `${filename}.mp4`); // Specify the filename for the downloaded video
+			// Check if filename already has .mp4 extension to avoid double extension
+			const downloadFilename = filename.endsWith('.mp4') ? filename : `${filename}.mp4`;
+			link.setAttribute("download", downloadFilename);
 			document.body.appendChild(link);
 			link.click();
 			link.parentNode?.removeChild(link);

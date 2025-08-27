@@ -12,10 +12,16 @@ export default function HomePage() {
 		if (status === 'loading') return;
 		
 		if (session) {
-			// User is authenticated, redirect to projects page
-			router.push('/projects');
+			// User is authenticated
+			if (session.user.isAdmin) {
+				// Admin user - redirect to admin dashboard
+				router.push('/admin');
+			} else {
+				// Regular user - redirect to projects page
+				router.push('/projects');
+			}
 		} else {
-			// User is not authenticated, redirect to login
+			// User is not authenticated, redirect to login page
 			router.push('/login');
 		}
 	}, [session, status, router]);

@@ -7,16 +7,22 @@ import { generateId } from '@designcombo/timeline';
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('🔍 Projects API: Starting request...');
+    
     // Get authenticated user session
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {
+      console.log('❌ Projects API: No session or user ID');
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     const userId = session.user.id;
+    console.log('👤 Projects API: User ID:', userId);
     
+    console.log('🔌 Projects API: Connecting to database...');
     await connectDB();
+    console.log('✅ Projects API: Database connected');
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
@@ -27,10 +33,14 @@ export async function GET(request: NextRequest) {
       query.name = { $regex: search, $options: 'i' };
     }
 
+    console.log('🔍 Projects API: Query:', query);
+
     const projects = await Project.find(query)
       .sort({ updatedAt: -1 })
       .select('projectId name platform aspectRatio createdAt updatedAt thumbnail duration status')
       .limit(50); // Limit to prevent loading too many projects at once
+
+    console.log('📦 Projects API: Found', projects.length, 'projects');
 
     return NextResponse.json({
       success: true,
@@ -48,9 +58,9 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('Projects fetch error:', error);
+    console.error('❌ Projects API Error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch projects' },
+      { error: 'Failed to fetch projects', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

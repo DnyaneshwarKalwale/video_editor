@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scalez Animated Logo Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .demo-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        h2 {
+            color: #666;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+        
+        p {
+            color: #888;
+            margin-bottom: 20px;
+        }
+        
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+        }
+        
+        .small { width: 50px; height: 50px; }
+        .medium { width: 100px; height: 100px; }
+        .large { width: 200px; height: 200px; }
+        
+        .code-example {
+            background: #f1f3f4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #333;
+            text-align: left;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-section">
+        <h1>Scalez Animated Logo Collection</h1>
+        <p>Standalone SVG files with built-in animations - ready to use anywhere!</p>
+        
+        <h2>Files Created:</h2>
+        <div class="code-example">
+scalez-animated-logo.svg  (Full logo + text)<br>
+scalez-logo-only.svg      (Just the symbol)<br>
+scalez-text-only.svg      (Just the letters)
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Full Animated Logo</h2>
+        <p>Complete logo with symbol and animated text</p>
+        <div class="logo-container">
+            <img src="scalez-animated-logo.svg" alt="Scalez Animated Logo" style="width: 250px; height: auto;">
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Logo Symbol Only</h2>
+        <p>Just the animated Scalez symbol/icon</p>
+        <div class="logo-container">
+            <img src="scalez-logo-only.svg" alt="Scalez Symbol" class="small">
+            <img src="scalez-logo-only.svg" alt="Scalez Symbol" class="medium">
+            <img src="scalez-logo-only.svg" alt="Scalez Symbol" class="large">
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <h2>Text Only</h2>
+        <p>Animated SCALEZ letters without the symbol</p>
+        <div class="logo-container">
+            <img src="scalez-text-only.svg" alt="Scalez Text" style="width: 300px; height: auto;">
+        </div>
+    </div>
+</body>
+</html>
+

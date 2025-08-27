@@ -1,0 +1,86 @@
+{
+  "variation": {
+    "id": "combination-5",
+    "text": "Video 6 (VIDEO0 + TEXT5)",
+    "originalTextId": "MpbPX25bH5r-wKSdebz2U",
+    "isOriginal": false,
+    "editable": false
+  },
+  "textOverlays": [
+    {
+      "id": "MpbPX25bH5r-wKSdebz2U",
+      "text": "Instantly Transform Your World With This One Secret",
+      "position": {
+        "top": 910,
+        "left": 340
+      },
+      "style": {
+        "fontSize": 48,
+        "fontFamily": "Roboto-Bold",
+        "color": "rgba(255, 255, 255, 0.8)",
+        "backgroundColor": "transparent",
+        "textAlign": "center",
+        "fontWeight": "normal",
+        "opacity": 100,
+        "borderWidth": 0,
+        "borderColor": "rgba(255, 255, 255, 0.8)",
+        "textDecoration": "none"
+      },
+      "timing": {
+        "from": 0,
+        "to": 5000
+      },
+      "width": 400,
+      "height": 100
+    }
+  ],
+  "platformConfig": {
+    "width": 1080,
+    "height": 1920,
+    "aspectRatio": "1080:1920"
+  },
+  "duration": 13680.000000000002,
+  "videoTrackItems": [
+    {
+      "id": "TjISmKGvrH9j2C5d",
+      "src": "https://videos.pexels.com/video-files/856973/856973-sd_960_540_25fps.mp4",
+      "display": {
+        "from": 0,
+        "to": 13680.000000000002
+      },
+      "details": {
+        "width": 960,
+        "height": 540,
+        "opacity": 100,
+        "src": "https://videos.pexels.com/video-files/856973/856973-sd_960_540_25fps.mp4",
+        "volume": 100,
+        "borderRadius": 0,
+        "borderWidth": 0,
+        "borderColor": "#000000",
+        "boxShadow": {
+          "color": "#000000",
+          "x": 0,
+          "y": 0,
+          "blur": 0
+        },
+        "top": 690,
+        "left": 60,
+        "transform": "scale(1.125)",
+        "blur": 0,
+        "brightness": 100,
+        "flipX": false,
+        "flipY": false,
+        "rotate": "0deg",
+        "visibility": "visible"
+      },
+      "trim": {
+        "from": 0,
+        "to": 13680
+      },
+      "playbackRate": 1,
+      "volume": 100
+    }
+  ],
+  "audioTrackItems": [],
+  "userId": "anonymous"
+}

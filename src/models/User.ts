@@ -14,26 +14,30 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
-  // For Google OAuth
-  googleId: {
-    type: String,
-    sparse: true,
-  },
-  // For email/password authentication
   password: {
     type: String,
     default: null,
   },
-  // Account verification
-  emailVerified: {
-    type: Date,
+  googleId: {
+    type: String,
     default: null,
   },
-  // Account status
-  isActive: {
+  // Admin fields
+  isAdmin: {
     type: Boolean,
-    default: true,
+    default: false,
   },
+  adminRole: {
+    type: String,
+    enum: ['owner', 'boss', 'developer'],
+    default: null,
+  },
+  // Company domain fields
+  companyDomain: {
+    type: String,
+    required: true,
+  },
+  // User preferences
   preferences: {
     defaultPlatform: {
       type: String,
@@ -43,6 +47,14 @@ const userSchema = new mongoose.Schema({
       type: String,
       default: 'light',
     },
+  },
+  emailVerified: {
+    type: Date,
+    default: null,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
   },
 }, {
   timestamps: true,

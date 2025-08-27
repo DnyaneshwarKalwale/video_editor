@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 // In-memory job store for Lambda renders
 const lambdaJobStore = new Map<string, {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   result?: string; // S3 URL
   error?: string;
@@ -16,12 +16,13 @@ const lambdaJobStore = new Map<string, {
   completedAt?: Date;
   renderId?: string; // Remotion Lambda render ID
   videoData?: any; // Store video data for processing
+  cancelled?: boolean; // Flag to track cancellation requests
 }>();
 
 // Fair queue system for handling multiple users
 let activeJobs = 0;
 const maxConcurrentJobs = 5; // Allow 5 videos to render simultaneously
-const maxJobsPerUser = 2; // Each user can have max 2 active jobs
+const maxJobsPerUser = 1; // Each user can have max 2 active jobs
 const renderQueue: string[] = [];
 const userJobCounts = new Map<string, number>(); // Track active jobs per user
 
@@ -32,6 +33,59 @@ const LAMBDA_CONFIG = {
   region: 'us-east-1',
   functionName: 'remotion-render-4-0-339-mem3008mb-disk2048mb-900sec' // Use the new function with 15-minute timeout
 };
+
+// Network connectivity check function
+async function checkNetworkConnectivity() {
+  try {
+    const https = require('https');
+    const url = require('url');
+    
+    const parsedUrl = url.parse(LAMBDA_CONFIG.serveUrl);
+    
+    return new Promise((resolve, reject) => {
+      const req = https.request({
+        hostname: parsedUrl.hostname,
+        port: 443,
+        path: parsedUrl.path,
+        method: 'HEAD',
+        timeout: 10000 // 10 second timeout
+      }, (res: any) => {
+        console.log(`[Network Check] S3 connectivity: ${res.statusCode}`);
+        resolve(true);
+      });
+      
+      req.on('error', (err: any) => {
+        console.error(`[Network Check] S3 connectivity failed:`, err.message);
+        reject(err);
+      });
+      
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Network timeout'));
+      });
+      
+      req.end();
+    });
+  } catch (error) {
+    console.error(`[Network Check] Error checking connectivity:`, error);
+    throw error;
+  }
+}
+
+// Cleanup old jobs (run every 5 minutes)
+setInterval(() => {
+  const now = new Date();
+  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+  
+  for (const [jobId, job] of lambdaJobStore.entries()) {
+    // Remove completed/failed/cancelled jobs older than 5 minutes
+    if ((job.status === 'completed' || job.status === 'failed' || job.status === 'cancelled') && 
+        job.completedAt && job.completedAt < fiveMinutesAgo) {
+      console.log(`[Cleanup] Removing old job ${jobId} (${job.status})`);
+      lambdaJobStore.delete(jobId);
+    }
+  }
+}, 5 * 60 * 1000); // Run every 5 minutes
 
 // Process next job in queue with fair user distribution
 async function processNextJob() {
@@ -90,123 +144,195 @@ async function processNextJob() {
   }
 }
 
-// Process Lambda render job
+// Process Lambda render job with retry logic
 async function processLambdaJob(jobId: string, videoData: any) {
-  try {
-    // Update job status to processing
-    const job = lambdaJobStore.get(jobId);
-    if (job) {
-      job.status = 'processing';
-      job.progress = 20; // Start at 20% since we're using high concurrency
-      lambdaJobStore.set(jobId, job);
-    }
-
-    console.log(`[Lambda Job ${jobId}] Starting Lambda render for ${videoData.duration}ms duration`);
-
-    // Create temporary JSON file for props
-    const tempDataPath = `temp-lambda-data-${jobId}.json`;
-    const fs = require('fs');
-    fs.writeFileSync(tempDataPath, JSON.stringify(videoData, null, 2));
-
-    // Build the Lambda render command with optimized settings for speed
-    // Note: Using concurrency=50 to balance speed and stability (prevents delayRender timeouts)
-    const lambdaCommand = `npx remotion lambda render ${LAMBDA_CONFIG.serveUrl} ${LAMBDA_CONFIG.compositionId} --props=${tempDataPath} --region=${LAMBDA_CONFIG.region} --function-name=${LAMBDA_CONFIG.functionName} --concurrency=100 --timeout=60000`;
-
-    console.log(`[Lambda Job ${jobId}] Executing: ${lambdaCommand}`);
-
-    // Execute Lambda render with faster timeout to save money
-    const { stdout, stderr } = await execAsync(lambdaCommand, {
-      timeout: 300000, // 5 minutes timeout - fail fast to save money
-      env: {
-        ...process.env,
-        REMOTION_AWS_ACCESS_KEY_ID: process.env.REMOTION_AWS_ACCESS_KEY_ID,
-        REMOTION_AWS_SECRET_ACCESS_KEY: process.env.REMOTION_AWS_SECRET_ACCESS_KEY,
-      }
-    });
-
-    // Update progress to 70% when Lambda execution completes (more realistic)
-    if (job) {
-      job.progress = 70;
-      lambdaJobStore.set(jobId, job);
-    }
-
-    console.log(`[Lambda Job ${jobId}] Lambda render completed`);
-    console.log(`[Lambda Job ${jobId}] Output:`, stdout);
-
-    // Parse the output to extract the S3 URL
-    let s3Url: string;
-    const outputMatch = stdout.match(/\+ S3\s+(https:\/\/s3\.us-east-1\.amazonaws\.com\/[^\s]+)/);
-    if (!outputMatch) {
-      // Try alternative pattern without the "+ S3" prefix
-      const altMatch = stdout.match(/(https:\/\/s3\.us-east-1\.amazonaws\.com\/[^\s]+)/);
-      if (!altMatch) {
-        throw new Error('Could not extract S3 URL from Lambda render output');
-      }
-      s3Url = altMatch[1];
-    } else {
-      s3Url = outputMatch[1];
-    }
-    console.log(`[Lambda Job ${jobId}] S3 URL: ${s3Url}`);
-
-    // Update job status to completed
-    if (job) {
-      job.status = 'completed';
-      job.progress = 100;
-      job.result = s3Url;
-      job.completedAt = new Date();
-      lambdaJobStore.set(jobId, job);
-    }
-
-    // Clean up temporary file
+  const maxRetries = 3;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    attempt++;
     try {
-      if (fs.existsSync(tempDataPath)) {
-        fs.unlinkSync(tempDataPath);
+      // Update job status to processing
+      const job = lambdaJobStore.get(jobId);
+      if (job) {
+        job.status = 'processing';
+        job.progress = 40; // Start at 40% since we're using high concurrency
+        lambdaJobStore.set(jobId, job);
       }
-    } catch (cleanupError) {
-      console.log(`[Lambda Job ${jobId}] Error cleaning up temp file:`, cleanupError);
-    }
 
-  } catch (error) {
-    console.error(`[Lambda Job ${jobId}] Error in Lambda render:`, error);
-    
-    // Check if it's a concurrency limit error
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    let finalError = 'Video rendering failed. Please try again.';
-    
-    if (errorMessage.includes('TooManyRequestsException') || errorMessage.includes('Rate Exceeded')) {
-      finalError = 'Too many videos being processed. Please wait a moment and try again.';
-    } else if (errorMessage.includes('delayRender') || errorMessage.includes('timeout')) {
-      finalError = 'Video took too long to load. Please try with a shorter video or check your internet connection.';
-    } else if (errorMessage.includes('Command failed')) {
-      finalError = 'Video processing failed. Please try again or contact support if the problem persists.';
-    }
-    
-    // Update job status to failed
-    const job = lambdaJobStore.get(jobId);
-    if (job) {
-      job.status = 'failed';
-      job.error = finalError;
-      job.completedAt = new Date();
-      lambdaJobStore.set(jobId, job);
-    }
-    
-    // Clean up temporary file on error
-    try {
-      const fs = require('fs');
+      console.log(`[Lambda Job ${jobId}] Starting Lambda render (attempt ${attempt}/${maxRetries}) for ${videoData.duration}ms duration`);
+
+      // Check network connectivity before starting render
+      if (attempt === 1) {
+        try {
+          console.log(`[Lambda Job ${jobId}] Checking network connectivity...`);
+          await checkNetworkConnectivity();
+          console.log(`[Lambda Job ${jobId}] Network connectivity OK`);
+        } catch (networkError) {
+          console.warn(`[Lambda Job ${jobId}] Network connectivity check failed:`, networkError);
+          // Continue anyway, as the render might still work
+        }
+      }
+
+      // Create temporary JSON file for props
       const tempDataPath = `temp-lambda-data-${jobId}.json`;
-      if (fs.existsSync(tempDataPath)) {
-        fs.unlinkSync(tempDataPath);
+      const fs = require('fs');
+      fs.writeFileSync(tempDataPath, JSON.stringify(videoData, null, 2));
+
+      // Build the Lambda render command with optimized settings for speed
+      // Reduced concurrency to 10 to prevent network overload
+      const lambdaCommand = `npx remotion lambda render ${LAMBDA_CONFIG.serveUrl} ${LAMBDA_CONFIG.compositionId} --props=${tempDataPath} --region=${LAMBDA_CONFIG.region} --function-name=${LAMBDA_CONFIG.functionName} --concurrency=10 --timeout=600000`;
+
+      console.log(`[Lambda Job ${jobId}] Executing: ${lambdaCommand}`);
+
+      // Execute Lambda render with execAsync with longer timeout
+      const { stdout, stderr } = await execAsync(lambdaCommand, {
+        timeout: 600000, // 10 minutes timeout to handle network delays
+        env: {
+          ...process.env,
+          REMOTION_AWS_ACCESS_KEY_ID: process.env.REMOTION_AWS_ACCESS_KEY_ID,
+          REMOTION_AWS_SECRET_ACCESS_KEY: process.env.REMOTION_AWS_SECRET_ACCESS_KEY,
+        }
+      });
+    
+      console.log(`[Lambda Job ${jobId}] Lambda render completed`);
+      console.log(`[Lambda Job ${jobId}] Output:`, stdout);
+
+      // Update progress to 70% when Lambda execution completes (more realistic)
+      if (job) {
+        job.progress = 70;
+        lambdaJobStore.set(jobId, job);
       }
-    } catch (cleanupError) {
-      console.error(`[Lambda Job ${jobId}] Error cleaning up temp file:`, cleanupError);
+
+      // Parse the output to extract the S3 URL
+      let s3Url: string;
+      const outputMatch = stdout.match(/\+ S3\s+(https:\/\/s3\.us-east-1\.amazonaws\.com\/[^\s]+)/);
+      if (!outputMatch) {
+        // Try alternative pattern without the "+ S3" prefix
+        const altMatch = stdout.match(/(https:\/\/s3\.us-east-1\.amazonaws\.com\/[^\s]+)/);
+        if (!altMatch) {
+          throw new Error('Could not extract S3 URL from Lambda render output');
+        }
+        s3Url = altMatch[1];
+      } else {
+        s3Url = outputMatch[1];
+      }
+      console.log(`[Lambda Job ${jobId}] S3 URL: ${s3Url}`);
+
+      // Update job status to completed
+      if (job) {
+        job.status = 'completed';
+        job.progress = 100;
+        job.result = s3Url;
+        job.completedAt = new Date();
+        lambdaJobStore.set(jobId, job);
+      }
+
+      // Clean up temporary file
+      try {
+        if (fs.existsSync(tempDataPath)) {
+          fs.unlinkSync(tempDataPath);
+        }
+      } catch (cleanupError) {
+        console.log(`[Lambda Job ${jobId}] Error cleaning up temp file:`, cleanupError);
+      }
+
+      // Success! Break out of retry loop
+      break;
+
+    } catch (error) {
+      console.error(`[Lambda Job ${jobId}] Error in Lambda render (attempt ${attempt}/${maxRetries}):`, error);
+      
+      // Clean up temporary file on error
+      try {
+        const fs = require('fs');
+        const tempDataPath = `temp-lambda-data-${jobId}.json`;
+        if (fs.existsSync(tempDataPath)) {
+          fs.unlinkSync(tempDataPath);
+        }
+      } catch (cleanupError) {
+        console.error(`[Lambda Job ${jobId}] Error cleaning up temp file:`, cleanupError);
+      }
+
+      // Check if this is the last attempt
+      if (attempt >= maxRetries) {
+        // Check if it's a concurrency limit error
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        let finalError = 'Video rendering failed. Please try again.';
+        
+        if (errorMessage.includes('TooManyRequestsException') || errorMessage.includes('Rate Exceeded')) {
+          finalError = 'Too many videos being processed. Please wait a moment and try again.';
+        } else if (errorMessage.includes('ETIMEDOUT') || errorMessage.includes('connect ETIMEDOUT')) {
+          finalError = 'Network timeout occurred. Please try again in a few moments.';
+        } else if (errorMessage.includes('delayRender') || errorMessage.includes('timeout')) {
+          finalError = 'Video took too long to load. Please try with a shorter video or check your internet connection.';
+        } else if (errorMessage.includes('Command failed')) {
+          finalError = 'Video processing failed. Please try again or contact support if the problem persists.';
+        }
+        
+        // Update job status to failed
+        const job = lambdaJobStore.get(jobId);
+        if (job) {
+          job.status = 'failed';
+          job.error = finalError;
+          job.completedAt = new Date();
+          lambdaJobStore.set(jobId, job);
+        }
+      } else {
+        // Wait before retrying (exponential backoff)
+        const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Max 10 seconds
+        console.log(`[Lambda Job ${jobId}] Retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
     }
   }
 }
 
-// GET endpoint to check job status
+// GET endpoint to check job status or system diagnostics
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const jobId = searchParams.get('jobId');
+  const diagnostics = searchParams.get('diagnostics');
+  
+  // If diagnostics is requested, return system info
+  if (diagnostics === 'true') {
+    try {
+      const networkStatus = await checkNetworkConnectivity();
+      return NextResponse.json({
+        system: 'Lambda Render Service',
+        status: 'operational',
+        network: 'connected',
+        config: {
+          region: LAMBDA_CONFIG.region,
+          functionName: LAMBDA_CONFIG.functionName,
+          serveUrl: LAMBDA_CONFIG.serveUrl,
+          maxConcurrentJobs,
+          maxJobsPerUser
+        },
+        queue: {
+          activeJobs,
+          queueLength: renderQueue.length,
+          userJobCounts: Object.fromEntries(userJobCounts)
+        },
+        environment: {
+          hasAwsCredentials: !!(process.env.REMOTION_AWS_ACCESS_KEY_ID && process.env.REMOTION_AWS_SECRET_ACCESS_KEY),
+          nodeVersion: process.version,
+          platform: process.platform
+        }
+      });
+    } catch (error) {
+      return NextResponse.json({
+        system: 'Lambda Render Service',
+        status: 'network_issue',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        config: {
+          region: LAMBDA_CONFIG.region,
+          functionName: LAMBDA_CONFIG.functionName,
+          serveUrl: LAMBDA_CONFIG.serveUrl
+        }
+      }, { status: 500 });
+    }
+  }
   
   if (!jobId) {
     return NextResponse.json({ error: 'Job ID required' }, { status: 400 });
@@ -214,7 +340,13 @@ export async function GET(request: NextRequest) {
   
   const job = lambdaJobStore.get(jobId);
   if (!job) {
-    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    // If job is not found, it might have been cancelled or completed and cleaned up
+    // Return a specific status to indicate this
+    return NextResponse.json({ 
+      error: 'Job not found',
+      status: 'not_found',
+      message: 'Job may have been cancelled or completed'
+    }, { status: 404 });
   }
   
   return NextResponse.json({
@@ -224,7 +356,8 @@ export async function GET(request: NextRequest) {
     result: job.result,
     error: job.error,
     createdAt: job.createdAt,
-    completedAt: job.completedAt
+    completedAt: job.completedAt,
+    cancelled: job.cancelled || false
   });
 }
 
@@ -429,13 +562,17 @@ export async function PUT(request: NextRequest) {
         // Clean up the job after successful download
         lambdaJobStore.delete(jobId);
         
-        return new NextResponse(videoBuffer, {
-          headers: {
-            'Content-Type': 'video/mp4',
-            'Content-Disposition': `attachment; filename="lambda-video-${jobId}.mp4"`,
-            'Content-Length': videoBuffer.byteLength.toString(),
-          },
-        });
+                 // Generate filename without double extension
+         const baseFilename = `lambda-video-${jobId}`;
+         const filename = baseFilename.endsWith('.mp4') ? baseFilename : `${baseFilename}.mp4`;
+         
+         return new NextResponse(videoBuffer, {
+           headers: {
+             'Content-Type': 'video/mp4',
+             'Content-Disposition': `attachment; filename="${filename}"`,
+             'Content-Length': videoBuffer.byteLength.toString(),
+           },
+         });
       } catch (error) {
         console.error(`[Lambda Job ${jobId}] Error downloading video from S3:`, error);
         
@@ -449,4 +586,55 @@ export async function PUT(request: NextRequest) {
     }
   
   return NextResponse.json({ error: 'Invalid job status' }, { status: 400 });
+}
+
+// DELETE endpoint to cancel a job
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const jobId = searchParams.get('jobId');
+  
+  if (!jobId) {
+    return NextResponse.json({ error: 'Job ID required' }, { status: 400 });
+  }
+  
+  const job = lambdaJobStore.get(jobId);
+  if (!job) {
+    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+  }
+  
+  console.log(`[Lambda Job ${jobId}] Cancellation requested`);
+  
+  // Mark job as cancelled
+  job.cancelled = true;
+  job.status = 'cancelled';
+  job.completedAt = new Date();
+  lambdaJobStore.set(jobId, job);
+  
+  // Note: With execAsync, we can't directly kill the process, but the job is marked as cancelled
+  console.log(`[Lambda Job ${jobId}] Job marked as cancelled`);
+  
+  // Remove from queue if it's still there
+  const queueIndex = renderQueue.indexOf(jobId);
+  if (queueIndex > -1) {
+    renderQueue.splice(queueIndex, 1);
+    console.log(`[Lambda Job ${jobId}] Removed from queue`);
+  }
+  
+  // Clean up temporary file
+  try {
+    const fs = require('fs');
+    const tempDataPath = `temp-lambda-data-${jobId}.json`;
+    if (fs.existsSync(tempDataPath)) {
+      fs.unlinkSync(tempDataPath);
+      console.log(`[Lambda Job ${jobId}] Cleaned up temp file`);
+    }
+  } catch (cleanupError) {
+    console.log(`[Lambda Job ${jobId}] Error cleaning up temp file:`, cleanupError);
+  }
+  
+  return NextResponse.json({ 
+    success: true,
+    message: 'Job cancelled successfully',
+    jobId: jobId
+  });
 }

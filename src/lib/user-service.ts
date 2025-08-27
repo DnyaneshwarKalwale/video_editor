@@ -6,7 +6,6 @@ export interface CreateUserData {
   email: string;
   name: string;
   image?: string;
-  googleId?: string;
   password?: string;
 }
 
@@ -24,7 +23,6 @@ export class UserService {
       email: userData.email,
       name: userData.name,
       image: userData.image || null,
-      googleId: userData.googleId || null,
       password: hashedPassword,
       emailVerified: new Date(), // Auto-verify for now
     });
@@ -35,11 +33,6 @@ export class UserService {
   static async findUserByEmail(email: string) {
     await connectDB();
     return await User.findOne({ email });
-  }
-
-  static async findUserByGoogleId(googleId: string) {
-    await connectDB();
-    return await User.findOne({ googleId });
   }
 
   static async findUserById(id: string) {
@@ -61,35 +54,5 @@ export class UserService {
   static async verifyPassword(user: any, password: string) {
     if (!user.password) return false;
     return await bcrypt.compare(password, user.password);
-  }
-
-  static async findOrCreateGoogleUser(profile: any) {
-    await connectDB();
-    
-    // Try to find existing user by Google ID
-    let user = await User.findOne({ googleId: profile.sub });
-    
-    if (!user) {
-      // Try to find by email
-      user = await User.findOne({ email: profile.email });
-      
-      if (user) {
-        // Update existing user with Google ID
-        user.googleId = profile.sub;
-        user.image = profile.picture;
-        await user.save();
-      } else {
-        // Create new user
-        user = await User.create({
-          email: profile.email,
-          name: profile.name,
-          image: profile.picture,
-          googleId: profile.sub,
-          emailVerified: new Date(),
-        });
-      }
-    }
-
-    return user;
   }
 }

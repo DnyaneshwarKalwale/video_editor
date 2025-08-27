@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 623 800" width="300" height="400">
+  <defs>
+    <!-- Blue gradient for the logo and letters -->
+    <linearGradient id="blue-gradient" gradientUnits="userSpaceOnUse" y2="2" x2="0" y1="62" x1="0">
+      <stop stop-color="#00D4FF" stop-opacity="1" />
+      <stop stop-color="#00A3FF" stop-opacity="1" offset="1" />
+    </linearGradient>
+    
+    <!-- Spinning gradient for the logo background -->
+    <linearGradient id="blue-spin" gradientUnits="userSpaceOnUse" y2="0" x2="0" y1="64" x1="0">
+      <stop stop-color="#00D4FF" stop-opacity="1" />
+      <stop stop-color="#00A3FF" stop-opacity="1" offset="1" />
+      <animateTransform 
+        repeatCount="indefinite" 
+        keySplines=".42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1;.42,0,.58,1" 
+        keyTimes="0; 0.125; 0.25; 0.375; 0.5; 0.625; 0.75; 0.875; 1" 
+        dur="8s" 
+        values="0 32 32;-270 32 32;-270 32 32;-540 32 32;-540 32 32;-810 32 32;-810 32 32;-1080 32 32;-1080 32 32" 
+        type="rotate" 
+        attributeName="gradientTransform" 
+      />
+    </linearGradient>
+    
+    <!-- CSS Animations as SVG animations -->
+    <style type="text/css">
+      @keyframes dashArray {
+        0% { stroke-dasharray: 0 1 359 0; }
+        50% { stroke-dasharray: 0 359 1 0; }
+        100% { stroke-dasharray: 359 1 0 0; }
+      }
+      
+      @keyframes dashOffset {
+        0% { stroke-dashoffset: 365; }
+        100% { stroke-dashoffset: 5; }
+      }
+      
+      .logo-animation {
+        animation: dashArray 6s ease-in-out infinite, dashOffset 6s linear infinite;
+      }
+      
+      .letter-animation {
+        animation: dashArray 2s ease-in-out infinite, dashOffset 2s linear infinite;
+      }
+    </style>
+  </defs>
+  
+  <!-- Main container group -->
+  <g transform="translate(50, 50)">
+    <!-- SCALEZ Logo Background - Centered properly -->
+    <path 
+      d="M152.012 148.274L159.488 149.52L219.296 173.194L279.104 196.868L291.564 201.852L300.286 200.606L351.372 180.67L401.212 160.734L432.362 148.274H437.346L434.854 174.44L429.87 215.558L426.132 241.724L416.164 323.96L413.672 326.452L378.784 313.992L362.586 307.762L361.34 301.532L371.308 234.248L356.356 240.478L321.468 256.676L297.794 267.89L289.072 266.644L260.414 254.184L241.724 245.462L213.066 233.002L219.296 274.12L220.542 277.858L259.168 292.81L296.548 307.762L352.618 330.19L404.95 351.372L402.458 356.356L391.244 370.062L375.046 388.752L358.848 407.442L342.65 426.132L326.452 444.822L312.746 459.774L302.778 472.234L296.548 479.71L291.564 478.464L280.35 464.758L266.644 448.56L252.938 431.116L236.74 412.426L225.526 398.72L211.82 382.522L200.606 368.816L186.9 352.618L184.408 346.388L190.638 348.88L221.788 366.324L255.43 385.014L285.334 402.458L291.564 406.196L296.548 404.95L317.73 383.768L323.96 376.292L299.04 366.324L272.874 356.356L220.542 336.42L198.114 327.698L176.932 320.222L171.948 317.73L166.964 281.596L152.012 159.488V148.274Z" 
+      fill="none"
+      stroke="url(#blue-gradient)"
+      stroke-width="10"
+      opacity="0.8"
+      class="logo-animation"
+      pathLength="360"
+      transform="translate(-25, 0)"
+    />
+    
+    <!-- SCALEZ Letters Group - Clean outlines only -->
+    <g transform="translate(25, 500)">
+      <!-- S -->
+      <path 
+        fill="none"
+        stroke-linejoin="round" 
+        stroke-linecap="round" 
+        stroke-width="4" 
+        stroke="url(#blue-gradient)" 
+        d="M 48 20 Q 48 8, 32 8 Q 16 8, 16 20 Q 16 28, 24 30 Q 32 32, 40 34 Q 48 36, 48 44 Q 48 56, 32 56 Q 16 56, 16 44" 
+        class="letter-animation"
+        pathLength="360" 
+        transform="translate(0, 0)"
+      />
+      
+      <!-- C -->
+      <path 
+        fill="none"
+        stroke-linejoin="round" 
+        stroke-linecap="round" 
+        stroke-width="4" 
+        stroke="url(#blue-gradient)" 
+        d="M 48 16 C 40 8, 24 8, 16 16 C 8 24, 8 40, 16 48 C 24 56, 40 56, 48 48" 
+        class="letter-animation"
+        pathLength="360" 
+        transform="translate(80, 0)"
+      />
+      
+      <!-- A -->
+      <path 
+        fill="none"
+        stroke-linejoin="round" 
+        stroke-linecap="round" 
+        stroke-width="4" 
+        stroke="url(#blue-gradient)" 
+        d="M 32 4 L 60 60 H 4 Z M 20 40 H 44" 
+        class="letter-animation"
+        pathLength="360" 
+        transform="translate(160, 0)"
+      />
+      
+      <!-- L -->
+      <path 
+        fill="none"
+        stroke-linejoin="round" 
+        stroke-linecap="round" 
+        stroke-width="4" 
+        stroke="url(#blue-gradient)" 
+        d="M 8 8 V 56 H 56" 
+        class="letter-animation"
+        pathLength="360" 
+        transform="translate(240, 0)"
+      />
+      
+      <!-- E -->
+      <path 
+        fill="none"
+        stroke-linejoin="round" 
+        stroke-linecap="round" 
+        stroke-width="4" 
+        stroke="url(#blue-gradient)" 
+        d="M 8 8 H 56 M 8 32 H 40 M 8 56 H 56" 
+        class="letter-animation"
+        pathLength="360" 
+        transform="translate(320, 0)"
+      />
+      
+      <!-- Z -->
+      <path 
+        fill="none"
+        stroke-linejoin="round" 
+        stroke-linecap="round" 
+        stroke-width="4" 
+        stroke="url(#blue-gradient)" 
+        d="M 8 8 L 56 8 L 8 56 L 56 56" 
+        class="letter-animation"
+        pathLength="360" 
+        transform="translate(400, 0)"
+      />
+    </g>
+  </g>
+</svg>

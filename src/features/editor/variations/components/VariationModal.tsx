@@ -693,7 +693,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
 
       // Add to download manager
       const downloadId = addDownload(
-        `variation-${variation.id}.mp4`,
+        `variation-${variation.id}`,
         'variation',
         downloadData
       );
@@ -739,7 +739,9 @@ const VariationModal: React.FC<VariationModalProps> = ({
     if (downloadUrl && downloadingVariation) {
       const a = document.createElement('a');
       a.href = downloadUrl;
-      a.download = `variation-${downloadingVariation.id}.mp4`;
+      // Check if filename already has .mp4 extension to avoid double extension
+      const filename = `variation-${downloadingVariation.id}`;
+      a.download = filename.endsWith('.mp4') ? filename : `${filename}.mp4`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

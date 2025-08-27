@@ -75,14 +75,18 @@ export const useDownloadManager = create<DownloadManagerState>()(
         // If the download is currently processing and has a jobId, cancel it on the server
         if (download?.status === 'downloading' && download.jobId) {
           try {
-            // Note: Lambda renders cannot be cancelled once started, but we can mark as cancelled locally
-            console.log(`[Download Manager] Marking Lambda job ${download.jobId} as cancelled for download ${id}`);
-            // Update the download status to cancelled
-            get().updateDownload(id, {
-              status: 'failed',
-              error: 'Download was cancelled',
-              completedAt: new Date()
+            console.log(`[Download Manager] Cancelling Lambda job ${download.jobId} for download ${id}`);
+            
+            // Call the DELETE endpoint to properly cancel the Lambda job
+            const response = await fetch(`/api/render-lambda?jobId=${download.jobId}`, {
+              method: 'DELETE'
             });
+            
+            if (response.ok) {
+              console.log(`[Download Manager] Successfully cancelled Lambda job ${download.jobId}`);
+            } else {
+              console.error(`[Download Manager] Failed to cancel Lambda job ${download.jobId}:`, response.status);
+            }
           } catch (error) {
             console.error(`[Download Manager] Failed to cancel Lambda job ${download.jobId}:`, error);
           }
@@ -223,6 +227,20 @@ export const useDownloadManager = create<DownloadManagerState>()(
           const statusResponse = await fetch(`/api/render-lambda?jobId=${jobId}`);
           
           if (!statusResponse.ok) {
+            if (statusResponse.status === 404) {
+              // Job was cancelled or completed and cleaned up
+              const errorData = await statusResponse.json();
+              if (errorData.status === 'not_found') {
+                console.log(`[Download Manager] Lambda job ${jobId} was cancelled or completed for ${download.name}`);
+                get().updateDownload(download.id, {
+                  status: 'failed',
+                  error: 'Download was cancelled or completed',
+                  completedAt: new Date()
+                });
+                return;
+              }
+            }
+            
             console.error(`Failed to check Lambda job status for ${download.name}:`, statusResponse.status);
             // Use estimated progress as fallback
             const estimatedProgress = Math.min(90, (attempts / maxAttempts) * 90);
@@ -263,7 +281,9 @@ export const useDownloadManager = create<DownloadManagerState>()(
             const url = URL.createObjectURL(videoBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${download.name}.mp4`;
+            // Check if filename already has .mp4 extension to avoid double extension
+            const filename = download.name.endsWith('.mp4') ? download.name : `${download.name}.mp4`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -363,7 +383,9 @@ export const useDownloadManager = create<DownloadManagerState>()(
             const url = URL.createObjectURL(videoBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${download.name}.mp4`;
+            // Check if filename already has .mp4 extension to avoid double extension
+            const filename = download.name.endsWith('.mp4') ? download.name : `${download.name}.mp4`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

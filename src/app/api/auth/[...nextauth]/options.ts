@@ -2,9 +2,11 @@ import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { baseUrl } from "@/utils/metadata";
-import { UserService } from "@/lib/user-service";
+import connectDB from "@/lib/database";
+import User from "@/models/User";
+import CompanyDomain from "@/models/CompanyDomain";
+import bcrypt from "bcryptjs";
 
-// Extend the session type to include user id
 declare module "next-auth" {
   interface Session {
     user: {
@@ -12,9 +14,13 @@ declare module "next-auth" {
       name?: string | null;
       email?: string | null;
       image?: string | null;
+      isAdmin?: boolean;
+      companyDomain?: string;
     };
   }
 }
+
+const ADMIN_DOMAINS = ['scalezmedia.com', 'wantace.com'];
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -33,74 +39,110 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        try {
-          // Find user by email
-          const user = await UserService.findUserByEmail(credentials.email);
-          
-          if (!user) {
-            return null;
-          }
+        await connectDB();
 
-          // Verify password
-          const isValidPassword = await UserService.verifyPassword(user, credentials.password);
-          
-          if (!isValidPassword) {
-            return null;
-          }
-
-          return {
-            id: user._id.toString(),
-            email: user.email,
-            name: user.name,
-            image: user.image,
-          };
-        } catch (error) {
-          console.error("Credentials auth error:", error);
+        const user = await User.findOne({ email: credentials.email });
+        if (!user || !user.password) {
           return null;
         }
+
+        const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+        if (!isPasswordValid) {
+          return null;
+        }
+
+        return {
+          id: user._id.toString(),
+          email: user.email,
+          name: user.name,
+          image: user.image,
+          isAdmin: user.isAdmin || false,
+          companyDomain: user.companyDomain || '',
+        };
       },
     }),
   ],
   pages: {
     signIn: "/login",
+    error: "/error",
   },
   callbacks: {
-    async jwt({ token, user, account, profile }) {
+    async signIn({ user, account, profile }) {
+      if (account?.provider === 'google') {
+        const email = user.email;
+        if (!email) return false;
+        
+        const domain = email.split('@')[1];
+        
+        // Check if it's an admin domain
+        if (ADMIN_DOMAINS.includes(domain)) {
+          // For admin domains, check if user exists, if not create them
+          await connectDB();
+          let existingUser = await User.findOne({ email });
+          
+          if (!existingUser) {
+            // Create new admin user
+            existingUser = await User.create({
+              email,
+              name: user.name || email.split('@')[0],
+              image: user.image,
+              googleId: user.id,
+              companyDomain: domain,
+              isAdmin: true,
+              adminRole: 'developer', // Default role
+            });
+          }
+          
+          return true;
+        }
+        
+        // Check if it's an approved company domain
+        await connectDB();
+        const approvedDomain = await CompanyDomain.findOne({ 
+          domain: domain, 
+          isActive: true 
+        });
+        
+        if (!approvedDomain) {
+          return false; // Domain not approved
+        }
+        
+        // Check if user exists, if not create them
+        let existingUser = await User.findOne({ email });
+        
+        if (!existingUser) {
+          // Create new company user
+          existingUser = await User.create({
+            email,
+            name: user.name || email.split('@')[0],
+            image: user.image,
+            googleId: user.id,
+            companyDomain: domain,
+            isAdmin: false,
+          });
+        }
+        
+        return true;
+      }
+      
+      // For credentials provider, domain check is done in authorize callback
+      return true;
+    },
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
+        token.isAdmin = (user as any).isAdmin || false;
+        token.companyDomain = (user as any).companyDomain || '';
       }
-      
-      // Handle Google OAuth sign-in
-      if (account?.provider === "google" && profile) {
-        try {
-          const dbUser = await UserService.findOrCreateGoogleUser(profile);
-          token.id = dbUser._id.toString();
-        } catch (error) {
-          console.error("Google OAuth error:", error);
-        }
-      }
-      
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
+        session.user.isAdmin = token.isAdmin as boolean;
+        session.user.companyDomain = token.companyDomain as string;
       }
       return session;
-    },
-    async signIn({ user, account, profile }) {
-      // For Google OAuth, ensure user is saved to database
-      if (account?.provider === "google" && profile) {
-        try {
-          await UserService.findOrCreateGoogleUser(profile);
-          return true;
-        } catch (error) {
-          console.error("Error saving Google user:", error);
-          return false;
-        }
-      }
-      
-      return true;
     },
   },
   secret: process.env.NEXTAUTH_SECRET,

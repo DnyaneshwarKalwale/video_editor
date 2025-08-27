@@ -74,7 +74,7 @@ export default function ProjectsPage() {
     try {
       setIsLoading(true);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // Increased to 30 seconds
       
       const response = await fetch('/api/projects', {
         signal: controller.signal,
@@ -90,11 +90,18 @@ export default function ProjectsPage() {
         setProjects(data.projects || []);
       } else {
         console.error('Failed to load projects:', response.status);
+        // Show user-friendly error message
+        setProjects([]);
       }
     } catch (error: any) {
       console.error('Error loading projects:', error);
       if (error.name === 'AbortError') {
-        console.error('Request timed out');
+        console.error('Request timed out - database might be slow');
+        // Show user-friendly error message
+        setProjects([]);
+      } else {
+        // Show user-friendly error message
+        setProjects([]);
       }
     } finally {
       setIsLoading(false);

@@ -425,10 +425,14 @@ export async function PUT(request: NextRequest) {
         console.error('Error cleaning up video file:', cleanupError);
       }
       
+      // Generate filename without double extension
+      const baseFilename = `variation-${jobId}`;
+      const filename = baseFilename.endsWith('.mp4') ? baseFilename : `${baseFilename}.mp4`;
+      
       return new NextResponse(videoBuffer, {
         headers: {
           'Content-Type': 'video/mp4',
-          'Content-Disposition': `attachment; filename="variation-${jobId}.mp4"`,
+          'Content-Disposition': `attachment; filename="${filename}"`,
           'Content-Length': videoBuffer.length.toString(),
         },
       });
