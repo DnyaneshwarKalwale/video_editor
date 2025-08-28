@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -244,6 +244,13 @@ export default function ProjectsPage() {
             >
               <Plus className="w-4 h-4 mr-2" />
               New project
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => signOut()}
+              className="bg-white border-gray-300 text-black hover:bg-gray-50"
+            >
+              Logout
             </Button>
           </div>
         </div>

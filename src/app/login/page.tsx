@@ -11,6 +11,8 @@ export default function LoginPage() {
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -70,11 +72,11 @@ export default function LoginPage() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name: email.split('@')[0] }),
-      });
+             const response = await fetch('/api/auth/register', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ email, password, name }),
+       });
 
       const data = await response.json();
 
@@ -141,21 +143,38 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <form onSubmit={isRegistering ? handleRegister : handleCredentialsSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
+                         <form onSubmit={isRegistering ? handleRegister : handleCredentialsSubmit} className="space-y-4">
+               {isRegistering && (
+                 <div>
+                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                     Full Name *
+                   </label>
+                   <input
+                     type="text"
+                     id="name"
+                     value={name}
+                     onChange={(e) => setName(e.target.value)}
+                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                     placeholder="Enter your full name"
+                     required
+                   />
+                 </div>
+               )}
+               
+               <div>
+                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                   Email *
+                 </label>
+                 <input
+                   type="email"
+                   id="email"
+                   value={email}
+                   onChange={(e) => setEmail(e.target.value)}
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="Enter your email"
+                   required
+                 />
+               </div>
 
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
