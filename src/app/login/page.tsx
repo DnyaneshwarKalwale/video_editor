@@ -16,19 +16,30 @@ export default function LoginPage() {
   const [isRegistering, setIsRegistering] = useState(false);
 
   useEffect(() => {
+    console.log('Status:', status);
+    console.log('Session:', session);
+    
     if (status === 'loading') return;
     
     if (session) {
+      console.log('Session data:', session);
+      console.log('Is admin:', session.user.isAdmin);
+      console.log('User email:', session.user.email);
+      
       if (session.user.isAdmin) {
+        console.log('Redirecting to admin...');
         router.push('/admin');
       } else {
+        console.log('Redirecting to projects...');
         router.push('/projects');
       }
+    } else {
+      console.log('No session found');
     }
   }, [session, status, router]);
 
   const handleGoogleSignIn = () => {
-    signIn('google', { callbackUrl: '/projects' });
+    signIn('google', { callbackUrl: '/admin' });
   };
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
@@ -202,55 +213,7 @@ export default function LoginPage() {
             </ul>
           </div>
 
-          {/* Clear Data Button */}
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => {
-                // Clear all storage
-                localStorage.clear();
-                sessionStorage.clear();
-                
-                // Clear all cookies
-                document.cookie.split(";").forEach(function(c) { 
-                  document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-                });
-                
-                // Clear NextAuth specific cookies
-                const nextAuthCookies = [
-                  'next-auth.session-token',
-                  'next-auth.csrf-token', 
-                  'next-auth.callback-url',
-                  '__Secure-next-auth.session-token',
-                  '__Secure-next-auth.csrf-token',
-                  '__Secure-next-auth.callback-url',
-                  '__Host-next-auth.csrf-token'
-                ];
-                
-                nextAuthCookies.forEach(cookieName => {
-                  document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-                  document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.localhost;`;
-                  document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=localhost;`;
-                });
-                
-                // Clear IndexedDB
-                if ('indexedDB' in window) {
-                  indexedDB.databases().then(databases => {
-                    databases.forEach(db => {
-                      if (db.name) {
-                        indexedDB.deleteDatabase(db.name);
-                      }
-                    });
-                  });
-                }
-                
-                alert('All data cleared! Please refresh the page.');
-                window.location.reload();
-              }}
-              className="text-xs text-red-600 hover:text-red-700 underline"
-            >
-              Clear All Data (Reset Everything)
-            </button>
-          </div>
+
 
           {/* Terms and Privacy Links */}
           <div className="mt-4 pt-4 border-t border-gray-200 text-center">

@@ -169,6 +169,18 @@ export const authOptions: NextAuthOptions = {
         token.isAdmin = (user as any).isAdmin || false;
         token.companyDomain = (user as any).companyDomain || '';
       }
+      
+      // For Google login, fetch the latest user data from database
+      if (account?.provider === 'google' && token.email) {
+        await connectDB();
+        const dbUser = await (User as any).findOne({ email: token.email });
+        if (dbUser) {
+          token.id = dbUser._id.toString();
+          token.isAdmin = dbUser.isAdmin || false;
+          token.companyDomain = dbUser.companyDomain || '';
+        }
+      }
+      
       return token;
     },
     async session({ session, token }) {
