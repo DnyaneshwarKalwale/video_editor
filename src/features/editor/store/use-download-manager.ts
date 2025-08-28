@@ -277,6 +277,28 @@ export const useDownloadManager = create<DownloadManagerState>()(
               throw new Error('Video file is corrupted. Please try again.');
             }
             
+            // Track activity for successful download
+            try {
+              await fetch('/api/admin/analytics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  activityType: 'video_download',
+                  projectId: download.data?.projectId || 'unknown',
+                  projectName: download.name,
+                  videoDuration: download.data?.duration || 5000,
+                  videoSize: videoBlob.size,
+                  cost: null, // Will be calculated by the API
+                  metadata: {
+                    jobId,
+                    platform: download.data?.platformConfig?.aspectRatio || 'unknown'
+                  }
+                })
+              });
+            } catch (error) {
+              console.error('Failed to track download activity:', error);
+            }
+            
             // Create download link
             const url = URL.createObjectURL(videoBlob);
             const a = document.createElement('a');

@@ -21,6 +21,8 @@ import Draggable from "react-draggable";
 import useLayoutStore from "../../store/use-layout-store";
 import { useIsLargeScreen } from "@/hooks/use-media-query";
 import { onChangeFontFamily } from "../floating-controls/font-family-picker";
+import { useCustomFonts } from "@/hooks/use-custom-fonts";
+import CustomFontUpload from "@/components/custom-font-upload";
 
 interface TextControlsProps {
 	trackItem: ITrackItem & any;
@@ -335,8 +337,11 @@ const FontFamily = ({
 	const isLargeScreen = useIsLargeScreen();
 	const { setFloatingControl, trackItem } = useLayoutStore();
 	const { compactFonts } = useDataState();
+	const { customFonts, refreshFonts } = useCustomFonts();
 	const [value, setValue] = useState("");
+	const [activeTab, setActiveTab] = useState<'available' | 'custom'>('available');
 	const [fonts, setFonts] = useState<ICompactFont[]>(compactFonts);
+	
 	useEffect(() => {
 		const filteredFonts = compactFonts.filter((font) =>
 			font.family.toLowerCase().includes(value.toLowerCase()),
@@ -377,39 +382,116 @@ const FontFamily = ({
 						</Button>
 					</PopoverTrigger>
 
-						<PopoverContent className="z-[300] w-full p-0 -ml-4 bg-white">
-							<div className="relative flex items-center rounded-md border focus-within:ring-1 focus-within:ring-ring pl-2">
+						<PopoverContent className="z-[600] w-80 p-0 -ml-4 bg-white">
+							{/* Tab Navigation */}
+							<div className="flex border-b">
+								<button
+									onClick={() => setActiveTab('available')}
+									className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+										activeTab === 'available'
+											? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+											: 'text-gray-600 hover:text-gray-900'
+									}`}
+								>
+									Available
+								</button>
+								<button
+									onClick={() => setActiveTab('custom')}
+									className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+										activeTab === 'custom'
+											? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
+											: 'text-gray-600 hover:text-gray-900'
+									}`}
+								>
+									Custom
+								</button>
+							</div>
+
+							{/* Search Bar */}
+							<div className="relative flex items-center rounded-md border focus-within:ring-1 focus-within:ring-ring pl-2 m-2">
 								<Search className="h-5 w-5 text-gray-500" />
 								<Input
-									type="email"
+									type="text"
 									placeholder="Search font..."
 									className="border-0 focus-visible:ring-0 shadow-none !bg-transparent text-gray-900"
 									value={value}
 									onChange={(e) => setValue(e.target.value)}
 								/>
 							</div>
+
+							{/* Custom Font Upload Button */}
+							{activeTab === 'custom' && (
+								<div className="px-2 pb-2" onClick={(e) => e.stopPropagation()}>
+									<CustomFontUpload onFontUploaded={refreshFonts} />
+								</div>
+							)}
+
 							<ScrollArea className="h-[300px] w-full py-2">
-								{fonts.length > 0 ? (
-									fonts.map((font, index) => (
-										<div
-											key={index}
-											onClick={() => {
-												if (trackItem) {
-													onChangeFontFamily(font, trackItem);
-												}
-											}}
-											className="cursor-pointer px-2 py-1 hover:bg-gray-100"
-										>
-											<img
-												src={font.default.preview}
-												alt={font.family}
-											/>
-										</div>
-									))
+								{activeTab === 'available' ? (
+									// Available Fonts
+									fonts.length > 0 ? (
+										fonts.map((font, index) => (
+											<div
+												key={index}
+												onClick={() => {
+													if (trackItem) {
+														onChangeFontFamily(font, trackItem);
+													}
+												}}
+												className="cursor-pointer px-2 py-1 hover:bg-gray-100"
+											>
+												<img
+													src={font.default.preview}
+													alt={font.family}
+												/>
+											</div>
+										))
+									) : (
+										<p className="py-2 text-center text-sm text-gray-600">
+											No font found
+										</p>
+									)
 								) : (
-									<p className="py-2 text-center text-sm text-gray-600">
-										No font found
-									</p>
+									// Custom Fonts
+									customFonts.filter(font => 
+										font.family.toLowerCase().includes(value.toLowerCase())
+									).length > 0 ? (
+										customFonts
+											.filter(font => 
+												font.family.toLowerCase().includes(value.toLowerCase())
+											)
+											.map((font, index) => (
+												<div
+													key={index}
+													onClick={() => {
+														if (trackItem) {
+															onChangeFontFamily(font, trackItem);
+														}
+													}}
+													className="cursor-pointer px-2 py-1 hover:bg-gray-100 border-l-4 border-blue-500"
+												>
+													<div className="flex items-center gap-2">
+														<div className="flex-1">
+															<div className="text-sm font-medium text-gray-900">
+																{font.family}
+															</div>
+															<div className="text-xs text-gray-500">
+																{font.fullName}
+															</div>
+														</div>
+													</div>
+												</div>
+											))
+									) : (
+										<div className="py-8 text-center">
+											<p className="text-sm text-gray-600 mb-2">
+												No custom fonts yet
+											</p>
+											<p className="text-xs text-gray-500">
+												Upload your first custom font to get started
+											</p>
+										</div>
+									)
 								)}
 							</ScrollArea>
 						</PopoverContent>

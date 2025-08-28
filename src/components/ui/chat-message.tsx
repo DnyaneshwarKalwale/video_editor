@@ -165,43 +165,47 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 	}
 
 	if (parts && parts.length > 0) {
-		return parts.map((part, index) => {
-			if (part.type === "text") {
-				return (
-					<div key={`text-${index}`} className="flex px-4 py-2 gap-2">
-						<div
-							className={cn(
-								chatBubbleVariants({ isUser, animation }),
-								"px-3 py-2 rounded-lg",
-							)}
-						>
-							<MarkdownRenderer>{part.text}</MarkdownRenderer>
-							{actions ? (
-								<div className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
-									{actions}
+		return (
+			<>
+				{parts.map((part, index) => {
+					if (part.type === "text") {
+						return (
+							<div key={`text-${index}`} className="flex px-4 py-2 gap-2">
+								<div
+									className={cn(
+										chatBubbleVariants({ isUser, animation }),
+										"px-3 py-2 rounded-lg",
+									)}
+								>
+									<MarkdownRenderer>{part.text}</MarkdownRenderer>
+									{actions ? (
+										<div className="absolute -bottom-4 right-2 flex space-x-1 rounded-lg border bg-background p-1 text-foreground opacity-0 transition-opacity group-hover/message:opacity-100">
+											{actions}
+										</div>
+									) : null}
 								</div>
-							) : null}
-						</div>
-					</div>
-				);
-			}
+							</div>
+						);
+					}
 
-			if (part.type === "reasoning") {
-				console.log("reasoning", part);
-				return <ReasoningBlock key={`reasoning-${index}`} part={part} />;
-			}
+					if (part.type === "reasoning") {
+						console.log("reasoning", part);
+						return <ReasoningBlock key={`reasoning-${index}`} part={part} />;
+					}
 
-			if (part.type === "tool-invocation") {
-				return (
-					<ToolCall
-						key={`tool-${index}`}
-						toolInvocations={[part.toolInvocation]}
-					/>
-				);
-			}
+					if (part.type === "tool-invocation") {
+						return (
+							<ToolCall
+								key={`tool-${index}`}
+								toolInvocations={[part.toolInvocation]}
+							/>
+						);
+					}
 
-			return null;
-		});
+					return null;
+				})}
+			</>
+		);
 	}
 
 	if (toolInvocations && toolInvocations.length > 0) {

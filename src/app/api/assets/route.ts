@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       query.fileType = { $regex: `^${type}/` };
     }
 
-    const assets = await Asset.find(query)
+    const assets = await (Asset as any).find(query)
       .sort({ createdAt: -1 })
       .select('fileName fileType fileSize cloudinaryUrl metadata createdAt isVariation');
 

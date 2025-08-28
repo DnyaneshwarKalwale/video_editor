@@ -11,6 +11,7 @@ import { TextControls } from "./common/text";
 import { ICompactFont, IFont } from "../interfaces/editor";
 import { DEFAULT_FONT } from "../constants/font";
 import { PresetText } from "./common/preset-text";
+import { useCustomFonts } from "@/hooks/use-custom-fonts";
 
 interface ITextControlProps {
 	color: string;
@@ -74,26 +75,47 @@ const BasicText = ({
 		name: "Regular",
 	});
 	const { compactFonts, fonts } = useDataState();
+	const { customFonts } = useCustomFonts();
 
 	useEffect(() => {
 		const fontFamily =
 			trackItem.details.fontFamily || DEFAULT_FONT.postScriptName;
-		const currentFont = fonts.find(
+		
+		// First check in regular fonts
+		let currentFont = fonts.find(
 			(font) => font.postScriptName === fontFamily,
 		);
 
+		// If not found in regular fonts, check custom fonts
+		if (!currentFont) {
+			currentFont = customFonts.find(
+				(font) => font.postScriptName === fontFamily,
+			);
+		}
+
 		if (!currentFont) return;
 
-		const selectedFont = compactFonts.find(
-			(font) => font.family === currentFont?.family,
-		);
+		// For regular fonts, find the compact font
+		if ('family' in currentFont && currentFont.category !== 'custom') {
+			const selectedFont = compactFonts.find(
+				(font) => font.family === currentFont?.family,
+			);
 
-		if (!selectedFont) return;
-
-		setSelectedFont({
-			...selectedFont,
-			name: getStyleNameFromFontName(currentFont.postScriptName),
-		});
+			if (selectedFont) {
+				setSelectedFont({
+					...selectedFont,
+					name: getStyleNameFromFontName(currentFont.postScriptName),
+				});
+			}
+		} else {
+			// For custom fonts, create a compact font structure
+			setSelectedFont({
+				family: currentFont.family,
+				styles: [currentFont],
+				default: currentFont,
+				name: currentFont.fullName || currentFont.family,
+			});
+		}
 
 		setProperties({
 			color: trackItem.details.color || "#000000",
@@ -101,8 +123,8 @@ const BasicText = ({
 			backgroundColor: trackItem.details.backgroundColor || "transparent",
 			fontSize: trackItem.details.fontSize || 62,
 			fontSizeDisplay: `${trackItem.details.fontSize || 62}px`,
-			fontFamily: selectedFont?.family || "Open Sans",
-			fontFamilyDisplay: selectedFont?.family || "Open Sans",
+			fontFamily: currentFont?.postScriptName || "Open Sans",
+			fontFamilyDisplay: currentFont?.family || "Open Sans",
 			opacity: trackItem.details.opacity || 1,
 			opacityDisplay: `${trackItem.details.opacity.toString() || "100"}%`,
 			textAlign: trackItem.details.textAlign || "left",

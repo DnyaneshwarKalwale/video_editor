@@ -112,7 +112,6 @@ export const ElementCrop: React.FC<ElementCropProps> = ({
 
 			if (canvas && context && shouldDraw) {
 				time = now;
-				context.reset();
 				context.clearRect(0, 0, canvas.width, canvas.height);
 
 				// const area = transform.area!;

@@ -4,6 +4,7 @@ import Project from '@/models/Project';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../auth/[...nextauth]/options';
 import { generateId } from '@designcombo/timeline';
+import { projectGetSourceMap } from 'next/dist/build/swc/generated-native';
 
 export async function POST(
   request: NextRequest,
@@ -23,7 +24,7 @@ export async function POST(
     await connectDB();
 
     // Find the original project (ensure it belongs to the user)
-    const originalProject = await Project.findOne({
+    const originalProject = await (Project as any).findOne({
       _id: projectId,
       userId: userId,
       status: { $ne: 'deleted' }
@@ -34,7 +35,7 @@ export async function POST(
     }
 
     // Create a duplicate project
-    const duplicateProject = await Project.create({
+    const duplicateProject = await (Project as any).create({
       userId,
       projectId: generateId(),
       name: `${originalProject.name} (Copy)`,

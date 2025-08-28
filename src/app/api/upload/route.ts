@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify project belongs to user
-    const project = await Project.findOne({
+    const project = await (Project as any).findOne({
       _id: projectId,
       userId: userId,
       status: { $ne: 'deleted' }
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Save to Asset model with project ID
-    const asset = await Asset.create({
+    const asset = await (Asset as any).create({
       userId: userId,
       projectId: projectId,
       fileName: file.name,
@@ -108,6 +108,30 @@ export async function POST(request: NextRequest) {
         format: uploadResult.format || 'unknown',
       },
     });
+
+    // Track asset upload activity
+    try {
+      const { baseUrl } = require('../../../utils/metadata');
+      await fetch(`${baseUrl}/api/admin/analytics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activityType: 'asset_uploaded',
+          projectId: projectId,
+          projectName: project.name,
+          videoDuration: uploadResult.duration || 0,
+          videoSize: file.size,
+          cost: 0,
+          metadata: {
+            fileName: file.name,
+            fileType: file.type,
+            isVariation: isVariation
+          }
+        })
+      });
+    } catch (error) {
+      console.error('Failed to track asset upload activity:', error);
+    }
 
     return NextResponse.json({
       success: true,

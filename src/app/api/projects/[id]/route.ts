@@ -23,7 +23,7 @@ export async function GET(
     await connectDB();
 
     // Find the project (ensure it belongs to the user)
-    const project = await Project.findOne({
+    const project = await (Project as any).findOne({
       _id: projectId,
       userId: userId,
       status: { $ne: 'deleted' }
@@ -95,7 +95,7 @@ export async function PUT(
     if (textVariations !== undefined) updateData.textVariations = textVariations;
     if (videoVariations !== undefined) updateData.videoVariations = videoVariations;
 
-    const project = await Project.findOneAndUpdate(
+    const project = await (Project as any).findOneAndUpdate(
       {
         _id: projectId,
         userId: userId,
@@ -159,7 +159,7 @@ export async function DELETE(
     await connectDB();
 
     // Soft delete the project (mark as deleted instead of actually deleting)
-    const project = await Project.findOneAndUpdate(
+    const project = await (Project as any).findOneAndUpdate(
       {
         _id: projectId,
         userId: userId,

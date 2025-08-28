@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const variation = await Variation.create({
+    const variation = await (Variation as any).create({
       userId,
       projectId,
       originalElementId,
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       query.projectId = projectId;
     }
 
-    const variations = await Variation.find(query)
+    const variations = await (Variation as any).find(query)
       .sort({ createdAt: -1 })
       .select('originalElementId originalText generatedText aiModel confidence createdAt');
 

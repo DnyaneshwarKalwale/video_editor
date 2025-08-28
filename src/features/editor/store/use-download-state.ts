@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useDownloadManager } from './use-download-manager';
+import { useSession } from 'next-auth/react';
 
 interface DownloadState {
   exporting: boolean;
@@ -114,6 +115,8 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
         duration: sceneData.duration || 5000,
         videoTrackItems,
         audioTrackItems,
+        projectId: projectName,
+        projectName: projectName,
       };
 
       // Add to download manager

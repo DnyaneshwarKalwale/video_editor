@@ -1,145 +1,122 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 export default function NotFound() {
-  const router = useRouter();
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center px-4">
-      <div className="max-w-2xl mx-auto text-center">
-        {/* 404 Animation */}
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="text-center px-4">
+        {/* Scalez Logo */}
         <div className="mb-8">
-          <div className="relative">
-            {/* Large 404 Text */}
-            <h1 className="text-9xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 mb-4">
-              404
-            </h1>
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            viewBox="0 0 623 800" 
+            width="120" 
+            height="160"
+            className="mx-auto"
+          >
+            <defs>
+              <linearGradient id="blue-gradient" gradientUnits="userSpaceOnUse" y2="2" x2="0" y1="62" x1="0">
+                <stop stopColor="#00D4FF" stopOpacity="1" />
+                <stop stopColor="#00A3FF" stopOpacity="1" offset="1" />
+              </linearGradient>
+            </defs>
             
-            {/* Floating Elements */}
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-4">
-              <div className="w-4 h-4 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-            </div>
-            <div className="absolute top-8 right-8">
-              <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-            </div>
-            <div className="absolute bottom-8 left-8">
-              <div className="w-2 h-2 bg-pink-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-            </div>
-          </div>
+            <g transform="translate(50, 50)">
+              {/* SCALEZ Logo Background */}
+              <path 
+                d="M152.012 148.274L159.488 149.52L219.296 173.194L279.104 196.868L291.564 201.852L300.286 200.606L351.372 180.67L401.212 160.734L432.362 148.274H437.346L434.854 174.44L429.87 215.558L426.132 241.724L416.164 323.96L413.672 326.452L378.784 313.992L362.586 307.762L361.34 301.532L371.308 234.248L356.356 240.478L321.468 256.676L297.794 267.89L289.072 266.644L260.414 254.184L241.724 245.462L213.066 233.002L219.296 274.12L220.542 277.858L259.168 292.81L296.548 307.762L352.618 330.19L404.95 351.372L402.458 356.356L391.244 370.062L375.046 388.752L358.848 407.442L342.65 426.132L326.452 444.822L312.746 459.774L302.778 472.234L296.548 479.71L291.564 478.464L280.35 464.758L266.644 448.56L252.938 431.116L236.74 412.426L225.526 398.72L211.82 382.522L200.606 368.816L186.9 352.618L184.408 346.388L190.638 348.88L221.788 366.324L255.43 385.014L285.334 402.458L291.564 406.196L296.548 404.95L317.73 383.768L323.96 376.292L299.04 366.324L272.874 356.356L220.542 336.42L198.114 327.698L176.932 320.222L171.948 317.73L166.964 281.596L152.012 159.488V148.274Z" 
+                fill="none"
+                stroke="url(#blue-gradient)"
+                strokeWidth="10"
+                opacity="0.8"
+                transform="translate(-25, 0)"
+              />
+              
+              {/* SCALEZ Letters */}
+              <g transform="translate(25, 500)">
+                <path 
+                  fill="none"
+                  strokeLinejoin="round" 
+                  strokeLinecap="round" 
+                  strokeWidth="4" 
+                  stroke="url(#blue-gradient)" 
+                  d="M 48 20 Q 48 8, 32 8 Q 16 8, 16 20 Q 16 28, 24 30 Q 32 32, 40 34 Q 48 36, 48 44 Q 48 56, 32 56 Q 16 56, 16 44" 
+                  transform="translate(0, 0)"
+                />
+                <path 
+                  fill="none"
+                  strokeLinejoin="round" 
+                  strokeLinecap="round" 
+                  strokeWidth="4" 
+                  stroke="url(#blue-gradient)" 
+                  d="M 48 16 C 40 8, 24 8, 16 16 C 8 24, 8 40, 16 48 C 24 56, 40 56, 48 48" 
+                  transform="translate(80, 0)"
+                />
+                <path 
+                  fill="none"
+                  strokeLinejoin="round" 
+                  strokeLinecap="round" 
+                  strokeWidth="4" 
+                  stroke="url(#blue-gradient)" 
+                  d="M 32 4 L 60 60 H 4 Z M 20 40 H 44" 
+                  transform="translate(160, 0)"
+                />
+                <path 
+                  fill="none"
+                  strokeLinejoin="round" 
+                  strokeLinecap="round" 
+                  strokeWidth="4" 
+                  stroke="url(#blue-gradient)" 
+                  d="M 8 8 V 56 H 56" 
+                  transform="translate(240, 0)"
+                />
+                <path 
+                  fill="none"
+                  strokeLinejoin="round" 
+                  strokeLinecap="round" 
+                  strokeWidth="4" 
+                  stroke="url(#blue-gradient)" 
+                  d="M 8 8 H 56 M 8 32 H 40 M 8 56 H 56" 
+                  transform="translate(320, 0)"
+                />
+                <path 
+                  fill="none"
+                  strokeLinejoin="round" 
+                  strokeLinecap="round" 
+                  strokeWidth="4" 
+                  stroke="url(#blue-gradient)" 
+                  d="M 8 8 L 56 8 L 8 56 L 56 56" 
+                  transform="translate(400, 0)"
+                />
+              </g>
+            </g>
+          </svg>
         </div>
 
-        {/* Main Content */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/20">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            Oops! Page Not Found
-          </h2>
-          
-          <p className="text-lg text-gray-600 mb-6">
-            The page you're looking for doesn't exist or has been moved. 
-            Don't worry, let's get you back on track!
-          </p>
+        {/* 404 Text */}
+        <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
+        <h2 className="text-2xl font-semibold text-gray-700 mb-4">Page Not Found</h2>
+        <p className="text-gray-600 mb-8 max-w-md mx-auto">
+          The page you're looking for doesn't exist or has been moved.
+        </p>
 
-          {/* Error Details */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-8">
-            <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Error 404 - Page Not Found</span>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={() => router.back()}
-              className="flex-1 sm:flex-none px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center space-x-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span>Go Back</span>
-            </button>
-            
-            <Link
-              href="/login"
-              className="flex-1 sm:flex-none px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
-              <span>Go to Login</span>
-            </Link>
-          </div>
-
-          {/* Quick Links */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-500 mb-4">Quick Navigation:</p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <Link
-                href="/projects"
-                className="px-4 py-2 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors text-sm"
-              >
-                Projects
-              </Link>
-              <Link
-                href="/admin"
-                className="px-4 py-2 bg-purple-50 text-purple-600 rounded-md hover:bg-purple-100 transition-colors text-sm"
-              >
-                Admin Dashboard
-              </Link>
-              <Link
-                href="/terms"
-                className="px-4 py-2 bg-green-50 text-green-600 rounded-md hover:bg-green-100 transition-colors text-sm"
-              >
-                Terms
-              </Link>
-              <Link
-                href="/privacy"
-                className="px-4 py-2 bg-orange-50 text-orange-600 rounded-md hover:bg-orange-100 transition-colors text-sm"
-              >
-                Privacy
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-400">
-            If you believe this is an error, please contact our support team.
-          </p>
-        </div>
-
-        {/* Background Decoration */}
-        <div className="fixed inset-0 -z-10 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob" style={{ animationDelay: '2s' }}></div>
-          <div className="absolute top-40 left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob" style={{ animationDelay: '4s' }}></div>
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Link 
+            href="/"
+            className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-[#00D4FF] to-[#00A3FF] text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
+          >
+            Go Home
+          </Link>
+          <Link 
+            href="/projects"
+            className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            View Projects
+          </Link>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-      `}</style>
     </div>
   );
 }

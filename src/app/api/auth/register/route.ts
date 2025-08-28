@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if domain is approved
-    const approvedDomain = await CompanyDomain.findOne({ 
+    const approvedDomain = await (CompanyDomain as any).findOne({ 
       domain: domain, 
       isActive: true 
     });
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await (User as any).findOne({ email });
     if (existingUser) {
       return NextResponse.json(
         { error: 'An account with this email already exists' },
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
-    const user = await User.create({
+    const user = await (User as any).create({
       email,
       name,
       password: hashedPassword,

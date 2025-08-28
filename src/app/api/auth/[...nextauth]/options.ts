@@ -41,7 +41,42 @@ export const authOptions: NextAuthOptions = {
 
         await connectDB();
 
-        const user = await User.findOne({ email: credentials.email });
+        const email = credentials.email;
+        const domain = email.split('@')[1];
+
+        // Check if it's an admin domain
+        if (ADMIN_DOMAINS.includes(domain)) {
+          const user = await (User as any).findOne({ email });
+          if (!user || !user.password) {
+            return null;
+          }
+
+          const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          return {
+            id: user._id.toString(),
+            email: user.email,
+            name: user.name,
+            image: user.image,
+            isAdmin: true,
+            companyDomain: domain,
+          };
+        }
+
+        // Check if it's an approved company domain
+        const approvedDomain = await (CompanyDomain as any).findOne({ 
+          domain: domain, 
+          isActive: true 
+        });
+        
+        if (!approvedDomain) {
+          return null; // Domain not approved
+        }
+
+        const user = await (User as any).findOne({ email });
         if (!user || !user.password) {
           return null;
         }
@@ -56,8 +91,8 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name,
           image: user.image,
-          isAdmin: user.isAdmin || false,
-          companyDomain: user.companyDomain || '',
+          isAdmin: false,
+          companyDomain: domain,
         };
       },
     }),
@@ -78,11 +113,11 @@ export const authOptions: NextAuthOptions = {
         if (ADMIN_DOMAINS.includes(domain)) {
           // For admin domains, check if user exists, if not create them
           await connectDB();
-          let existingUser = await User.findOne({ email });
+          let existingUser = await (User as any).findOne({ email });
           
           if (!existingUser) {
             // Create new admin user
-            existingUser = await User.create({
+            existingUser = await (User as any).create({
               email,
               name: user.name || email.split('@')[0],
               image: user.image,
@@ -98,8 +133,8 @@ export const authOptions: NextAuthOptions = {
         
         // Check if it's an approved company domain
         await connectDB();
-        const approvedDomain = await CompanyDomain.findOne({ 
-          domain: domain, 
+          const approvedDomain = await (CompanyDomain as any).findOne({ 
+            domain: domain, 
           isActive: true 
         });
         
@@ -107,12 +142,12 @@ export const authOptions: NextAuthOptions = {
           return false; // Domain not approved
         }
         
-        // Check if user exists, if not create them
-        let existingUser = await User.findOne({ email });
+          // Check if user exists, if not create them
+          let existingUser = await (User as any).findOne({ email });
         
         if (!existingUser) {
           // Create new company user
-          existingUser = await User.create({
+          existingUser = await (User as any).create({
             email,
             name: user.name || email.split('@')[0],
             image: user.image,

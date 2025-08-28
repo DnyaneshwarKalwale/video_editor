@@ -434,7 +434,14 @@ export default function ControlItemHorizontal() {
 			</div>
 			{!isLargeScreen && controItemDrawerOpen && (
 				<motion.div
-					className="fixed inset-0 z-50 flex items-end pointer-events-none"
+					style={{
+						position: "fixed",
+						inset: "0",
+						zIndex: "50",
+						display: "flex",
+						alignItems: "end",
+						pointerEvents: "none"
+					}}
 					initial="hidden"
 					animate="visible"
 					exit="exit"
@@ -442,7 +449,18 @@ export default function ControlItemHorizontal() {
 				>
 					<motion.div
 						ref={drawerRef}
-						className="bg-background mb-12 w-full max-h-[80vh] min-h-[340px] rounded-t-lg border-t shadow-lg pointer-events-auto"
+						style={{
+							backgroundColor: "hsl(var(--background))",
+							marginBottom: "3rem",
+							width: "100%",
+							maxHeight: "80vh",
+							minHeight: "340px",
+							borderTopLeftRadius: "0.5rem",
+							borderTopRightRadius: "0.5rem",
+							borderTop: "1px solid",
+							boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+							pointerEvents: "auto"
+						}}
 						drag="y"
 						dragConstraints={{ top: 0, bottom: 0 }}
 						dragElastic={0.1}
@@ -453,11 +471,17 @@ export default function ControlItemHorizontal() {
 					>
 						<div className="flex flex-col h-full">
 							<motion.div
-								className="flex items-center justify-center p-4 cursor-grab active:cursor-grabbing touch-none"
+								style={{
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+									padding: "1rem",
+									cursor: "grab"
+								}}
 								whileHover={{ scale: 1.05 }}
 								whileTap={{ scale: 0.95 }}
 							>
-								<motion.div className="h-1 w-24 bg-zinc-700 rounded-full" />
+								<motion.div style={{ height: "0.25rem", width: "6rem", backgroundColor: "#3f3f46", borderRadius: "9999px" }} />
 							</motion.div>
 							<div className="flex-1 overflow-auto">
 								<ControlItem

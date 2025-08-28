@@ -5,10 +5,10 @@ import { X } from "lucide-react";
 
 interface InterruptPromptProps {
 	isOpen: boolean;
-	close: () => void;
+	closeAction: () => void;
 }
 
-export function InterruptPrompt({ isOpen, close }: InterruptPromptProps) {
+export function InterruptPrompt({ isOpen, closeAction }: InterruptPromptProps) {
 	return (
 		<AnimatePresence>
 			{isOpen && (
@@ -23,13 +23,27 @@ export function InterruptPrompt({ isOpen, close }: InterruptPromptProps) {
 						},
 					}}
 					exit={{ top: 0, filter: "blur(5px)" }}
-					className="absolute left-1/2 flex -translate-x-1/2 overflow-hidden whitespace-nowrap rounded-full border bg-background py-1 text-center text-sm text-muted-foreground"
+					style={{
+						position: "absolute",
+						left: "50%",
+						transform: "translateX(-50%)",
+						overflow: "hidden",
+						whiteSpace: "nowrap",
+						borderRadius: "9999px",
+						border: "1px solid",
+						backgroundColor: "hsl(var(--background))",
+						padding: "0.25rem 0",
+						textAlign: "center",
+						fontSize: "0.875rem",
+						color: "hsl(var(--muted-foreground))",
+						display: "flex"
+					}}
 				>
 					<span className="ml-2.5">Press Enter again to interrupt</span>
 					<button
 						className="ml-1 mr-2.5 flex items-center"
 						type="button"
-						onClick={close}
+						onClick={closeAction}
 						aria-label="Close"
 					>
 						<X className="h-3 w-3" />

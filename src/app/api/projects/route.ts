@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     console.log('🔍 Projects API: Query:', query);
 
-    const projects = await Project.find(query)
+    const projects = await (Project as any).find(query)
       .sort({ updatedAt: -1 })
       .select('projectId name platform aspectRatio createdAt updatedAt thumbnail duration status')
       .limit(50); // Limit to prevent loading too many projects at once
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     const projectId = generateId();
 
     // Create new project with initial data
-    const project = await Project.create({
+    const project = await (Project as any).create({
       userId,
       projectId,
       name,

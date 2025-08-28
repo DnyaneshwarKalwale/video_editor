@@ -19,7 +19,7 @@ export class UserService {
       hashedPassword = await bcrypt.hash(userData.password, 12);
     }
 
-    const user = await User.create({
+    const user = await (User as any).create({
       email: userData.email,
       name: userData.name,
       image: userData.image || null,
@@ -32,12 +32,12 @@ export class UserService {
 
   static async findUserByEmail(email: string) {
     await connectDB();
-    return await User.findOne({ email });
+    return await (User as any).findOne({ email });
   }
 
   static async findUserById(id: string) {
     await connectDB();
-    return await User.findById(id);
+    return await (User as any).findById(id);
   }
 
   static async updateUser(id: string, updateData: Partial<CreateUserData>) {
@@ -48,7 +48,7 @@ export class UserService {
       updateData.password = await bcrypt.hash(updateData.password, 12);
     }
 
-    return await User.findByIdAndUpdate(id, updateData, { new: true });
+    return await (User as any).findByIdAndUpdate(id, updateData, { new: true });
   }
 
   static async verifyPassword(user: any, password: string) {

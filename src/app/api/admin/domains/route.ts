@@ -7,7 +7,7 @@ export async function GET() {
   try {
     await connectDB();
     
-    const domains = await CompanyDomain.find().sort({ createdAt: -1 });
+    const domains = await (CompanyDomain as any).find().sort({ createdAt: -1 });
     
     return NextResponse.json({
       domains: domains,
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Check if domain already exists
-    const existingDomain = await CompanyDomain.findOne({ domain: domain.toLowerCase() });
+    const existingDomain = await (CompanyDomain as any).findOne({ domain: domain.toLowerCase() });
     if (existingDomain) {
       return NextResponse.json(
         { error: 'Domain already exists' },
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Create new domain
-    const newDomain = await CompanyDomain.create({
+    const newDomain = await (CompanyDomain as any).create({
       domain: domain.toLowerCase(),
       companyName,
       addedBy: 'admin', // You can get actual admin ID from session

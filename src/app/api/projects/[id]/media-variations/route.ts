@@ -19,7 +19,7 @@ export async function GET(
 
     await connectDB();
 
-    const project = await Project.findOne({
+    const project = await (Project as any).findOne({
       _id: id,
       userId: session.user.id,
       status: { $ne: 'deleted' }
@@ -68,7 +68,7 @@ export async function PUT(
 
     await connectDB();
 
-    const project = await Project.findOne({
+    const project = await (Project as any).findOne({
       _id: id,
       userId: session.user.id,
       status: { $ne: 'deleted' }
@@ -149,7 +149,7 @@ export async function DELETE(
 
     await connectDB();
 
-    const project = await Project.findOne({
+    const project = await (Project as any).findOne({
       _id: id,
       userId: session.user.id,
       status: { $ne: 'deleted' }
@@ -218,7 +218,7 @@ export async function PATCH(
 
     await connectDB();
 
-    const project = await Project.findOne({
+    const project = await (Project as any).findOne({
       _id: id,
       userId: session.user.id,
       status: { $ne: 'deleted' }

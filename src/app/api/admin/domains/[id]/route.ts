@@ -12,7 +12,7 @@ export async function PATCH(
     const { id } = await params;
     const { isActive } = await request.json();
     
-    const domain = await CompanyDomain.findByIdAndUpdate(
+    const domain = await (CompanyDomain as any).findByIdAndUpdate(
       id,
       { isActive },
       { new: true }
@@ -47,7 +47,7 @@ export async function DELETE(
     await connectDB();
     const { id } = await params;
     
-    const domain = await CompanyDomain.findByIdAndDelete(id);
+    const domain = await (CompanyDomain as any).findByIdAndDelete(id);
     
     if (!domain) {
       return NextResponse.json(

@@ -319,18 +319,9 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 									<AnimatePresence initial={false}>
 										<div className="flex flex-col gap-2">
 											{files.map((file) => (
-												<motion.div
+												<div
 													key={file.id}
 													className="relative flex flex-col items-center p-1.5 sm:p-2 border rounded shadow-sm w-full"
-													initial={{ opacity: 0, scale: 0.8 }}
-													animate={{ opacity: 1, scale: 1 }}
-													exit={{ opacity: 0, scale: 0.8 }}
-													transition={{
-														type: "spring",
-														stiffness: 300,
-														damping: 30,
-													}}
-													layout
 												>
 													<div className="w-full flex justify-between items-center">
 														<div className="flex flex-1 gap-1 sm:gap-1.5 md:gap-2  items-center">
@@ -385,7 +376,7 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 															<X className="h-4 w-4" />
 														</Button>
 													</div>
-												</motion.div>
+												</div>
 											))}
 										</div>
 									</AnimatePresence>

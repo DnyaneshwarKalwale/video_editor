@@ -22,7 +22,7 @@ export async function GET(
     await connectDB();
 
     // Find the project (ensure it belongs to the user)
-    const project = await Project.findOne({
+    const project = await (Project as any).findOne({
       _id: projectId,
       userId: userId,
       status: { $ne: 'deleted' }
@@ -89,7 +89,7 @@ export async function PUT(
     await connectDB();
 
     // Update the project with new scene data
-    const project = await Project.findOneAndUpdate(
+    const project = await (Project as any).findOneAndUpdate(
       {
         _id: projectId,
         userId: userId,

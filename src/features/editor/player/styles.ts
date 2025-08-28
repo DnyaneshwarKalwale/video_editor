@@ -46,7 +46,7 @@ export const calculateTextStyles = (
 	lineHeight: details.lineHeight || "normal",
 	letterSpacing: details.letterSpacing || "normal",
 	wordSpacing: details.wordSpacing || "normal",
-	wordWrap: details.wordWrap || "",
+	wordWrap: details.wordWrap || "normal",
 	wordBreak: details.wordBreak || "normal",
 	textTransform: details.textTransform || "none",
 	fontSize: details.fontSize || "16px",

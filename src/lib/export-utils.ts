@@ -36,7 +36,7 @@ export async function saveExportToDatabase(
     const stats = fs.statSync(outputPath);
 
     // Save to database
-    const exportRecord = await Export.create({
+    const exportRecord = await (Export as any).create({
       userId,
       projectId,
       variationId,
@@ -82,7 +82,7 @@ export async function updateExportStatus(
       updateData['metadata.error'] = error;
     }
 
-    await Export.findByIdAndUpdate(exportId, updateData);
+    await (Export as any).findByIdAndUpdate(exportId, updateData);
   } catch (error) {
     console.error('Error updating export status:', error);
   }
