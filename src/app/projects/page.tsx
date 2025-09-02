@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import ScalezLoader from '@/components/ui/scalez-loader';
+import { LogoIcons } from '@/components/shared/logos';
 import { 
   Plus, 
   Search, 
@@ -231,9 +232,14 @@ export default function ProjectsPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-2 text-black">Your Projects</h1>
-            <p className="text-gray-600">{projects.length} project{projects.length !== 1 ? 's' : ''}</p>
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center">
+              <LogoIcons.scalezStatic />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold mb-2 text-black">Your Projects</h1>
+              <p className="text-gray-600">{projects.length} project{projects.length !== 1 ? 's' : ''}</p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <Button variant="outline" className="bg-white border-gray-300 text-black hover:bg-gray-50">
@@ -386,7 +392,7 @@ export default function ProjectsPage() {
 
       {/* Create Project Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <h2 className="text-xl font-bold mb-4 text-black">Create New Project</h2>
             
@@ -439,7 +445,7 @@ export default function ProjectsPage() {
 
       {/* Rename Project Modal */}
       {showRenameModal && selectedProject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <h2 className="text-xl font-bold mb-4 text-black">Rename Project</h2>
             

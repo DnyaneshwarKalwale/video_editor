@@ -98,8 +98,14 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 
 					if (data.success && data.scene) {
 						// Set project name if available
+						console.log('Scene data fetched:', data);
 						if (data.project?.name) {
+							console.log('Setting project name to:', data.project.name);
 							setProjectName(data.project.name);
+						} else {
+							console.log('No project name found, using default');
+							// Keep default name if no project name is available
+							setProjectName("Untitled video");
 						}
 
 						// Load the scene content into the editor

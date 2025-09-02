@@ -92,37 +92,37 @@ const SceneEmpty = () => {
 				const cloudinaryUrl = uploadResult.asset.cloudinaryUrl;
 				
 				console.log("File uploaded to Cloudinary:", cloudinaryUrl);
-				
-				if (fileType.startsWith('image/')) {
+			
+			if (fileType.startsWith('image/')) {
 					console.log("Adding image file");
 					// Create image payload with Cloudinary URL
-					const imagePayload = {
-						id: generateId(),
-						display: {
-							from: 0,
-							to: 5000,
-						},
-						type: "image",
-						details: {
+				const imagePayload = {
+					id: generateId(),
+					display: {
+						from: 0,
+						to: 5000,
+					},
+					type: "image",
+					details: {
 							src: cloudinaryUrl, // Use Cloudinary URL instead of local URL
 							left: 0,
 							top: 0,
 							width: currentPlatform.width,
 							height: currentPlatform.height,
-						},
-					};
-					
-					dispatch(ADD_IMAGE, {
-						payload: {
-							...imagePayload,
+					},
+				};
+				
+				dispatch(ADD_IMAGE, {
+					payload: {
+						...imagePayload,
 							metadata: {
 								cloudinaryUrl: cloudinaryUrl,
 								assetId: uploadResult.asset.id,
 							},
-						},
-						options: {},
-					});
-				} else if (fileType.startsWith('video/')) {
+					},
+					options: {},
+				});
+			} else if (fileType.startsWith('video/')) {
 					console.log("Adding video file");
 					
 					// Get duration from Cloudinary upload result (more reliable)
@@ -165,23 +165,23 @@ const SceneEmpty = () => {
 							resourceId: "main",
 							scaleMode: "fit",
 						},
-					});
-				} else if (fileType.startsWith('audio/')) {
+				});
+			} else if (fileType.startsWith('audio/')) {
 					console.log("Adding audio file");
-					dispatch(ADD_AUDIO, {
-						payload: {
-							id: generateId(),
-							type: 'audio',
-							details: {
+				dispatch(ADD_AUDIO, {
+					payload: {
+						id: generateId(),
+						type: 'audio',
+						details: {
 								src: cloudinaryUrl, // Use Cloudinary URL instead of local URL
 							},
 							metadata: {
 								cloudinaryUrl: cloudinaryUrl,
 								assetId: uploadResult.asset.id,
 							},
-						},
-						options: {},
-					});
+					},
+					options: {},
+				});
 				} else {
 					console.log("Unknown file type:", fileType);
 				}
@@ -238,15 +238,15 @@ const SceneEmpty = () => {
 									</div>
 								) : (
 									<>
-										<div className="hover:bg-primary-dark cursor-pointer rounded-md border bg-primary p-2 text-secondary transition-colors duration-200">
-											<PlusIcon className="h-5 w-5" aria-hidden="true" />
-										</div>
-										<div className="flex flex-col gap-px">
-											<p className="text-sm text-muted-foreground">Click to upload</p>
-											<p className="text-xs text-muted-foreground/70">
+								<div className="hover:bg-primary-dark cursor-pointer rounded-md border bg-primary p-2 text-secondary transition-colors duration-200">
+									<PlusIcon className="h-5 w-5" aria-hidden="true" />
+								</div>
+								<div className="flex flex-col gap-px">
+									<p className="text-sm text-muted-foreground">Click to upload</p>
+									<p className="text-xs text-muted-foreground/70">
 												Or drag and drop files here (Max 50MB)
-											</p>
-										</div>
+									</p>
+								</div>
 									</>
 								)}
 							</div>

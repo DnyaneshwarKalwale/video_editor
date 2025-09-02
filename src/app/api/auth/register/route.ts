@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import User from '@/models/User';
-import CompanyDomain from '@/models/CompanyDomain';
+import { supabase, TABLES } from '@/lib/supabase';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
-
     const { email, password, name } = await request.json();
 
     if (!email || !password || !name) {
@@ -34,12 +30,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if domain is approved
-    const approvedDomain = await (CompanyDomain as any).findOne({ 
-      domain: domain, 
-      isActive: true 
-    });
+    const { data: approvedDomain, error: domainError } = await supabase
+      .from(TABLES.COMPANY_DOMAINS)
+      .select('id')
+      .eq('domain', domain)
+      .eq('is_active', true)
+      .single();
 
-    if (!approvedDomain) {
+    if (domainError || !approvedDomain) {
       return NextResponse.json(
         { error: 'Your email domain is not approved. Please contact your administrator.' },
         { status: 403 }
@@ -47,7 +45,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await (User as any).findOne({ email });
+    const { data: existingUser, error: userCheckError } = await supabase
+      .from(TABLES.USERS)
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (userCheckError && userCheckError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      return NextResponse.json(
+        { error: 'Database error checking existing user' },
+        { status: 500 }
+      );
+    }
+
     if (existingUser) {
       return NextResponse.json(
         { error: 'An account with this email already exists' },
@@ -59,23 +69,35 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
-    const user = await (User as any).create({
-      email,
-      name,
-      password: hashedPassword,
-      companyDomain: domain,
-      isAdmin: false,
-    });
+    const { data: user, error: createError } = await supabase
+      .from(TABLES.USERS)
+      .insert({
+        email,
+        name,
+        password: hashedPassword,
+        company_domain: domain,
+        is_admin: false,
+      })
+      .select('id')
+      .single();
+
+    if (createError) {
+      console.error('User creation error:', createError);
+      return NextResponse.json(
+        { error: 'Failed to create user account' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       message: 'Account created successfully',
-      userId: user._id,
+      userId: user.id,
     });
 
   } catch (error) {
     console.error('Registration error:', error);
     return NextResponse.json(
-      { error: 'Failed to create account' },
+      { error: 'Registration failed' },
       { status: 500 }
     );
   }

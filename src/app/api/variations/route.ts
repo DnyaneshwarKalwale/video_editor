@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import Variation from '@/models/Variation';
+import { supabase, TABLES } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
-
     const body = await request.json();
     const { 
       userId, 
@@ -24,26 +21,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const variation = await (Variation as any).create({
-      userId,
-      projectId,
-      originalElementId,
-      originalText,
-      generatedText,
-      aiModel: aiModel || 'gpt-4',
-      confidence: confidence || 0.8,
-    });
+    const { data: variation, error } = await supabase
+      .from(TABLES.VARIATIONS)
+      .insert({
+        user_id: userId,
+        project_id: projectId,
+        original_element_id: originalElementId,
+        original_text: originalText,
+        generated_text: generatedText,
+        ai_model: aiModel || 'gpt-4',
+        confidence: confidence || 0.8,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Variation creation error:', error);
+      return NextResponse.json(
+        { error: 'Failed to create variation' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       variation: {
-        id: variation._id,
-        originalElementId: variation.originalElementId,
-        originalText: variation.originalText,
-        generatedText: variation.generatedText,
-        aiModel: variation.aiModel,
+        id: variation.id,
+        originalElementId: variation.original_element_id,
+        originalText: variation.original_text,
+        generatedText: variation.generated_text,
+        aiModel: variation.ai_model,
         confidence: variation.confidence,
-        createdAt: variation.createdAt,
+        createdAt: variation.created_at,
       },
     });
   } catch (error) {
@@ -57,8 +66,6 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    await connectDB();
-
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const projectId = searchParams.get('projectId');
@@ -70,18 +77,37 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const query: any = { userId };
+    let query = supabase
+      .from(TABLES.VARIATIONS)
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
     if (projectId) {
-      query.projectId = projectId;
+      query = query.eq('project_id', projectId);
     }
 
-    const variations = await (Variation as any).find(query)
-      .sort({ createdAt: -1 })
-      .select('originalElementId originalText generatedText aiModel confidence createdAt');
+    const { data: variations, error } = await query;
+
+    if (error) {
+      console.error('Variation fetch error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch variations' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      variations,
+      variations: variations?.map(variation => ({
+        id: variation.id,
+        originalElementId: variation.original_element_id,
+        originalText: variation.original_text,
+        generatedText: variation.generated_text,
+        aiModel: variation.ai_model,
+        confidence: variation.confidence,
+        createdAt: variation.created_at,
+      })) || [],
     });
   } catch (error) {
     console.error('Variation fetch error:', error);

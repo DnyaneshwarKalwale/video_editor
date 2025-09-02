@@ -146,7 +146,7 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 		status: string;
 		isPreview?: boolean;
 	}) {
-		const response = await fetch("/api/uploads", {
+		const response = await fetch("/api/upload", {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -182,12 +182,12 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 				}
 				
 				try {
-					// Upload to Cloudinary
+					// Upload to Supabase
 					const formData = new FormData();
 					formData.append('file', file);
 					formData.append('projectId', window.location.pathname.split('/')[2]); // Get project ID from URL
 					
-					console.log(`Uploading ${file.name} to Cloudinary...`);
+					console.log(`Uploading ${file.name} to Supabase...`);
 					const uploadResponse = await fetch('/api/upload', {
 						method: 'POST',
 						body: formData,
@@ -198,20 +198,20 @@ const ModalUpload: React.FC<ModalUploadProps> = ({ type = "all" }) => {
 					}
 					
 					const uploadResult = await uploadResponse.json();
-					const cloudinaryUrl = uploadResult.asset.cloudinaryUrl;
+					const supabaseUrl = uploadResult.asset.supabaseUrl;
 					
-					console.log("File uploaded to Cloudinary:", cloudinaryUrl);
+					console.log("File uploaded to Supabase:", supabaseUrl);
 					
-					// Add to uploads store with Cloudinary URL
+					// Add to uploads store with Supabase URL
 					const uploadData = {
 						id: fileObj.id,
-						url: cloudinaryUrl,
+						url: supabaseUrl,
 						type: getTypeFromContentType(file.type),
 						file: file,
 						metadata: {
-							uploadedUrl: cloudinaryUrl,
+							uploadedUrl: supabaseUrl,
 							assetId: uploadResult.asset.id,
-							cloudinaryUrl: cloudinaryUrl,
+							supabaseUrl: supabaseUrl,
 						},
 					};
 					

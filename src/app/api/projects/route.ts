@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import Project from '@/models/Project';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
+import { supabase, TABLES } from '@/lib/supabase';
 import { generateId } from '@designcombo/timeline';
 
 export async function GET(request: NextRequest) {
@@ -19,43 +18,51 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
     console.log('👤 Projects API: User ID:', userId);
-    
-    console.log('🔌 Projects API: Connecting to database...');
-    await connectDB();
-    console.log('✅ Projects API: Database connected');
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
 
     // Build query
-    const query: any = { userId, status: { $ne: 'deleted' } };
+    let query = supabase
+      .from(TABLES.PROJECTS)
+      .select('id, project_id, name, platform, aspect_ratio, created_at, updated_at, thumbnail, duration, status')
+      .eq('user_id', userId)
+      .neq('status', 'deleted')
+      .order('updated_at', { ascending: false })
+      .limit(50);
+
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query = query.ilike('name', `%${search}%`);
     }
 
-    console.log('🔍 Projects API: Query:', query);
+    console.log('🔍 Projects API: Query built');
 
-    const projects = await (Project as any).find(query)
-      .sort({ updatedAt: -1 })
-      .select('projectId name platform aspectRatio createdAt updatedAt thumbnail duration status')
-      .limit(50); // Limit to prevent loading too many projects at once
+    const { data: projects, error } = await query;
 
-    console.log('📦 Projects API: Found', projects.length, 'projects');
+    if (error) {
+      console.error('❌ Projects API Error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch projects', details: error.message },
+        { status: 500 }
+      );
+    }
+
+    console.log('📦 Projects API: Found', projects?.length || 0, 'projects');
 
     return NextResponse.json({
       success: true,
-      projects: projects.map(project => ({
-        id: project._id,
-        projectId: project.projectId,
+      projects: projects?.map(project => ({
+        id: project.id,
+        projectId: project.project_id,
         name: project.name,
         platform: project.platform,
-        aspectRatio: project.aspectRatio,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
+        aspectRatio: project.aspect_ratio,
+        createdAt: project.created_at,
+        updatedAt: project.updated_at,
         thumbnail: project.thumbnail,
         duration: project.duration,
         status: project.status,
-      })),
+      })) || [],
     });
   } catch (error) {
     console.error('❌ Projects API Error:', error);
@@ -76,8 +83,6 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    
-    await connectDB();
 
     const { name, platform } = await request.json();
 
@@ -103,39 +108,51 @@ export async function POST(request: NextRequest) {
     const projectId = generateId();
 
     // Create new project with initial data
-    const project = await (Project as any).create({
-      userId,
-      projectId,
-      name,
-      platform,
-      aspectRatio: platformConfig.aspectRatio,
-      width: platformConfig.width,
-      height: platformConfig.height,
-      status: 'active',
-      trackItems: [],
-      size: {
+    const { data: project, error } = await supabase
+      .from(TABLES.PROJECTS)
+      .insert({
+        user_id: userId,
+        project_id: projectId,
+        name,
+        platform,
+        aspect_ratio: platformConfig.aspectRatio,
         width: platformConfig.width,
         height: platformConfig.height,
-      },
-      metadata: {},
-      assets: [],
-      textVariations: [],
-      videoVariations: [],
-      exports: [],
-    });
+        status: 'active',
+        track_items: [],
+        size: {
+          width: platformConfig.width,
+          height: platformConfig.height,
+        },
+        metadata: {},
+        assets: [],
+        text_variations: [],
+        video_variations: [],
+        exports: [],
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Project creation error:', error);
+      return NextResponse.json(
+        { error: 'Failed to create project', details: error.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       project: {
-        id: project._id,
-        projectId: project.projectId,
+        id: project.id,
+        projectId: project.project_id,
         name: project.name,
         platform: project.platform,
-        aspectRatio: project.aspectRatio,
+        aspectRatio: project.aspect_ratio,
         width: project.width,
         height: project.height,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
+        createdAt: project.created_at,
+        updatedAt: project.updated_at,
       },
     });
   } catch (error) {

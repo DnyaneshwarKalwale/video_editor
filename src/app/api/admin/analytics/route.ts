@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
-import connectDB from '@/lib/database';
-import UserActivity from '@/models/UserActivity';
-import User from '@/models/User';
+import { supabase, TABLES } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,8 +10,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectDB();
-
     const { searchParams } = new URL(request.url);
     const domain = searchParams.get('domain');
     const period = searchParams.get('period') || '30';
@@ -21,59 +17,91 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const start = new Date(now.getTime() - parseInt(period) * 24 * 60 * 60 * 1000);
 
-    const query: any = { createdAt: { $gte: start, $lte: now } };
-    if (domain) query.companyDomain = domain;
+    // Build query for activities
+    let activitiesQuery = supabase
+      .from(TABLES.USER_ACTIVITIES)
+      .select('*')
+      .gte('created_at', start.toISOString())
+      .lte('created_at', now.toISOString())
+      .order('created_at', { ascending: false });
 
-    console.log('Analytics query:', query);
-    console.log('Date range:', { start, now });
+    if (domain) {
+      activitiesQuery = activitiesQuery.eq('company_domain', domain);
+    }
 
-    const activities = await (UserActivity as any).find(query).sort({ createdAt: -1 });
-    const users = await (User as any).find(domain ? { companyDomain: domain } : {}).select('email name companyDomain createdAt');
+    const { data: activities, error: activitiesError } = await activitiesQuery;
 
-    console.log('Found activities:', activities.length);
-    console.log('Found users:', users.length);
+    if (activitiesError) {
+      console.error('Analytics activities error:', activitiesError);
+      return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
+    }
+
+    // Build query for users
+    let usersQuery = supabase
+      .from(TABLES.USERS)
+      .select('email, name, company_domain, created_at');
+
+    if (domain) {
+      usersQuery = usersQuery.eq('company_domain', domain);
+    }
+
+    const { data: users, error: usersError } = await usersQuery;
+
+    if (usersError) {
+      console.error('Analytics users error:', usersError);
+      return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
+    }
+
+    console.log('Found activities:', activities?.length || 0);
+    console.log('Found users:', users?.length || 0);
 
     const stats = {
-      totalUsers: users.length,
-      totalDownloads: activities.filter(a => a.activityType === 'video_download').length,
-      totalProjects: activities.filter(a => a.activityType === 'project_created').length,
-      totalCost: activities.reduce((sum, a) => sum + (a.cost || 0), 0),
-      totalVideoDuration: activities.reduce((sum, a) => sum + (a.videoDuration || 0), 0),
+      totalUsers: users?.length || 0,
+      totalDownloads: activities?.filter(a => a.activity_type === 'video_download').length || 0,
+      totalProjects: activities?.filter(a => a.activity_type === 'project_created').length || 0,
+      totalCost: activities?.reduce((sum, a) => sum + (a.cost || 0), 0) || 0,
+      totalVideoDuration: activities?.reduce((sum, a) => sum + (a.video_duration || 0), 0) || 0,
     };
 
-    const domainStats = await UserActivity.aggregate([
-      { $match: query },
-      {
-        $group: {
-          _id: '$companyDomain',
-          totalUsers: { $addToSet: '$userId' },
-          totalDownloads: { $sum: { $cond: [{ $eq: ['$activityType', 'video_download'] }, 1, 0] } },
-          totalCost: { $sum: '$cost' },
-        }
-      },
-      {
-        $project: {
-          domain: '$_id',
-          totalUsers: { $size: '$totalUsers' },
-          totalDownloads: 1,
-          totalCost: 1,
-        }
-      },
-      { $sort: { totalCost: -1 } }
-    ]);
+    // Get domain statistics
+    const domainStats = activities?.reduce((acc, activity) => {
+      const domain = activity.company_domain;
+      if (!acc[domain]) {
+        acc[domain] = {
+          domain,
+          users: 0,
+          downloads: 0,
+          projects: 0,
+          cost: 0,
+          videoDuration: 0,
+        };
+      }
+      
+      if (activity.activity_type === 'video_download') acc[domain].downloads++;
+      if (activity.activity_type === 'project_created') acc[domain].projects++;
+      acc[domain].cost += activity.cost || 0;
+      acc[domain].videoDuration += activity.video_duration || 0;
+      
+      return acc;
+    }, {} as Record<string, any>) || {};
 
-    console.log('Domain stats:', domainStats);
+    // Count users per domain
+    users?.forEach(user => {
+      const domain = user.company_domain;
+      if (domainStats[domain]) {
+        domainStats[domain].users++;
+      }
+    });
 
     return NextResponse.json({
       success: true,
       stats,
-      domainStats,
-      activities: activities.slice(0, 100),
-      users: users.slice(0, 100),
+      activities: activities || [],
+      users: users || [],
+      domainStats: Object.values(domainStats),
     });
-
   } catch (error) {
-    console.error('Error fetching analytics:', error);
+    console.error('Analytics error:', error);
     return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
   }
 }
@@ -81,48 +109,61 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connectDB();
-
     const body = await request.json();
-    const { activityType, projectId, projectName, videoDuration, videoSize, cost, metadata } = body;
+    const { 
+      activityType, 
+      projectId, 
+      projectName, 
+      videoDuration, 
+      videoSize, 
+      cost, 
+      metadata 
+    } = body;
 
-    const user = await (User as any).findOne({ email: session.user.email });
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (!activityType) {
+      return NextResponse.json({ error: 'Activity type is required' }, { status: 400 });
     }
 
-    let calculatedCost = cost;
-    if (!calculatedCost && activityType === 'video_download') {
-      const durationInSeconds = (videoDuration || 0) / 1000;
-      const sizeInMB = (videoSize || 0) / (1024 * 1024);
-      calculatedCost = (durationInSeconds * 0.01) + (sizeInMB * 0.001);
-    }
+    const { data: activity, error } = await supabase
+      .from(TABLES.USER_ACTIVITIES)
+      .insert({
+        user_id: session.user.id,
+        user_email: session.user.email || '',
+        company_domain: session.user.companyDomain || '',
+        activity_type: activityType,
+        project_id: projectId,
+        project_name: projectName,
+        video_duration: videoDuration,
+        cost: cost || 0,
+        metadata: metadata || {},
+        user_agent: request.headers.get('user-agent') || '',
+      })
+      .select()
+      .single();
 
-    const activity = await (UserActivity as any).create({
-      userId: user._id.toString(),
-      userEmail: user.email,
-      companyDomain: user.companyDomain,
-      activityType,
-      projectId,
-      projectName,
-      videoDuration,
-      videoSize,
-      cost: calculatedCost,
-      metadata,
-    });
+    if (error) {
+      console.error('Activity tracking error:', error);
+      return NextResponse.json({ error: 'Failed to track activity' }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
-      activity,
-      message: 'Activity recorded successfully'
+      activity: {
+        id: activity.id,
+        activityType: activity.activity_type,
+        projectId: activity.project_id,
+        projectName: activity.project_name,
+        videoDuration: activity.video_duration,
+        cost: activity.cost,
+        createdAt: activity.created_at,
+      },
     });
-
   } catch (error) {
-    console.error('Error recording activity:', error);
-    return NextResponse.json({ error: 'Failed to record activity' }, { status: 500 });
+    console.error('Activity tracking error:', error);
+    return NextResponse.json({ error: 'Failed to track activity' }, { status: 500 });
   }
 }

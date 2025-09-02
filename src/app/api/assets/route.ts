@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import Asset from '@/models/Asset';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
+import { supabase, TABLES } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,8 +13,6 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
-    
-    await connectDB();
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
@@ -26,37 +23,42 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query for project-specific assets (exclude variations)
-    const query: any = { 
-      userId: userId,
-      projectId: projectId,
-      status: 'active',
-      $or: [
-        { isVariation: { $exists: false } }, // Assets without isVariation flag (old assets)
-        { isVariation: false } // Assets explicitly marked as not variations
-      ]
-    };
+    let query = supabase
+      .from(TABLES.ASSETS)
+      .select('*')
+      .eq('user_id', userId)
+      .eq('project_id', projectId)
+      .eq('status', 'active')
+      .eq('is_variation', false)
+      .order('created_at', { ascending: false });
     
     if (type) {
-      query.fileType = { $regex: `^${type}/` };
+      query = query.ilike('file_type', `${type}%`);
     }
 
-    const assets = await (Asset as any).find(query)
-      .sort({ createdAt: -1 })
-      .select('fileName fileType fileSize cloudinaryUrl metadata createdAt isVariation');
+    const { data: assets, error } = await query;
 
-    console.log(`Found ${assets.length} assets for project ${projectId} (excluding variations)`);
+    if (error) {
+      console.error('Assets fetch error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch assets' },
+        { status: 500 }
+      );
+    }
+
+    console.log(`Found ${assets?.length || 0} assets for project ${projectId} (excluding variations)`);
 
     return NextResponse.json({
       success: true,
-      assets: assets.map(asset => ({
-        id: asset._id,
-        fileName: asset.fileName,
-        fileType: asset.fileType,
-        fileSize: asset.fileSize,
-        url: asset.cloudinaryUrl,
+      assets: assets?.map(asset => ({
+        id: asset.id,
+        fileName: asset.file_name,
+        fileType: asset.file_type,
+        fileSize: asset.file_size,
+        url: asset.supabase_url,
         metadata: asset.metadata,
-        createdAt: asset.createdAt,
-      })),
+        createdAt: asset.created_at,
+      })) || [],
     });
   } catch (error) {
     console.error('Assets fetch error:', error);

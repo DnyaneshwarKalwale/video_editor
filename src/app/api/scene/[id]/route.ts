@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import Project from '@/models/Project';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
+import { supabase, TABLES } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
@@ -18,47 +17,33 @@ export async function GET(
 
     const userId = session.user.id;
     const { id: projectId } = await params;
-    
-    await connectDB();
 
-    // Find the project (ensure it belongs to the user)
-    const project = await (Project as any).findOne({
-      _id: projectId,
-      userId: userId,
-      status: { $ne: 'deleted' }
-    });
+    // Find the project and get scene data
+    const { data: project, error } = await supabase
+      .from(TABLES.PROJECTS)
+      .select('name, track_items, size, metadata')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .neq('status', 'deleted')
+      .single();
 
-    if (!project) {
+    if (error || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    // Return the project data in the format expected by the editor
     return NextResponse.json({
       success: true,
+      project: {
+        id: projectId,
+        name: project.name
+      },
       scene: {
-        id: project._id,
+        id: projectId,
         content: {
-          trackItems: project.trackItems || [],
-          size: project.size || { width: project.width, height: project.height },
+          trackItems: project.track_items || [],
+          size: project.size || {},
           metadata: project.metadata || {},
         }
-      },
-      project: {
-        id: project._id,
-        projectId: project.projectId,
-        name: project.name,
-        platform: project.platform,
-        aspectRatio: project.aspectRatio,
-        width: project.width,
-        height: project.height,
-        assets: project.assets || [],
-        textVariations: project.textVariations || [],
-        videoVariations: project.videoVariations || [],
-        exports: project.exports || [],
-        thumbnail: project.thumbnail,
-        duration: project.duration,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
       }
     });
   } catch (error) {
@@ -85,35 +70,36 @@ export async function PUT(
     const userId = session.user.id;
     const { id: projectId } = await params;
     const { trackItems, size, metadata } = await request.json();
-    
-    await connectDB();
 
     // Update the project with new scene data
-    const project = await (Project as any).findOneAndUpdate(
-      {
-        _id: projectId,
-        userId: userId,
-        status: { $ne: 'deleted' }
-      },
-      {
-        trackItems: trackItems || [],
+    const { data: project, error } = await supabase
+      .from(TABLES.PROJECTS)
+      .update({
+        track_items: trackItems || [],
         size: size || {},
         metadata: metadata || {},
-        updatedAt: new Date()
-      },
-      { new: true }
-    );
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .neq('status', 'deleted')
+      .select('name, track_items, size, metadata')
+      .single();
 
-    if (!project) {
+    if (error || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
+      project: {
+        id: projectId,
+        name: project.name
+      },
       scene: {
-        id: project._id,
+        id: projectId,
         content: {
-          trackItems: project.trackItems,
+          trackItems: project.track_items,
           size: project.size,
           metadata: project.metadata,
         }

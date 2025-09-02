@@ -62,11 +62,21 @@ export default function Navbar({
 	projectName: string;
 }) {
 	const [title, setTitle] = useState(projectName);
+	console.log('Navbar initial projectName:', projectName, 'title:', title);
 	const isLargeScreen = useIsLargeScreen();
 	const isMediumScreen = useIsMediumScreen();
 	const isSmallScreen = useIsSmallScreen();
 	const { showOverlay, toggleOverlay, currentPlatform, setCurrentPlatform } = usePlatformStoreClient();
 	const [isVariationModalOpen, setIsVariationModalOpen] = useState(false);
+
+	// Update title when projectName prop changes
+	useEffect(() => {
+		console.log('Navbar received projectName:', projectName);
+		if (projectName && projectName !== title) {
+			console.log('Updating title from', title, 'to', projectName);
+			setTitle(projectName);
+		}
+	}, [projectName, title]);
 
 	const variationProject = useVariationProject();
 	const { totalCombinations, generateAllVideos } = useVariationStore();
@@ -195,8 +205,12 @@ export default function Navbar({
 			{/* Removed old DownloadProgressModal - now using DownloadManager */}
 
 			<div className="flex items-center gap-2">
-				<div className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md text-gray-900">
-					<LogoIcons.scalez />
+				<div 
+					className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md text-gray-900 hover:bg-gray-100 cursor-pointer transition-colors"
+					onClick={() => window.location.href = '/projects'}
+					title="Go to Projects"
+				>
+					<LogoIcons.scalezStatic />
 				</div>
 
 				<div className=" pointer-events-auto flex h-10 items-center px-1.5">

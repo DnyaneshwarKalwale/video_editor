@@ -1,6 +1,4 @@
-import connectDB from './database';
-import cloudinary from './cloudinary';
-import Export from '@/models/Export';
+import { supabase, TABLES, BUCKETS } from '@/lib/supabase';
 import fs from 'fs';
 
 export async function saveExportToDatabase(
@@ -11,56 +9,65 @@ export async function saveExportToDatabase(
   videoData: any
 ) {
   try {
-    await connectDB();
-
-    // Upload the rendered video to Cloudinary
-    const uploadResult = await new Promise<any>((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          resource_type: 'video',
-          folder: `users/${userId}/exports`,
-          format: 'mp4',
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-
-      // Read the file and pipe to upload stream
-      const fileStream = fs.createReadStream(outputPath);
-      fileStream.pipe(uploadStream);
-    });
-
     // Get file stats
     const stats = fs.statSync(outputPath);
+    
+    // Generate unique filename
+    const fileName = `export-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.mp4`;
+    const filePath = `${userId}/exports/${fileName}`;
+
+    // Upload the rendered video to Supabase Storage
+    const fileBuffer = fs.readFileSync(outputPath);
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(BUCKETS.EXPORTS)
+      .upload(filePath, fileBuffer, {
+        contentType: 'video/mp4',
+        cacheControl: '3600',
+      });
+
+    if (uploadError) {
+      throw new Error(`Failed to upload to Supabase Storage: ${uploadError.message}`);
+    }
+
+    // Get the public URL
+    const { data: urlData } = supabase.storage
+      .from(BUCKETS.EXPORTS)
+      .getPublicUrl(filePath);
 
     // Save to database
-    const exportRecord = await (Export as any).create({
-      userId,
-      projectId,
-      variationId,
-      status: 'completed',
-      cloudinaryUrl: uploadResult.secure_url,
-      cloudinaryPublicId: uploadResult.public_id,
-      settings: {
-        width: videoData.platformConfig.width,
-        height: videoData.platformConfig.height,
-        fps: 24,
-        duration: videoData.duration,
-        format: 'mp4',
-      },
-      metadata: {
-        fileSize: stats.size,
-        renderTime: Date.now(), // You might want to calculate actual render time
-        error: null,
-      },
-    });
+    const { data: exportRecord, error: dbError } = await supabase
+      .from(TABLES.EXPORTS)
+      .insert({
+        user_id: userId,
+        project_id: projectId,
+        variation_id: variationId,
+        status: 'completed',
+        supabase_url: urlData.publicUrl,
+        supabase_path: filePath,
+        settings: {
+          width: videoData.platformConfig.width,
+          height: videoData.platformConfig.height,
+          fps: 24,
+          duration: videoData.duration,
+          format: 'mp4',
+        },
+        metadata: {
+          fileSize: stats.size,
+          renderTime: Date.now(),
+          error: null,
+        },
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      throw new Error(`Failed to save to database: ${dbError.message}`);
+    }
 
     return {
       success: true,
-      exportId: exportRecord._id,
-      cloudinaryUrl: uploadResult.secure_url,
+      exportId: exportRecord.id,
+      supabaseUrl: urlData.publicUrl,
       fileSize: stats.size,
     };
   } catch (error) {
@@ -75,15 +82,33 @@ export async function updateExportStatus(
   error?: string
 ) {
   try {
-    await connectDB();
+    const updateData: any = { 
+      status,
+      updated_at: new Date().toISOString()
+    };
 
-    const updateData: any = { status };
     if (error) {
-      updateData['metadata.error'] = error;
+      updateData.metadata = { error };
     }
 
-    await (Export as any).findByIdAndUpdate(exportId, updateData);
+    const { data: exportRecord, error: updateError } = await supabase
+      .from(TABLES.EXPORTS)
+      .update(updateData)
+      .eq('id', exportId)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new Error(`Failed to update export status: ${updateError.message}`);
+    }
+
+    return {
+      success: true,
+      exportId: exportRecord.id,
+      status: exportRecord.status,
+    };
   } catch (error) {
     console.error('Error updating export status:', error);
+    throw error;
   }
 }

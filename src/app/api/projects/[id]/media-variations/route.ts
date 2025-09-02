@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import Project from '@/models/Project';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../auth/[...nextauth]/options';
-import { v2 as cloudinary } from 'cloudinary';
+import { supabase, TABLES, BUCKETS } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
@@ -17,20 +15,21 @@ export async function GET(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    await connectDB();
+    // Get project media variations
+    const { data: project, error } = await supabase
+      .from(TABLES.PROJECTS)
+      .select('video_variations')
+      .eq('id', id)
+      .eq('user_id', session.user.id)
+      .neq('status', 'deleted')
+      .single();
 
-    const project = await (Project as any).findOne({
-      _id: id,
-      userId: session.user.id,
-      status: { $ne: 'deleted' }
-    });
-
-    if (!project) {
+    if (error || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     // Get all media variations for the project
-    const mediaVariations = project.videoVariations || [];
+    const mediaVariations = project.video_variations || [];
     
     console.log('Retrieved video variations:', JSON.stringify(mediaVariations, null, 2));
 
@@ -66,20 +65,22 @@ export async function PUT(
       return NextResponse.json({ error: 'Element ID and variations required' }, { status: 400 });
     }
 
-    await connectDB();
+    // Get current project
+    const { data: project, error: findError } = await supabase
+      .from(TABLES.PROJECTS)
+      .select('video_variations')
+      .eq('id', id)
+      .eq('user_id', session.user.id)
+      .neq('status', 'deleted')
+      .single();
 
-    const project = await (Project as any).findOne({
-      _id: id,
-      userId: session.user.id,
-      status: { $ne: 'deleted' }
-    });
-
-    if (!project) {
+    if (findError || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     // Remove existing variations for this element
-    project.videoVariations = project.videoVariations.filter(
+    const currentVariations = project.video_variations || [];
+    const filteredVariations = currentVariations.filter(
       (variation: any) => variation.elementId !== elementId
     );
 
@@ -89,7 +90,7 @@ export async function PUT(
       originalVideo: variations[0]?.originalContent || '', // Use first variation's original content
       variations: variations.map((variation: any) => ({
         id: variation.id,
-        videoUrl: variation.content || variation.cloudinaryUrl || variation.videoUrl, // Use content field from upload
+        videoUrl: variation.content || variation.supabaseUrl || variation.videoUrl, // Use content field from upload
         thumbnail: variation.thumbnail,
         metadata: {
           ...variation.metadata,
@@ -101,17 +102,33 @@ export async function PUT(
           height: variation.metadata?.height,
           format: variation.metadata?.format
         },
-        cloudinaryPublicId: variation.cloudinaryPublicId
+        supabasePath: variation.supabasePath
       })),
-      createdAt: new Date()
+      createdAt: new Date().toISOString()
     };
 
     // Add the new variation entry
-    project.videoVariations.push(videoVariationEntry);
+    const updatedVariations = [...filteredVariations, videoVariationEntry];
     
-    console.log('Saving video variations:', JSON.stringify(project.videoVariations, null, 2));
+    console.log('Saving video variations:', JSON.stringify(updatedVariations, null, 2));
 
-    await project.save();
+    // Update project with new variations
+    const { error: updateError } = await supabase
+      .from(TABLES.PROJECTS)
+      .update({
+        video_variations: updatedVariations,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', session.user.id);
+
+    if (updateError) {
+      console.error('Media variations save error:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to save media variations' },
+        { status: 500 }
+      );
+    }
     
     console.log('Video variations saved successfully');
 
@@ -147,42 +164,62 @@ export async function DELETE(
       return NextResponse.json({ error: 'Element ID required' }, { status: 400 });
     }
 
-    await connectDB();
+    // Get current project
+    const { data: project, error: findError } = await supabase
+      .from(TABLES.PROJECTS)
+      .select('video_variations')
+      .eq('id', id)
+      .eq('user_id', session.user.id)
+      .neq('status', 'deleted')
+      .single();
 
-    const project = await (Project as any).findOne({
-      _id: id,
-      userId: session.user.id,
-      status: { $ne: 'deleted' }
-    });
-
-    if (!project) {
+    if (findError || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    // Get variations to delete from Cloudinary
-    const elementEntry = project.videoVariations.find(
+    // Get variations to delete from Supabase Storage
+    const elementEntry = project.video_variations?.find(
       (entry: any) => entry.elementId === elementId
     );
 
-    // Delete from Cloudinary
+    // Delete from Supabase Storage
     if (elementEntry && elementEntry.variations) {
       for (const variation of elementEntry.variations) {
-        if (variation.cloudinaryPublicId) {
+        if (variation.supabasePath) {
           try {
-            await cloudinary.uploader.destroy(variation.cloudinaryPublicId);
+            await supabase.storage
+              .from(BUCKETS.UPLOADS)
+              .remove([variation.supabasePath]);
           } catch (error) {
-            console.error('Error deleting from Cloudinary:', error);
+            console.error('Error deleting from Supabase Storage:', error);
           }
         }
       }
     }
 
     // Remove from project
-    project.videoVariations = project.videoVariations.filter(
+    const currentVariations = project.video_variations || [];
+    const updatedVariations = currentVariations.filter(
       (variation: any) => variation.elementId !== elementId
     );
 
-    await project.save();
+    // Update project
+    const { error: updateError } = await supabase
+      .from(TABLES.PROJECTS)
+      .update({
+        video_variations: updatedVariations,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', session.user.id);
+
+    if (updateError) {
+      console.error('Media variations delete error:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to delete media variations' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -216,29 +253,33 @@ export async function PATCH(
       return NextResponse.json({ error: 'Variation ID required' }, { status: 400 });
     }
 
-    await connectDB();
+    // Get current project
+    const { data: project, error: findError } = await supabase
+      .from(TABLES.PROJECTS)
+      .select('video_variations')
+      .eq('id', id)
+      .eq('user_id', session.user.id)
+      .neq('status', 'deleted')
+      .single();
 
-    const project = await (Project as any).findOne({
-      _id: id,
-      userId: session.user.id,
-      status: { $ne: 'deleted' }
-    });
-
-    if (!project) {
+    if (findError || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     // Find the variation to delete
     let variationToDelete = null;
     let elementEntryIndex = -1;
+    let variationIndex = -1;
     
-    for (let i = 0; i < project.videoVariations.length; i++) {
-      const entry = project.videoVariations[i];
+    const currentVariations = project.video_variations || [];
+    for (let i = 0; i < currentVariations.length; i++) {
+      const entry = currentVariations[i];
       if (entry.variations) {
-        const variationIndex = entry.variations.findIndex((v: any) => v.id === variationId);
-        if (variationIndex !== -1) {
-          variationToDelete = entry.variations[variationIndex];
+        const foundIndex = entry.variations.findIndex((v: any) => v.id === variationId);
+        if (foundIndex !== -1) {
+          variationToDelete = entry.variations[foundIndex];
           elementEntryIndex = i;
+          variationIndex = foundIndex;
           break;
         }
       }
@@ -248,28 +289,44 @@ export async function PATCH(
       return NextResponse.json({ error: 'Variation not found' }, { status: 404 });
     }
 
-    // Delete from Cloudinary
-    if (variationToDelete.cloudinaryPublicId) {
+    // Delete from Supabase Storage
+    if (variationToDelete.supabasePath) {
       try {
-        await cloudinary.uploader.destroy(variationToDelete.cloudinaryPublicId);
+        await supabase.storage
+          .from(BUCKETS.UPLOADS)
+          .remove([variationToDelete.supabasePath]);
       } catch (error) {
-        console.error('Error deleting from Cloudinary:', error);
+        console.error('Error deleting from Supabase Storage:', error);
       }
     }
 
     // Remove the specific variation from the element entry
-    if (elementEntryIndex !== -1) {
-      project.videoVariations[elementEntryIndex].variations = project.videoVariations[elementEntryIndex].variations.filter(
-        (v: any) => v.id !== variationId
-      );
+    if (elementEntryIndex !== -1 && variationIndex !== -1) {
+      currentVariations[elementEntryIndex].variations.splice(variationIndex, 1);
       
-      // If no variations left, remove the entire element entry
-      if (project.videoVariations[elementEntryIndex].variations.length === 0) {
-        project.videoVariations.splice(elementEntryIndex, 1);
+      // If no variations left for this element, remove the entire entry
+      if (currentVariations[elementEntryIndex].variations.length === 0) {
+        currentVariations.splice(elementEntryIndex, 1);
       }
     }
 
-    await project.save();
+    // Update project
+    const { error: updateError } = await supabase
+      .from(TABLES.PROJECTS)
+      .update({
+        video_variations: currentVariations,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .eq('user_id', session.user.id);
+
+    if (updateError) {
+      console.error('Media variation delete error:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to delete media variation' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

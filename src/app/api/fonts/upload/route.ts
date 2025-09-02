@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
-import connectDB from '@/lib/database';
-import { v2 as cloudinary } from 'cloudinary';
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+import { supabase, TABLES, BUCKETS } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,53 +56,74 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Convert file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Generate unique file path
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`;
+    const filePath = `${session.user.email}/fonts/${fileName}`;
 
-    // Upload to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        {
-          resource_type: 'raw',
-          folder: 'custom-fonts',
-          public_id: `${fontFamily}-${Date.now()}`,
-          format: file.name.split('.').pop(),
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      ).end(buffer);
-    });
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(BUCKETS.FONTS)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
 
-    await connectDB();
+    if (uploadError) {
+      console.error('Supabase upload error:', uploadError);
+      return NextResponse.json({ 
+        error: 'Upload failed',
+        details: uploadError.message 
+      }, { status: 500 });
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from(BUCKETS.FONTS)
+      .getPublicUrl(filePath);
 
     // Create font record in database
     const fontData = {
       id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       family: fontFamily,
-      fullName: fontName,
-      postScriptName: fontName.replace(/\s+/g, ''),
+      full_name: fontName,
+      post_script_name: fontName.replace(/\s+/g, ''),
       preview: `https://via.placeholder.com/300x100/ffffff/000000?text=${encodeURIComponent(fontFamily)}`,
       style: 'normal',
-      url: (uploadResult as any).secure_url,
+      url: publicUrl,
       category: 'custom',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      userId: session.user.email,
-      isCustom: true,
-      fileName: file.name,
-      fileSize: file.size,
+      user_id: session.user.email,
+      is_custom: true,
+      file_name: file.name,
+      file_size: file.size,
     };
 
-    // Insert into database using mongoose
-    const mongoose = await connectDB();
-    await mongoose.connection.db.collection('customFonts').insertOne(fontData);
+    // Insert into database
+    const { data: font, error: insertError } = await supabase
+      .from(TABLES.CUSTOM_FONTS)
+      .insert(fontData)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Font database insert error:', insertError);
+      return NextResponse.json({ 
+        error: 'Failed to save font metadata',
+        details: insertError.message 
+      }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
-      font: fontData,
+      font: {
+        ...font,
+        fullName: font.full_name,
+        postScriptName: font.post_script_name,
+        isCustom: font.is_custom,
+        fileName: font.file_name,
+        fileSize: font.file_size,
+        createdAt: font.created_at,
+        updatedAt: font.updated_at,
+      },
       message: 'Custom font uploaded successfully'
     });
 
@@ -131,17 +144,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const mongoose = await connectDB();
-
     // Get custom fonts for the user
-    const customFonts = await mongoose.connection.db.collection('customFonts')
-      .find({ userId: session.user.email })
-      .sort({ createdAt: -1 })
-      .toArray();
+    const { data: customFonts, error } = await supabase
+      .from(TABLES.CUSTOM_FONTS)
+      .select('*')
+      .eq('user_id', session.user.email)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching custom fonts:', error);
+      return NextResponse.json({ 
+        error: 'Failed to fetch custom fonts',
+        details: error.message 
+      }, { status: 500 });
+    }
+
+    // Transform data to match expected format
+    const fonts = customFonts?.map(font => ({
+      ...font,
+      fullName: font.full_name,
+      postScriptName: font.post_script_name,
+      isCustom: font.is_custom,
+      fileName: font.file_name,
+      fileSize: font.file_size,
+      createdAt: font.created_at,
+      updatedAt: font.updated_at,
+    })) || [];
 
     return NextResponse.json({
       success: true,
-      fonts: customFonts
+      fonts
     });
 
   } catch (error) {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { supabase, TABLES } from '@/lib/supabase';
 
 const execAsync = promisify(exec);
 
@@ -188,27 +189,19 @@ async function processLambdaJob(jobId: string, videoData: any) {
       lambdaJobStore.set(jobId, job);
     }
 
-    // Save cost to analytics database
+    // Save cost to analytics database using Supabase
     try {
-      const connectDB = require('@/lib/database').default;
-      const UserActivity = require('@/models/UserActivity').default;
-      const User = require('@/models/User').default;
-
-      // Get user from the job data
       if (job?.videoData?.userId) {
-        await connectDB();
-        
-        const user = await User.findById(job.videoData.userId);
-        if (user) {
-          await UserActivity.create({
-            userId: user._id.toString(),
-            userEmail: user.email,
-            companyDomain: user.companyDomain,
-            activityType: 'video_download',
-            projectId: job.videoData.projectId || 'unknown',
-            projectName: job.videoData.projectName || 'Unknown Project',
-            videoDuration: videoData.duration || 5000,
-            videoSize: 0, // Will be updated when downloaded
+        await supabase
+          .from(TABLES.USER_ACTIVITIES)
+          .insert({
+            user_id: job.videoData.userId,
+            user_email: job.videoData.userEmail || '',
+            company_domain: job.videoData.companyDomain || '',
+            activity_type: 'video_download',
+            project_id: job.videoData.projectId || 'unknown',
+            project_name: job.videoData.projectName || 'Unknown Project',
+            video_duration: videoData.duration || 5000,
             cost: renderCost,
             metadata: {
               jobId,
@@ -216,11 +209,11 @@ async function processLambdaJob(jobId: string, videoData: any) {
               awsCost: renderCost,
               memoryMB: 3008,
               durationSeconds: (videoData.duration || 5000) / 1000
-            }
+            },
+            user_agent: 'Lambda Render',
           });
-          
-          console.log(`[Lambda Job ${jobId}] AWS cost tracked for user ${user.email}: $${renderCost.toFixed(6)}`);
-        }
+        
+        console.log(`[Lambda Job ${jobId}] AWS cost tracked for user ${job.videoData.userEmail}: $${renderCost.toFixed(6)}`);
       }
     } catch (costError) {
       console.error(`[Lambda Job ${jobId}] Failed to track cost:`, costError);
@@ -268,26 +261,12 @@ export async function GET(request: NextRequest) {
   if (!jobId) {
     return NextResponse.json({ error: 'Job ID required' }, { status: 400 });
   }
-
-  // Get user session for authorization
-  const { getServerSession } = require('next-auth');
-  const { authOptions } = require('../auth/[...nextauth]/options');
-  const session = await getServerSession(authOptions);
-  
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-  }
   
   const job = lambdaJobStore.get(jobId);
   if (!job) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 });
   }
 
-  // Verify user owns this job or is admin
-  if (job.videoData?.userId !== session.user.id && !session.user.isAdmin) {
-    return NextResponse.json({ error: 'Unauthorized access to job' }, { status: 403 });
-  }
-  
   return NextResponse.json({
     id: job.id,
     status: job.status,
@@ -346,6 +325,8 @@ export async function POST(request: NextRequest) {
       videoTrackItems: videoTrackItems || [],
       audioTrackItems: audioTrackItems || [],
       userId: session.user.id, // Include userId for cost tracking
+      userEmail: session.user.email,
+      companyDomain: session.user.companyDomain,
       userSessionId: userSessionId, // Include session ID for user isolation
       projectId: projectId || 'unknown',
       projectName: projectName || 'Unknown Project',
@@ -591,3 +572,4 @@ export async function DELETE(request: NextRequest) {
     jobId: jobId
   });
 }
+

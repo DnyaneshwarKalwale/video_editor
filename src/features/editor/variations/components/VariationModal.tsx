@@ -74,7 +74,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
                   key: `${element.type.toUpperCase()}0`,
                   value: element.content,
                   type: element.type,
-                  elementId: element.id,
+              elementId: element.id,
                   originalValue: element.content
                 },
                 ...elementVariationData.variations.map((v: any, index: number) => ({
@@ -88,16 +88,16 @@ const VariationModal: React.FC<VariationModalProps> = ({
               ];
               elementVariations[element.id] = variations;
             } else {
-              // If no variations found, use original
-              elementVariations[element.id] = [{
-                id: 'original',
-                key: `${element.type.toUpperCase()}0`,
-                value: element.content,
-                type: element.type,
-                elementId: element.id,
-                originalValue: element.content
-              }];
-            }
+            // If no variations found, use original
+            elementVariations[element.id] = [{
+              id: 'original',
+              key: `${element.type.toUpperCase()}0`,
+              value: element.content,
+              type: element.type,
+              elementId: element.id,
+              originalValue: element.content
+            }];
+          }
           } else if (['video', 'image', 'audio'].includes(element.type)) {
             // Handle media variations
             const elementVariationData = mediaData.mediaVariations.find((v: any) => v.elementId === element.id);
@@ -124,8 +124,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                 }))
               ];
               elementVariations[element.id] = variations;
-            } else {
-            // If no variations found, use original
+        } else {
+          // If no variations found, use original
               elementVariations[element.id] = [{
                 id: 'original',
                 key: `${element.type.toUpperCase()}0`,
@@ -137,17 +137,17 @@ const VariationModal: React.FC<VariationModalProps> = ({
             }
           } else {
             // For other types, use original
-            elementVariations[element.id] = [{
-              id: 'original',
-              key: `${element.type.toUpperCase()}0`,
-              value: element.content,
-              type: element.type,
-              elementId: element.id,
-              originalValue: element.content
-            }];
-          }
+          elementVariations[element.id] = [{
+            id: 'original',
+            key: `${element.type.toUpperCase()}0`,
+            value: element.content,
+            type: element.type,
+            elementId: element.id,
+            originalValue: element.content
+          }];
         }
-      });
+      }
+    });
     } catch (error) {
       console.error('Error loading variations from backend:', error);
       // Fallback to original values
@@ -757,7 +757,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4">
+      <div className="fixed inset-0 z-50 bg-gray-900/60 flex items-center justify-center p-2 sm:p-4">
         <div 
           className="bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col w-full h-full sm:w-auto sm:h-auto max-w-7xl max-h-[90vh]"
           style={{ 

@@ -49,7 +49,7 @@ export const DownloadManager: React.FC = () => {
   const activeCount = downloads.filter(d => d.status === 'downloading').length;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl h-[600px] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">

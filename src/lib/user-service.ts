@@ -1,58 +1,95 @@
-import connectDB from './database';
-import User from '@/models/User';
-import bcrypt from 'bcryptjs';
+import { supabase, TABLES } from '@/lib/supabase';
 
-export interface CreateUserData {
+export async function createUser(userData: {
   email: string;
   name: string;
-  image?: string;
+  companyDomain: string;
   password?: string;
-}
+  googleId?: string;
+  isAdmin?: boolean;
+}) {
+  try {
+    const { data: user, error } = await supabase
+      .from(TABLES.USERS)
+      .insert({
+        email: userData.email,
+        name: userData.name,
+        company_domain: userData.companyDomain,
+        password: userData.password,
+        google_id: userData.googleId,
+        is_admin: userData.isAdmin || false,
+      })
+      .select()
+      .single();
 
-export class UserService {
-  static async createUser(userData: CreateUserData) {
-    await connectDB();
-    
-    // Hash password if provided
-    let hashedPassword = null;
-    if (userData.password) {
-      hashedPassword = await bcrypt.hash(userData.password, 12);
+    if (error) {
+      throw new Error(`Failed to create user: ${error.message}`);
     }
-
-    const user = await (User as any).create({
-      email: userData.email,
-      name: userData.name,
-      image: userData.image || null,
-      password: hashedPassword,
-      emailVerified: new Date(), // Auto-verify for now
-    });
 
     return user;
+  } catch (error) {
+    console.error('Error creating user:', error);
+    throw error;
   }
+}
 
-  static async findUserByEmail(email: string) {
-    await connectDB();
-    return await (User as any).findOne({ email });
-  }
+export async function findUserByEmail(email: string) {
+  try {
+    const { data: user, error } = await supabase
+      .from(TABLES.USERS)
+      .select('*')
+      .eq('email', email)
+      .single();
 
-  static async findUserById(id: string) {
-    await connectDB();
-    return await (User as any).findById(id);
-  }
-
-  static async updateUser(id: string, updateData: Partial<CreateUserData>) {
-    await connectDB();
-    
-    // Hash password if provided
-    if (updateData.password) {
-      updateData.password = await bcrypt.hash(updateData.password, 12);
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+      throw new Error(`Failed to find user: ${error.message}`);
     }
 
-    return await (User as any).findByIdAndUpdate(id, updateData, { new: true });
+    return user;
+  } catch (error) {
+    console.error('Error finding user by email:', error);
+    throw error;
   }
+}
 
-  static async verifyPassword(user: any, password: string) {
-    if (!user.password) return false;
-    return await bcrypt.compare(password, user.password);
+export async function findUserById(id: string) {
+  try {
+    const { data: user, error } = await supabase
+      .from(TABLES.USERS)
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      throw new Error(`Failed to find user: ${error.message}`);
+    }
+
+    return user;
+  } catch (error) {
+    console.error('Error finding user by ID:', error);
+    throw error;
+  }
+}
+
+export async function updateUser(id: string, updateData: any) {
+  try {
+    const { data: user, error } = await supabase
+      .from(TABLES.USERS)
+      .update({
+        ...updateData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update user: ${error.message}`);
+    }
+
+    return user;
+  } catch (error) {
+    console.error('Error updating user:', error);
+    throw error;
   }
 }

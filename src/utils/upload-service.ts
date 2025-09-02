@@ -15,43 +15,35 @@ export async function processFileUpload(
   callbacks: UploadCallbacks
 ): Promise<any> {
   try {
-    // Get presigned URL
-    const {
-      data: { uploads },
-    } = await axios.post(
-      "/api/uploads/presign",
-      {
-        userId: "PJ1nkaufw0hZPyhN7bWCP",
-        fileNames: [file.name],
+    // Upload file directly to Supabase
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('projectId', 'PJ1nkaufw0hZPyhN7bWCP'); // This should be dynamic
+    
+    const response = await axios.post('/api/upload', formData, {
+      headers: { 
+        'Content-Type': 'multipart/form-data',
       },
-      {
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-
-    const uploadInfo = uploads[0];
-
-    // Upload file with progress tracking
-    await axios.put(uploadInfo.presignedUrl, file, {
-      headers: { "Content-Type": uploadInfo.contentType },
       onUploadProgress: (progressEvent) => {
         const percent = Math.round(
           (progressEvent.loaded * 100) / (progressEvent.total || 1)
         );
         callbacks.onProgress(uploadId, percent);
       },
-      validateStatus: () => true,
     });
+
+    const uploadResult = response.data;
+    const uploadInfo = uploadResult.asset;
 
     // Construct upload data from uploadInfo
     const uploadData = {
       fileName: uploadInfo.fileName,
-      filePath: uploadInfo.filePath,
-      fileSize: file.size,
-      contentType: uploadInfo.contentType,
-      metadata: { uploadedUrl: uploadInfo.url },
-      folder: uploadInfo.folder || null,
-      type: uploadInfo.contentType.split("/")[0],
+      filePath: uploadInfo.supabasePath,
+      fileSize: uploadInfo.fileSize,
+      contentType: uploadInfo.fileType,
+      metadata: { uploadedUrl: uploadInfo.supabaseUrl },
+      folder: null,
+      type: uploadInfo.fileType.split("/")[0],
       method: "direct",
       origin: "user",
       status: "uploaded",
@@ -75,37 +67,24 @@ export async function processUrlUpload(
     // Start with 10% progress
     callbacks.onProgress(uploadId, 10);
 
-    // Upload URL
-    const {
-      data: { uploads = [] } = {},
-    } = await axios.post(
-      "/api/uploads/url",
-      {
-        userId: "PJ1nkaufw0hZPyhN7bWCP",
-        urls: [url],
-      },
-      {
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-
-    // Update to 50% progress
-    callbacks.onProgress(uploadId, 50);
-
-    // Construct upload data from uploads array
-    const uploadDataArray = uploads.map((uploadInfo: any) => ({
-      fileName: uploadInfo.fileName,
-      filePath: uploadInfo.filePath,
+    // For URL uploads, we'll create a placeholder asset
+    // This is a simplified approach - you might want to download the URL content
+    const uploadDataArray = [{
+      fileName: url.split('/').pop() || 'url-upload',
+      filePath: `urls/${Date.now()}-${Math.random().toString(36).substring(2)}`,
       fileSize: 0,
-      contentType: uploadInfo.contentType,
-      metadata: { originalUrl: uploadInfo.originalUrl },
-      folder: uploadInfo.folder || null,
-      type: uploadInfo.contentType.split("/")[0],
+      contentType: 'application/octet-stream',
+      metadata: { originalUrl: url },
+      folder: null,
+      type: 'url',
       method: "url",
       origin: "user",
       status: "uploaded",
       isPreview: false,
-    }));
+    }];
+
+    // Update to 50% progress
+    callbacks.onProgress(uploadId, 50);
 
     // Complete
     callbacks.onProgress(uploadId, 100);

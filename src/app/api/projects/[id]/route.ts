@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import Project from '@/models/Project';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
+import { supabase, TABLES } from '@/lib/supabase';
 import { generateId } from '@designcombo/timeline';
 
 export async function GET(
@@ -19,41 +18,41 @@ export async function GET(
 
     const userId = session.user.id;
     const { id: projectId } = await params;
-    
-    await connectDB();
 
     // Find the project (ensure it belongs to the user)
-    const project = await (Project as any).findOne({
-      _id: projectId,
-      userId: userId,
-      status: { $ne: 'deleted' }
-    });
+    const { data: project, error } = await supabase
+      .from(TABLES.PROJECTS)
+      .select('*')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .neq('status', 'deleted')
+      .single();
 
-    if (!project) {
+    if (error || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
       project: {
-        id: project._id,
-        projectId: project.projectId,
+        id: project.id,
+        projectId: project.project_id,
         name: project.name,
         platform: project.platform,
-        aspectRatio: project.aspectRatio,
+        aspectRatio: project.aspect_ratio,
         width: project.width,
         height: project.height,
-        trackItems: project.trackItems,
+        trackItems: project.track_items,
         size: project.size,
         metadata: project.metadata,
         assets: project.assets,
-        textVariations: project.textVariations,
-        videoVariations: project.videoVariations,
+        textVariations: project.text_variations,
+        videoVariations: project.video_variations,
         thumbnail: project.thumbnail,
         duration: project.duration,
         exports: project.exports,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
+        createdAt: project.created_at,
+        updatedAt: project.updated_at,
       },
     });
   } catch (error) {
@@ -80,56 +79,54 @@ export async function PUT(
     const userId = session.user.id;
     const { id: projectId } = await params;
     const { name, platform, trackItems, size, metadata, assets, textVariations, videoVariations } = await request.json();
-    
-    await connectDB();
 
-    // Find and update the project (ensure it belongs to the user)
-    const updateData: any = { updatedAt: new Date() };
+    // Build update data
+    const updateData: any = { updated_at: new Date().toISOString() };
     
     if (name !== undefined) updateData.name = name;
     if (platform !== undefined) updateData.platform = platform;
-    if (trackItems !== undefined) updateData.trackItems = trackItems;
+    if (trackItems !== undefined) updateData.track_items = trackItems;
     if (size !== undefined) updateData.size = size;
     if (metadata !== undefined) updateData.metadata = metadata;
     if (assets !== undefined) updateData.assets = assets;
-    if (textVariations !== undefined) updateData.textVariations = textVariations;
-    if (videoVariations !== undefined) updateData.videoVariations = videoVariations;
+    if (textVariations !== undefined) updateData.text_variations = textVariations;
+    if (videoVariations !== undefined) updateData.video_variations = videoVariations;
 
-    const project = await (Project as any).findOneAndUpdate(
-      {
-        _id: projectId,
-        userId: userId,
-        status: { $ne: 'deleted' }
-      },
-      updateData,
-      { new: true }
-    );
+    // Find and update the project (ensure it belongs to the user)
+    const { data: project, error } = await supabase
+      .from(TABLES.PROJECTS)
+      .update(updateData)
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .neq('status', 'deleted')
+      .select()
+      .single();
 
-    if (!project) {
+    if (error || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
       project: {
-        id: project._id,
-        projectId: project.projectId,
+        id: project.id,
+        projectId: project.project_id,
         name: project.name,
         platform: project.platform,
-        aspectRatio: project.aspectRatio,
+        aspectRatio: project.aspect_ratio,
         width: project.width,
         height: project.height,
-        trackItems: project.trackItems,
+        trackItems: project.track_items,
         size: project.size,
         metadata: project.metadata,
         assets: project.assets,
-        textVariations: project.textVariations,
-        videoVariations: project.videoVariations,
+        textVariations: project.text_variations,
+        videoVariations: project.video_variations,
         thumbnail: project.thumbnail,
         duration: project.duration,
         exports: project.exports,
-        createdAt: project.createdAt,
-        updatedAt: project.updatedAt,
+        createdAt: project.created_at,
+        updatedAt: project.updated_at,
       },
     });
   } catch (error) {
@@ -155,21 +152,21 @@ export async function DELETE(
 
     const userId = session.user.id;
     const { id: projectId } = await params;
-    
-    await connectDB();
 
     // Soft delete the project (mark as deleted instead of actually deleting)
-    const project = await (Project as any).findOneAndUpdate(
-      {
-        _id: projectId,
-        userId: userId,
-        status: { $ne: 'deleted' }
-      },
-      { status: 'deleted', updatedAt: new Date() },
-      { new: true }
-    );
+    const { data: project, error } = await supabase
+      .from(TABLES.PROJECTS)
+      .update({ 
+        status: 'deleted', 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .neq('status', 'deleted')
+      .select()
+      .single();
 
-    if (!project) {
+    if (error || !project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 

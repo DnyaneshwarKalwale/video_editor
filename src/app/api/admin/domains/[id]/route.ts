@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import CompanyDomain from '@/models/CompanyDomain';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../auth/[...nextauth]/options';
+import { supabase, TABLES } from '@/lib/supabase';
 
 // PATCH - Update domain status
 export async function PATCH(
@@ -8,17 +9,25 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectDB();
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
     const { isActive } = await request.json();
     
-    const domain = await (CompanyDomain as any).findByIdAndUpdate(
-      id,
-      { isActive },
-      { new: true }
-    );
+    const { data: domain, error } = await supabase
+      .from(TABLES.COMPANY_DOMAINS)
+      .update({ 
+        is_active: isActive,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
     
-    if (!domain) {
+    if (error || !domain) {
       return NextResponse.json(
         { error: 'Domain not found' },
         { status: 404 }
@@ -27,7 +36,15 @@ export async function PATCH(
     
     return NextResponse.json({
       message: 'Domain updated successfully',
-      domain,
+      domain: {
+        id: domain.id,
+        domain: domain.domain,
+        companyName: domain.company_name,
+        isActive: domain.is_active,
+        addedBy: domain.added_by,
+        createdAt: domain.created_at,
+        updatedAt: domain.updated_at,
+      },
     });
   } catch (error) {
     console.error('Error updating domain:', error);
@@ -44,12 +61,21 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await connectDB();
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.isAdmin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
     
-    const domain = await (CompanyDomain as any).findByIdAndDelete(id);
+    const { data: domain, error } = await supabase
+      .from(TABLES.COMPANY_DOMAINS)
+      .delete()
+      .eq('id', id)
+      .select()
+      .single();
     
-    if (!domain) {
+    if (error || !domain) {
       return NextResponse.json(
         { error: 'Domain not found' },
         { status: 404 }

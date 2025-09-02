@@ -1,29 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import cloudinary from '@/lib/cloudinary';
-import Asset from '@/models/Asset';
-import Project from '@/models/Project';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../auth/[...nextauth]/options';
+import { supabase, supabaseAdmin, TABLES, BUCKETS } from '@/lib/supabase';
 
 // Configure for large file uploads
 export const maxDuration = 300; // 5 minutes
 export const dynamic = 'force-dynamic';
 
-
-
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔍 Upload API: Starting request...');
+    
     // Get authenticated user session
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {
+      console.log('❌ Upload API: No session or user ID');
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     const userId = session.user.id;
-    
-    await connectDB();
+    console.log('👤 Upload API: User ID:', userId);
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -34,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Check file size (100MB limit)
+    // Check file size (50MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB in bytes
     if (file.size > maxSize) {
       return NextResponse.json({ 
@@ -45,124 +42,130 @@ export async function POST(request: NextRequest) {
     console.log(`Uploading file: ${file.name}, size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
 
     if (!projectId) {
+      console.log('❌ Upload API: No project ID provided');
       return NextResponse.json({ error: 'Project ID required' }, { status: 400 });
     }
 
-    // Verify project belongs to user
-    const project = await (Project as any).findOne({
-      _id: projectId,
-      userId: userId,
-      status: { $ne: 'deleted' }
-    });
+    console.log('🔍 Upload API: Project ID:', projectId);
 
-    if (!project) {
+    // Verify project belongs to user
+    const { data: project, error: projectError } = await supabase
+      .from(TABLES.PROJECTS)
+      .select('id, name, project_id')
+      .eq('id', projectId)
+      .eq('user_id', userId)
+      .neq('status', 'deleted')
+      .single();
+
+    if (projectError || !project) {
+      console.log('❌ Upload API: Project not found or error:', projectError);
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    // Convert file to buffer
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    console.log('✅ Upload API: Project found:', project.name);
 
-    // Upload to Cloudinary with project-specific folder and timeout
-    const uploadResult = await new Promise<any>((resolve, reject) => {
-      // Set timeout for upload (5 minutes)
-      const timeout = setTimeout(() => {
-        reject(new Error('Upload timeout - file too large or slow connection'));
-      }, 5 * 60 * 1000); // 5 minutes
+    // Generate unique file path
+    const fileExtension = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`;
+    const filePath = `${userId}/projects/${projectId}/uploads/${fileName}`;
 
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          resource_type: 'auto',
-          folder: `users/${userId}/projects/${projectId}/uploads`,
-          timeout: 300000, // 5 minutes timeout
+    // Upload to Supabase Storage using admin client to bypass RLS
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      .from(BUCKETS.UPLOADS)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('Supabase upload error:', uploadError);
+      return NextResponse.json({ 
+        error: 'Upload failed',
+        details: uploadError.message 
+      }, { status: 500 });
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from(BUCKETS.UPLOADS)
+      .getPublicUrl(filePath);
+
+    // Save to Asset table
+    const { data: asset, error: assetError } = await supabase
+      .from(TABLES.ASSETS)
+      .insert({
+        user_id: userId,
+        project_id: projectId,
+        file_name: file.name,
+        file_type: file.type,
+        file_size: file.size,
+        supabase_url: publicUrl,
+        supabase_path: filePath,
+        is_variation: isVariation,
+        metadata: {
+          duration: 0, // Will be updated if video
+          width: 0,
+          height: 0,
+          format: fileExtension,
         },
-        (error, result) => {
-          clearTimeout(timeout);
-          if (error) {
-            console.error('Cloudinary upload error:', error);
-            reject(error);
-          } else {
-            console.log('Cloudinary upload successful');
-            resolve(result);
-          }
-        }
-      );
+      })
+      .select()
+      .single();
 
-      uploadStream.end(buffer);
-    });
-
-    // Save to Asset model with project ID
-    const asset = await (Asset as any).create({
-      userId: userId,
-      projectId: projectId,
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      cloudinaryUrl: uploadResult.secure_url,
-      cloudinaryPublicId: uploadResult.public_id,
-      isVariation: isVariation, // Flag to distinguish variation uploads
-      metadata: {
-        duration: uploadResult.duration || 0,
-        width: uploadResult.width || 0,
-        height: uploadResult.height || 0,
-        format: uploadResult.format || 'unknown',
-      },
-    });
+    if (assetError) {
+      console.error('Asset creation error:', assetError);
+      return NextResponse.json({ 
+        error: 'Failed to save asset metadata',
+        details: assetError.message 
+      }, { status: 500 });
+    }
 
     // Track asset upload activity
     try {
-      const { baseUrl } = require('../../../utils/metadata');
-      await fetch(`${baseUrl}/api/admin/analytics`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          activityType: 'asset_uploaded',
-          projectId: projectId,
-          projectName: project.name,
-          videoDuration: uploadResult.duration || 0,
-          videoSize: file.size,
-          cost: 0,
+      await supabase
+        .from(TABLES.USER_ACTIVITIES)
+        .insert({
+          user_id: userId,
+          user_email: session.user.email || '',
+          company_domain: session.user.companyDomain || '',
+          activity_type: 'asset_upload',
+          project_id: projectId,
+          project_name: project.name || '',
           metadata: {
             fileName: file.name,
+            fileSize: file.size,
             fileType: file.type,
-            isVariation: isVariation
-          }
-        })
-      });
-    } catch (error) {
-      console.error('Failed to track asset upload activity:', error);
+            isVariation: isVariation,
+          },
+          user_agent: request.headers.get('user-agent') || '',
+        });
+    } catch (activityError) {
+      console.error('Activity tracking error:', activityError);
+      // Don't fail the upload if activity tracking fails
     }
+
+    console.log('File uploaded successfully to Supabase');
 
     return NextResponse.json({
       success: true,
       asset: {
-        id: asset._id,
-        fileName: asset.fileName,
-        fileType: asset.fileType,
-        cloudinaryUrl: asset.cloudinaryUrl,
+        id: asset.id,
+        fileName: asset.file_name,
+        fileType: asset.file_type,
+        fileSize: asset.file_size,
+        supabaseUrl: asset.supabase_url,
+        supabasePath: asset.supabase_path,
+        isVariation: asset.is_variation,
         metadata: asset.metadata,
-        type: file.type.startsWith('video/') ? 'video' : 
-              file.type.startsWith('image/') ? 'image' : 'audio',
+        createdAt: asset.created_at,
       },
     });
-  } catch (error: any) {
-    console.error('Upload error:', error);
-    
-    // Handle specific error types
-    if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
-      return NextResponse.json({ 
-        error: 'Upload timeout - file too large or slow connection. Try a smaller file.' 
-      }, { status: 408 });
-    }
-    
-    if (error.http_code === 499) {
-      return NextResponse.json({ 
-        error: 'Upload cancelled or timed out. Try a smaller file or check your connection.' 
-      }, { status: 408 });
-    }
 
+  } catch (error) {
+    console.error('Upload error:', error);
     return NextResponse.json({ 
-      error: 'Upload failed. Please try again.' 
+      error: 'Upload failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }

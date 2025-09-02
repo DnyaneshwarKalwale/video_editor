@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
+import { LogoIcons } from '@/components/shared/logos';
 
 interface CompanyDomain {
-  _id: string;
+  id: string;
   domain: string;
   companyName: string;
   isActive: boolean;
@@ -200,9 +201,14 @@ export default function AdminDashboard() {
       <div className="border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-gray-600">Welcome, {session?.user?.name}</p>
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center">
+                <LogoIcons.scalezStatic />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-gray-600">Welcome, {session?.user?.name}</p>
+              </div>
             </div>
             <div className="flex space-x-4">
               <Link
@@ -293,7 +299,7 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {domains.map((domain) => (
-                    <tr key={domain._id}>
+                    <tr key={domain.id}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {domain.companyName}
                       </td>
@@ -314,7 +320,7 @@ export default function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         <button
-                          onClick={() => handleToggleDomain(domain._id, domain.isActive)}
+                          onClick={() => handleToggleDomain(domain.id, domain.isActive)}
                           className={`text-sm px-3 py-1 rounded ${
                             domain.isActive
                               ? 'bg-gray-100 text-gray-800 hover:bg-gray-200'
@@ -324,7 +330,7 @@ export default function AdminDashboard() {
                           {domain.isActive ? 'Deactivate' : 'Activate'}
                         </button>
                         <button
-                          onClick={() => handleDeleteDomain(domain._id)}
+                          onClick={() => handleDeleteDomain(domain.id)}
                           className="text-sm bg-red-100 text-red-800 px-3 py-1 rounded hover:bg-red-200"
                         >
                           Delete
@@ -349,7 +355,7 @@ export default function AdminDashboard() {
                 >
                   <option value="">All Domains</option>
                   {domains.map((domain) => (
-                    <option key={domain._id} value={domain.domain}>
+                    <option key={domain.id} value={domain.domain}>
                       {domain.companyName} ({domain.domain})
                     </option>
                   ))}
@@ -358,19 +364,19 @@ export default function AdminDashboard() {
               
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-900">{analytics.stats.totalUsers}</div>
+                  <div className="text-2xl font-bold text-gray-900">{analytics.stats.totalUsers || 0}</div>
                   <div className="text-sm text-gray-600">Total Users</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-900">{analytics.stats.totalDownloads}</div>
+                  <div className="text-2xl font-bold text-gray-900">{analytics.stats.totalDownloads || 0}</div>
                   <div className="text-sm text-gray-600">Video Downloads</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-900">{analytics.stats.totalProjects}</div>
+                  <div className="text-2xl font-bold text-gray-900">{analytics.stats.totalProjects || 0}</div>
                   <div className="text-sm text-gray-600">Projects Created</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-900">${analytics.stats.totalCost.toFixed(2)}</div>
+                  <div className="text-2xl font-bold text-gray-900">${(analytics.stats.totalCost || 0).toFixed(2)}</div>
                   <div className="text-sm text-gray-600">Total Cost</div>
                 </div>
               </div>
@@ -392,9 +398,9 @@ export default function AdminDashboard() {
                       {analytics.domainStats.map((stat) => (
                         <tr key={stat.domain} className="border-b border-gray-100">
                           <td className="py-2">{stat.domain}</td>
-                          <td className="py-2">{stat.totalUsers}</td>
-                          <td className="py-2">{stat.totalDownloads}</td>
-                          <td className="py-2">${stat.totalCost.toFixed(2)}</td>
+                          <td className="py-2">{stat.totalUsers || 0}</td>
+                          <td className="py-2">{stat.totalDownloads || 0}</td>
+                          <td className="py-2">${(stat.totalCost || 0).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>

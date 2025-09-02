@@ -250,21 +250,21 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
             const uploadData = await uploadResponse.json();
             
             // Create variation with the uploaded URL
-            const variation: MediaVariation = {
-              id: `variation-${Date.now()}-${index}`,
+          const variation: MediaVariation = {
+            id: `variation-${Date.now()}-${index}`,
               content: uploadData.asset.cloudinaryUrl,
-              type: 'manual',
-              metadata: {
-                fileName: variationNames[index] || file.name,
-                fileSize: file.size,
-                fileType: file.type,
+            type: 'manual',
+            metadata: {
+              fileName: variationNames[index] || file.name,
+              fileSize: file.size,
+              fileType: file.type,
                 uploadedUrl: uploadData.asset.cloudinaryUrl,
                 cloudinaryPublicId: uploadData.asset.cloudinaryPublicId,
                 ...uploadData.asset.metadata
-              } as any
-            };
-            
-            variations.push(variation);
+            } as any
+          };
+          
+          variations.push(variation);
             console.log(`Successfully uploaded ${file.name}`);
           } else {
             const errorData = await uploadResponse.json();
@@ -277,7 +277,7 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
 
       if (variations.length > 0) {
         console.log('Calling onAddVariations with:', variations);
-        onAddVariations(variations);
+      onAddVariations(variations);
         
         // Wait a bit for the backend save to complete, then reload
         setTimeout(async () => {
@@ -532,14 +532,14 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
                 
                 {/* Remove Button */}
                 <div className="absolute top-2 right-2 z-[9999] pointer-events-auto">
-                  <Button
-                    type="primary"
-                    danger
-                    size="small"
-                    onClick={() => handleRemoveFile(index)}
+                <Button
+                  type="primary"
+                  danger
+                  size="small"
+                  onClick={() => handleRemoveFile(index)}
                     className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg rounded-full"
-                    icon={<DeleteOutlined />}
-                  />
+                  icon={<DeleteOutlined />}
+                />
                 </div>
 
                 {/* File info overlay */}

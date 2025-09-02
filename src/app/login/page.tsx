@@ -4,6 +4,7 @@ import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { LogoIcons } from '@/components/shared/logos';
 
 export default function LoginPage() {
   const { data: session, status } = useSession();
@@ -12,10 +13,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [otp, setOtp] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
 
   useEffect(() => {
     console.log('Status:', status);
@@ -41,7 +45,63 @@ export default function LoginPage() {
   }, [session, status, router]);
 
   const handleGoogleSignIn = () => {
-    signIn('google', { callbackUrl: '/admin' });
+    signIn('google', { callbackUrl: '/' });
+  };
+
+  const handleSendOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const response = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage('OTP sent successfully! Check your email.');
+        setOtpSent(true);
+      } else {
+        setMessage(data.error || 'Failed to send OTP');
+      }
+    } catch (error) {
+      setMessage('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const response = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, password, name }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage('Email verified successfully! You can now log in.');
+        setOtpVerified(true);
+        setOtpSent(false);
+        setOtp('');
+      } else {
+        setMessage(data.error || 'Failed to verify OTP');
+      }
+    } catch (error) {
+      setMessage('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
@@ -66,31 +126,15 @@ export default function LoginPage() {
     }
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const resetForm = () => {
+    setEmail('');
+    setPassword('');
+    setName('');
+    setOtp('');
+    setOtpSent(false);
+    setOtpVerified(false);
     setMessage('');
-
-    try {
-             const response = await fetch('/api/auth/register', {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ email, password, name }),
-       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage('Registration successful! Please log in.');
-        setIsRegistering(false);
-      } else {
-        setMessage(data.error || 'Registration failed');
-      }
-    } catch (error) {
-      setMessage('Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    setIsRegistering(false);
   };
 
   if (status === 'loading') {
@@ -109,6 +153,9 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         <div className="bg-white shadow rounded-lg p-6">
           <div className="text-center mb-6">
+            <div className="flex justify-center mb-4">
+              <LogoIcons.scalezStatic className="h-16 w-16" />
+            </div>
             <h1 className="text-2xl font-bold text-gray-900">
               {isRegistering ? 'Create Account' : 'Sign In'}
             </h1>
@@ -143,92 +190,224 @@ export default function LoginPage() {
               </div>
             </div>
 
-                         <form onSubmit={isRegistering ? handleRegister : handleCredentialsSubmit} className="space-y-4">
-               {isRegistering && (
-                 <div>
-                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                     Full Name *
-                   </label>
-                   <input
-                     type="text"
-                     id="name"
-                     value={name}
-                     onChange={(e) => setName(e.target.value)}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                     placeholder="Enter your full name"
-                     required
-                   />
-                 </div>
-               )}
-               
-               <div>
-                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                   Email *
-                 </label>
-                 <input
-                   type="email"
-                   id="email"
-                   value={email}
-                   onChange={(e) => setEmail(e.target.value)}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                   placeholder="Enter your email"
-                   required
-                 />
-               </div>
-
-                             <div>
-                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                   Password *
-                 </label>
-                 <div className="relative">
-                   <input
-                     type={showPassword ? "text" : "password"}
-                     id="password"
-                     value={password}
-                     onChange={(e) => setPassword(e.target.value)}
-                     className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                     placeholder={isRegistering ? "Create a password (min 8 characters)" : "Enter your password"}
-                     required
-                   />
-                   <button
-                     type="button"
-                     onClick={() => setShowPassword(!showPassword)}
-                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                   >
-                     {showPassword ? (
-                       <span className="text-lg">🙈</span>
-                     ) : (
-                       <span className="text-lg">👁️</span>
-                     )}
-                   </button>
-                 </div>
-               </div>
-
-              {message && (
-                <div className={`px-4 py-3 rounded-md ${
-                  message.includes('successful') 
-                    ? 'bg-green-50 border border-green-200 text-green-700'
-                    : 'bg-red-50 border border-red-200 text-red-700'
-                }`}>
-                  {message}
+            {!otpSent && !otpVerified && (
+              <form onSubmit={isRegistering ? handleSendOTP : handleCredentialsSubmit} className="space-y-4">
+                {isRegistering && (
+                  <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter your full name"
+                      required
+                    />
+                  </div>
+                )}
+                
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter your email"
+                    required
+                  />
                 </div>
-              )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (isRegistering ? 'Creating Account...' : 'Signing In...') : (isRegistering ? 'Create Account' : 'Sign In')}
-              </button>
-            </form>
+                {!isRegistering && (
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Password *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter your password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? (
+                          <span className="text-lg">🙈</span>
+                        ) : (
+                          <span className="text-lg">👁️</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {isRegistering && (
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Password *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Create a password (min 8 characters)"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? (
+                          <span className="text-lg">🙈</span>
+                        ) : (
+                          <span className="text-lg">👁️</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {message && (
+                  <div className={`px-4 py-3 rounded-md ${
+                    message.includes('successfully') 
+                      ? 'bg-green-50 border border-green-200 text-green-700'
+                      : 'bg-red-50 border border-red-200 text-red-700'
+                  }`}>
+                    {message}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (isRegistering ? 'Sending OTP...' : 'Signing In...') : (isRegistering ? 'Send OTP' : 'Sign In')}
+                </button>
+              </form>
+            )}
+
+            {otpSent && !otpVerified && (
+              <form onSubmit={handleVerifyOTP} className="space-y-4">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-4">
+                    We've sent a 6-digit OTP to <strong>{email}</strong>
+                  </p>
+                </div>
+                
+                <div>
+                  <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-1">
+                    Enter OTP *
+                  </label>
+                  <input
+                    type="text"
+                    id="otp"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-center text-2xl tracking-widest"
+                    placeholder="000000"
+                    maxLength={6}
+                    required
+                  />
+                </div>
+
+                {message && (
+                  <div className={`px-4 py-3 rounded-md ${
+                    message.includes('successfully') 
+                      ? 'bg-green-50 border border-green-200 text-green-700'
+                      : 'bg-red-50 border border-red-200 text-red-700'
+                  }`}>
+                    {message}
+                  </div>
+                )}
+
+                <div className="flex space-x-3">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Verifying OTP...' : 'Verify OTP'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSendOTP}
+                    disabled={loading}
+                    className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Resend OTP
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setOtpSent(false)}
+                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Back to Registration
+                </button>
+              </form>
+            )}
+
+            {otpVerified && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                    <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Email verified successfully! You can now log in.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setOtpVerified(false);
+                    setPassword('');
+                  }}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Continue to Login
+                </button>
+
+                <button
+                  onClick={resetForm}
+                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Register Another Account
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               {isRegistering ? 'Already have an account?' : "Don't have an account?"}{' '}
               <button
-                onClick={() => setIsRegistering(!isRegistering)}
+                onClick={() => {
+                  resetForm();
+                  setIsRegistering(!isRegistering);
+                }}
                 className="text-blue-600 hover:text-blue-500"
               >
                 {isRegistering ? 'Sign in here' : 'Create account here'}
@@ -241,11 +420,10 @@ export default function LoginPage() {
             <ul className="text-sm text-blue-800 space-y-1">
               <li>• Your email domain must be approved by admin</li>
               <li>• Contact your admin to add your company domain</li>
-              <li>• Individual accounts for each user</li>
+              <li>• Email verification required before login</li>
+              <li>• OTP will be sent to your email</li>
             </ul>
           </div>
-
-
 
           {/* Terms and Privacy Links */}
           <div className="mt-4 pt-4 border-t border-gray-200 text-center">

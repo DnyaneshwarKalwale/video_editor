@@ -49,7 +49,7 @@ export default function EditPage({
 				const data = await response.json();
 				console.log('📦 Response data:', data);
 				
-				if (data.success && data.project) {
+				if (data.success && data.scene) {
 					console.log('✅ Project access granted - showing editor');
 					// Check if the project belongs to the current user
 					// Since the API already filters by userId, if we get here, the user owns the project

@@ -2,9 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { baseUrl } from "@/utils/metadata";
-import connectDB from "@/lib/database";
-import User from "@/models/User";
-import CompanyDomain from "@/models/CompanyDomain";
+import { supabase, TABLES } from "@/lib/supabase";
 import bcrypt from "bcryptjs";
 
 declare module "next-auth" {
@@ -39,16 +37,24 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        await connectDB();
-
         const email = credentials.email;
         const domain = email.split('@')[1];
 
         // Check if it's an admin domain
         if (ADMIN_DOMAINS.includes(domain)) {
-          const user = await (User as any).findOne({ email });
-          if (!user || !user.password) {
+          const { data: user, error } = await supabase
+            .from(TABLES.USERS)
+            .select('id, email, name, image, password, email_verified')
+            .eq('email', email)
+            .single();
+
+          if (error || !user || !user.password) {
             return null;
+          }
+
+          // Check if email is verified (admin users also need verification)
+          if (!user.email_verified) {
+            return null; // Email not verified
           }
 
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
@@ -57,7 +63,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           return {
-            id: user._id.toString(),
+            id: user.id,
             email: user.email,
             name: user.name,
             image: user.image,
@@ -67,18 +73,30 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Check if it's an approved company domain
-        const approvedDomain = await (CompanyDomain as any).findOne({ 
-          domain: domain, 
-          isActive: true 
-        });
+        const { data: approvedDomain, error: domainError } = await supabase
+          .from(TABLES.COMPANY_DOMAINS)
+          .select('id')
+          .eq('domain', domain)
+          .eq('is_active', true)
+          .single();
         
-        if (!approvedDomain) {
+        if (domainError || !approvedDomain) {
           return null; // Domain not approved
         }
 
-        const user = await (User as any).findOne({ email });
-        if (!user || !user.password) {
+        const { data: user, error: userError } = await supabase
+          .from(TABLES.USERS)
+          .select('id, email, name, image, password, email_verified')
+          .eq('email', email)
+          .single();
+
+        if (userError || !user || !user.password) {
           return null;
+        }
+
+        // Check if email is verified
+        if (!user.email_verified) {
+          return null; // Email not verified
         }
 
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
@@ -87,7 +105,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         return {
-          id: user._id.toString(),
+          id: user.id,
           email: user.email,
           name: user.name,
           image: user.image,
@@ -112,49 +130,81 @@ export const authOptions: NextAuthOptions = {
         // Check if it's an admin domain
         if (ADMIN_DOMAINS.includes(domain)) {
           // For admin domains, check if user exists, if not create them
-          await connectDB();
-          let existingUser = await (User as any).findOne({ email });
+          const { data: existingUser, error: userError } = await supabase
+            .from(TABLES.USERS)
+            .select('id')
+            .eq('email', email)
+            .single();
           
-          if (!existingUser) {
+          if (userError && userError.code === 'PGRST116') { // No user found
             // Create new admin user
-            existingUser = await (User as any).create({
-              email,
-              name: user.name || email.split('@')[0],
-              image: user.image,
-              googleId: user.id,
-              companyDomain: domain,
-              isAdmin: true,
-              adminRole: 'developer', // Default role
-            });
+            const { data: newUser, error: createError } = await supabase
+              .from(TABLES.USERS)
+              .insert({
+                email,
+                name: user.name || email.split('@')[0],
+                image: user.image,
+                google_id: user.id,
+                company_domain: domain,
+                is_admin: true,
+                admin_role: 'developer', // Default role
+                email_verified: new Date().toISOString(), // Google users are already verified
+              })
+              .select('id')
+              .single();
+
+            if (createError) {
+              console.error('Failed to create admin user:', createError);
+              return false;
+            }
           }
           
+          // For Google users, email is already verified by Google
+          // Set admin flag for redirect
+          (user as any).isAdmin = true;
+          (user as any).companyDomain = domain;
           return true;
         }
         
         // Check if it's an approved company domain
-        await connectDB();
-          const approvedDomain = await (CompanyDomain as any).findOne({ 
-            domain: domain, 
-          isActive: true 
-        });
+        const { data: approvedDomain, error: domainError } = await supabase
+          .from(TABLES.COMPANY_DOMAINS)
+          .select('id')
+          .eq('domain', domain)
+          .eq('is_active', true)
+          .single();
         
-        if (!approvedDomain) {
+        if (domainError || !approvedDomain) {
           return false; // Domain not approved
         }
         
-          // Check if user exists, if not create them
-          let existingUser = await (User as any).findOne({ email });
+        // Check if user exists, if not create them
+        const { data: existingUser, error: userError } = await supabase
+          .from(TABLES.USERS)
+          .select('id')
+          .eq('email', email)
+          .single();
         
-        if (!existingUser) {
-          // Create new company user
-          existingUser = await (User as any).create({
-            email,
-            name: user.name || email.split('@')[0],
-            image: user.image,
-            googleId: user.id,
-            companyDomain: domain,
-            isAdmin: false,
-          });
+        if (userError && userError.code === 'PGRST116') { // No user found
+          // Create new company user (Google users are already verified)
+          const { data: newUser, error: createError } = await supabase
+            .from(TABLES.USERS)
+            .insert({
+              email,
+              name: user.name || email.split('@')[0],
+              image: user.image,
+              google_id: user.id,
+              company_domain: domain,
+              is_admin: false,
+              email_verified: new Date().toISOString(), // Google users are already verified
+            })
+            .select('id')
+            .single();
+
+          if (createError) {
+            console.error('Failed to create company user:', createError);
+            return false;
+          }
         }
         
         return true;
@@ -172,12 +222,16 @@ export const authOptions: NextAuthOptions = {
       
       // For Google login, fetch the latest user data from database
       if (account?.provider === 'google' && token.email) {
-        await connectDB();
-        const dbUser = await (User as any).findOne({ email: token.email });
-        if (dbUser) {
-          token.id = dbUser._id.toString();
-          token.isAdmin = dbUser.isAdmin || false;
-          token.companyDomain = dbUser.companyDomain || '';
+        const { data: dbUser, error } = await supabase
+          .from(TABLES.USERS)
+          .select('id, is_admin, company_domain')
+          .eq('email', token.email)
+          .single();
+
+        if (!error && dbUser) {
+          token.id = dbUser.id;
+          token.isAdmin = dbUser.is_admin || false;
+          token.companyDomain = dbUser.company_domain || '';
         }
       }
       
@@ -190,6 +244,15 @@ export const authOptions: NextAuthOptions = {
         session.user.companyDomain = token.companyDomain as string;
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // Redirect admin users to admin dashboard
+      if (url === `${baseUrl}/` || url === baseUrl) {
+        // Check if user is admin by looking at the token
+        // This will be handled by the client-side redirect logic
+        return url;
+      }
+      return url;
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
