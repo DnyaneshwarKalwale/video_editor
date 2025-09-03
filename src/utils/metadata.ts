@@ -28,4 +28,4 @@ export function createMetadata(override: Metadata): Metadata {
 export const baseUrl =
 	process.env.NODE_ENV === "development"
 		? new URL("https://localhost:3000")
-		: new URL("editor.scalez.in");
+		: new URL("https://editor.scalez.in");
