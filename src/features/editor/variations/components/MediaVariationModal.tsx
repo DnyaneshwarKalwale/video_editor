@@ -252,13 +252,15 @@ export const MediaVariationModal: React.FC<MediaVariationModalProps> = ({
             // Create variation with the uploaded URL
           const variation: MediaVariation = {
             id: `variation-${Date.now()}-${index}`,
-              content: uploadData.asset.cloudinaryUrl,
+              content: uploadData.asset.supabaseUrl || uploadData.asset.cloudinaryUrl,
             type: 'manual',
             metadata: {
               fileName: variationNames[index] || file.name,
               fileSize: file.size,
               fileType: file.type,
-                uploadedUrl: uploadData.asset.cloudinaryUrl,
+                uploadedUrl: uploadData.asset.supabaseUrl || uploadData.asset.cloudinaryUrl,
+                supabaseUrl: uploadData.asset.supabaseUrl,
+                cloudinaryUrl: uploadData.asset.cloudinaryUrl,
                 cloudinaryPublicId: uploadData.asset.cloudinaryPublicId,
                 ...uploadData.asset.metadata
             } as any

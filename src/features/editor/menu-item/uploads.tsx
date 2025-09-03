@@ -67,9 +67,9 @@ export const Uploads = () => {
 		upload.type === "audio" || upload.fileType?.startsWith("audio/")
 	);
 
-	const handleAddVideo = (video: any) => {
+	const handleAddVideo = async (video: any) => {
 		// Use Cloudinary URL from database assets or fallback to local uploads
-		const srcVideo = video.url || video.metadata?.uploadedUrl || video.metadata?.cloudinaryUrl;
+		const srcVideo = video.url || video.metadata?.uploadedUrl || video.metadata?.cloudinaryUrl || video.supabaseUrl;
 
 		// Get duration from metadata (convert seconds to milliseconds if needed)
 		let videoDuration = 5000; // Default fallback
@@ -78,9 +78,57 @@ export const Uploads = () => {
 			videoDuration = video.metadata.duration > 1000 
 				? video.metadata.duration // Already in milliseconds
 				: Math.round(video.metadata.duration * 1000); // Convert seconds to milliseconds
+		} else if (srcVideo) {
+			// Extract duration from video URL using HTML5 video element
+			try {
+				const durationInSeconds = await new Promise<number>((resolve, reject) => {
+					const videoElement = document.createElement('video');
+					videoElement.preload = 'metadata';
+					videoElement.muted = true;
+					videoElement.crossOrigin = 'anonymous';
+					
+					const cleanup = () => {
+						videoElement.removeEventListener('loadedmetadata', onLoadedMetadata);
+						videoElement.removeEventListener('error', onError);
+						if (videoElement.src) videoElement.src = '';
+					};
+					
+					const onLoadedMetadata = () => {
+						const duration = videoElement.duration;
+						cleanup();
+						if (isNaN(duration) || duration <= 0 || duration === Infinity) {
+							reject(new Error('Invalid video duration'));
+						} else {
+							resolve(duration);
+						}
+					};
+					
+					const onError = () => {
+						cleanup();
+						reject(new Error('Failed to load video metadata'));
+					};
+					
+					videoElement.addEventListener('loadedmetadata', onLoadedMetadata);
+					videoElement.addEventListener('error', onError);
+					
+					// Set timeout to avoid hanging
+					setTimeout(() => {
+						cleanup();
+						reject(new Error('Video loading timeout'));
+					}, 8000);
+					
+					videoElement.src = srcVideo;
+				});
+				
+				videoDuration = Math.round(durationInSeconds * 1000); // Convert to milliseconds
+				console.log("✅ Extracted video duration:", durationInSeconds, "seconds =", videoDuration, "ms");
+			} catch (error) {
+				console.warn("⚠️ Failed to extract video duration, using fallback:", error);
+				videoDuration = 5000; // Keep fallback
+			}
 		}
 
-		console.log("Adding video with duration:", videoDuration, "ms");
+		console.log("Adding video with final duration:", videoDuration, "ms");
 
 		// Create video payload with simple positioning
 		const videoPayload = {
