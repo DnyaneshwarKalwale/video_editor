@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/options';
-import { supabase, TABLES, BUCKETS } from '@/lib/supabase';
+import { supabase, supabaseAdmin, TABLES, BUCKETS } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    const userId = session.user.id;
 
     const formData = await request.formData();
     const file = formData.get('font') as File;
@@ -58,10 +60,14 @@ export async function POST(request: NextRequest) {
 
     // Generate unique file path
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExtension}`;
-    const filePath = `${session.user.email}/fonts/${fileName}`;
+    const filePath = `${userId}/fonts/${fileName}`;
 
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    // Upload to Supabase Storage using admin client to bypass RLS
+    console.log('🔍 Attempting font upload to path:', filePath);
+    console.log('🔍 User ID from session:', userId);
+    console.log('🔍 Bucket name:', BUCKETS.FONTS);
+    
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
       .from(BUCKETS.FONTS)
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -69,12 +75,15 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      console.error('Supabase upload error:', uploadError);
+      console.error('❌ Supabase storage upload error:', uploadError);
+      console.error('❌ Upload error details:', JSON.stringify(uploadError, null, 2));
       return NextResponse.json({ 
-        error: 'Upload failed',
+        error: 'Storage upload failed',
         details: uploadError.message 
       }, { status: 500 });
     }
+    
+    console.log('✅ Storage upload successful:', uploadData);
 
     // Get public URL
     const { data: { publicUrl } } = supabase.storage
@@ -91,26 +100,31 @@ export async function POST(request: NextRequest) {
       style: 'normal',
       url: publicUrl,
       category: 'custom',
-      user_id: session.user.email,
+      user_id: userId,
       is_custom: true,
       file_name: file.name,
       file_size: file.size,
     };
 
-    // Insert into database
-    const { data: font, error: insertError } = await supabase
+    // Insert into database using admin client to bypass RLS
+    console.log('🔍 Attempting database insert with data:', JSON.stringify(fontData, null, 2));
+    
+    const { data: font, error: insertError } = await supabaseAdmin
       .from(TABLES.CUSTOM_FONTS)
       .insert(fontData)
       .select()
       .single();
 
     if (insertError) {
-      console.error('Font database insert error:', insertError);
+      console.error('❌ Database insert error:', insertError);
+      console.error('❌ Insert error details:', JSON.stringify(insertError, null, 2));
       return NextResponse.json({ 
         error: 'Failed to save font metadata',
         details: insertError.message 
       }, { status: 500 });
     }
+    
+    console.log('✅ Database insert successful:', font);
 
     return NextResponse.json({
       success: true,
@@ -140,15 +154,17 @@ export async function GET(request: NextRequest) {
   try {
     // Check authentication
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    const userId = session.user.id;
 
     // Get custom fonts for the user
-    const { data: customFonts, error } = await supabase
+    const { data: customFonts, error } = await supabaseAdmin
       .from(TABLES.CUSTOM_FONTS)
       .select('*')
-      .eq('user_id', session.user.email)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
