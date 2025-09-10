@@ -60,6 +60,12 @@ const MENU_ITEMS = [
 		label: "Variations",
 		ariaLabel: "Quick access to text variations",
 	},
+	{
+		id: "progress-bar-settings",
+		icon: Icons.settings,
+		label: "Progress Bar",
+		ariaLabel: "Customize progress bar settings",
+	},
 ] as const;
 
 // Memoized menu button component for better performance

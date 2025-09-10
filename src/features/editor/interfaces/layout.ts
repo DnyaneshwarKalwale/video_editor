@@ -10,7 +10,8 @@ export type IMenuItem =
 	| "texts"
 	| "voiceOver"
 	| "elements"
-	| "variations";
+	| "variations"
+	| "progress-bar-settings";
 export interface ILayoutState {
 	cropTarget: ITrackItem | null;
 	trackItem: ITrackItem | null;

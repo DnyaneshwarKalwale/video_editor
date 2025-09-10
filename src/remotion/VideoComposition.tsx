@@ -17,7 +17,10 @@ const VideoComposition = () => {
     platformConfig = { width: 1080, height: 1920 },
     duration = 5000,
     videoTrackItems = [],
-    audioTrackItems = []
+    audioTrackItems = [],
+    progressBarSettings = null,
+    effectiveDuration = null,
+    speedMultiplier = null
   } = inputProps || {};
   
   // If we've exceeded the actual duration, don't render anything
@@ -140,6 +143,178 @@ const VideoComposition = () => {
           </Sequence>
         );
       })}
+
+      {/* Render Progress Bar - Always visible */}
+      {progressBarSettings && progressBarSettings.isVisible && (
+        <ProgressBarRenderer 
+          platformConfig={{
+            width: platformConfig.width,
+            height: platformConfig.height,
+            aspectRatio: platformConfig.width > platformConfig.height ? '16:9' : platformConfig.width < platformConfig.height ? '9:16' : '1:1'
+          }}
+          effectiveDuration={effectiveDuration}
+          speedMultiplier={speedMultiplier}
+          settings={progressBarSettings}
+        />
+      )}
+    </AbsoluteFill>
+  );
+};
+
+// Progress Bar Renderer for Remotion
+const ProgressBarRenderer: React.FC<{
+  platformConfig: {
+    width: number;
+    height: number;
+    aspectRatio: string;
+  };
+  effectiveDuration?: number;
+  speedMultiplier?: number;
+  settings: any;
+}> = ({ platformConfig, effectiveDuration, speedMultiplier, settings }) => {
+  const frame = useCurrentFrame();
+  const fps = 24;
+  
+  // Use effective duration for variations, fallback to original duration
+  const actualDuration = effectiveDuration || 5000;
+  
+  // Calculate current progress based on frame
+  const currentTimeInMs = (frame / fps) * 1000;
+  
+  // Create deceptive progress bar with gradual speed transitions
+  const getDeceptiveProgress = (actualTime: number, totalDuration: number) => {
+    if (!settings.useDeceptiveProgress) {
+      // Normal progress
+      return Math.min(actualTime / totalDuration, 1);
+    }
+    
+    const progressRatio = actualTime / totalDuration;
+    const fastStartRatio = settings.fastStartDuration / (totalDuration / 1000); // Convert to ratio
+    
+    // Phase 1: Very fast start (first 10%)
+    if (progressRatio <= fastStartRatio) {
+      return (progressRatio / fastStartRatio) * settings.fastStartProgress;
+    }
+    
+    // Phase 2-8: 7 distinct speed phases with specific multipliers
+    const remainingRatio = progressRatio - fastStartRatio;
+    const remainingBarSpace = 1 - settings.fastStartProgress;
+    
+    // Speed multipliers: 2x, 1.75x, 1.5x, 1x, 0.75x, 0.5x, 0.25x
+    const speedMultipliers = [2, 1.75, 1.5, 1, 0.75, 0.5, 0.25];
+    
+    // Calculate how much progress each phase should cover based on speed
+    // Faster phases cover more progress in same time
+    const totalSpeedWeight = speedMultipliers.reduce((sum, speed) => sum + speed, 0);
+    const progressPerPhase = speedMultipliers.map(speed => (speed / totalSpeedWeight) * remainingBarSpace);
+    
+    // Time distribution (equal time for each phase)
+    const timePerPhase = 1 / speedMultipliers.length;
+    
+    let deceptiveProgress = settings.fastStartProgress;
+    let accumulatedProgress = 0;
+    
+    for (let i = 0; i < speedMultipliers.length; i++) {
+      const phaseStart = i * timePerPhase;
+      const phaseEnd = (i + 1) * timePerPhase;
+      
+      if (remainingRatio >= phaseStart && remainingRatio <= phaseEnd) {
+        // Current phase
+        const phaseProgress = (remainingRatio - phaseStart) / timePerPhase;
+        deceptiveProgress += accumulatedProgress + (progressPerPhase[i] * phaseProgress);
+        break;
+      } else if (remainingRatio > phaseEnd) {
+        // Past phase - add full progress for this phase
+        accumulatedProgress += progressPerPhase[i];
+      }
+    }
+    
+    return Math.min(deceptiveProgress, 1);
+  };
+  
+  const progress = getDeceptiveProgress(currentTimeInMs, actualDuration);
+  
+  // Platform-specific positioning - Always at the very bottom, full width
+  const getPlatformStyles = () => {
+    const { width, height, aspectRatio } = platformConfig;
+    
+    // Always position at the very bottom, full width from corner to corner
+    return {
+      top: height - settings.height, // At the very bottom
+      left: 0, // Start from the very left corner
+      width: width, // Full width from left to right
+      height: settings.height, // Use settings height
+    };
+  };
+  
+  const styles = getPlatformStyles();
+  
+  // Don't render if not visible
+  if (!settings.isVisible) {
+    return null;
+  }
+  
+  // Debug logging for progress bar rendering
+  console.log('[ProgressBarRenderer] Rendering progress bar:', {
+    frame,
+    currentTimeInMs,
+    actualDuration,
+    progress,
+    settings: {
+      isVisible: settings.isVisible,
+      height: settings.height,
+      backgroundColor: settings.backgroundColor,
+      progressColor: settings.progressColor
+    }
+  });
+
+  return (
+    <AbsoluteFill
+      style={{
+        pointerEvents: 'none',
+        zIndex: 1000, // Always on top
+        opacity: settings.opacity,
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          ...styles,
+          backgroundColor: settings.backgroundColor,
+          borderRadius: `${settings.borderRadius}px`,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Progress Fill */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: `${progress * 100}%`,
+            height: '100%',
+            backgroundColor: settings.progressColor,
+            borderRadius: `${settings.borderRadius}px`,
+            transition: 'none', // No transitions in video rendering
+          }}
+        />
+        
+        {/* Scrubber */}
+        <div
+          style={{
+            position: 'absolute',
+            left: `${progress * 100}%`,
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: `${settings.scrubberSize}px`,
+            height: `${settings.scrubberSize}px`,
+            backgroundColor: settings.scrubberColor,
+            borderRadius: '50%',
+            border: '2px solid rgba(255, 255, 255, 0.8)',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
+          }}
+        />
+      </div>
     </AbsoluteFill>
   );
 };

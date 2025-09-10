@@ -3,18 +3,20 @@ import { Button, Modal, Input, Select, message, Upload, List, Card, Space, Typog
 import { PlusOutlined, DeleteOutlined, EditOutlined, StarOutlined, GlobalOutlined, VideoCameraOutlined, FileTextOutlined, PictureOutlined, SoundOutlined, CloseOutlined, SearchOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
 import { AIVariationService } from '../variations/services/ai-variation-service';
-
-const { Text, Title } = Typography;
-const { Option } = Select;
+import { TimelineElement as VariationTimelineElement } from '../variations/types/variation-types';
 
 interface TimelineElement {
   id: string;
-  type: 'video' | 'text' | 'image' | 'audio';
+  type: 'video' | 'text' | 'image' | 'audio' | 'font' | 'speed';
   name: string;
   content: string;
   duration?: number;
   variations: any[];
 }
+
+const { Text, Title } = Typography;
+const { Option } = Select;
+
 
 interface Variation {
   id: string;

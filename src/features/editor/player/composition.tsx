@@ -1,5 +1,5 @@
 import { SequenceItem } from "./sequence-item";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { dispatch, filter, subject } from "@designcombo/events";
 import {
 	EDIT_OBJECT,
@@ -10,6 +10,7 @@ import { groupTrackItems } from "../utils/track-items";
 import { calculateTextHeight } from "../utils/text";
 import { useCurrentFrame } from "remotion";
 import useStore from "../store/use-store";
+import PersistentProgressBar from "./persistent-progress-bar";
 
 const Composition = () => {
 	const [editableTextId, setEditableTextId] = useState<string | null>(null);
@@ -23,8 +24,12 @@ const Composition = () => {
 		transitionsMap,
 		structure,
 		activeIds,
+		duration,
 	} = useStore();
 	const frame = useCurrentFrame();
+
+	// Use original duration - Remotion handles playbackRate automatically
+	const effectiveDuration = duration;
 
 	const groupedItems = groupTrackItems({
 		trackItemIds,
@@ -302,10 +307,20 @@ const Composition = () => {
 						frame,
 						size,
 						isTransition: false,
+						playbackRate: item.playbackRate || 1.0, // Pass playbackRate for video/audio elements
 					});
 				}
 				return null;
 			})}
+			
+			{/* Persistent Progress Bar - Always visible */}
+			<PersistentProgressBar 
+				platformConfig={{
+					width: size.width,
+					height: size.height,
+					aspectRatio: size.width > size.height ? '16:9' : size.width < size.height ? '9:16' : '1:1'
+				}}
+			/>
 		</>
 	);
 };

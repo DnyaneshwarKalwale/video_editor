@@ -168,8 +168,19 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
 
       {/* Complete Video Composition with Remotion Player - Only load when visible and slot available */}
       {isVisible && shouldLoad && canLoad && !hasError && (() => {
-        const durationInFrames = Math.ceil(duration / 1000 * 30);
-        console.log(`VideoPreview for ${variation.id}: duration=${duration}ms, durationInFrames=${durationInFrames}, fps=30`);
+        const fps = 30; // Use consistent fps
+        // Calculate effective duration for this variation
+        let effectiveDuration = duration;
+        if (variation.metadata?.combination) {
+          const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
+          if (speedItem && speedItem.metadata && speedItem.metadata.speed) {
+            const speedMultiplier = speedItem.metadata.speed;
+            effectiveDuration = duration / speedMultiplier;
+            console.log(`🔍 VideoPreview: Speed ${speedMultiplier}x, extending duration from ${duration}ms to ${effectiveDuration}ms`);
+          }
+        }
+        const durationInFrames = Math.ceil(effectiveDuration / 1000 * fps);
+        console.log(`VideoPreview for ${variation.id}: effectiveDuration=${effectiveDuration}ms, durationInFrames=${durationInFrames}, fps=${fps}`);
         return (
           <Player
             component={VariationComposition}
@@ -178,10 +189,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
               textOverlays,
               allVariations,
               platformConfig,
-              duration: duration,
+              duration: effectiveDuration,
             }}
-            durationInFrames={durationInFrames} // Convert ms to frames at 30fps
-            fps={30}
+            durationInFrames={durationInFrames}
+            fps={fps}
             compositionWidth={platformConfig.width}
             compositionHeight={platformConfig.height}
             style={{

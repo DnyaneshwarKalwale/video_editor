@@ -9,6 +9,7 @@ import { VoiceOver } from "./voice-over";
 import { useIsLargeScreen } from "@/hooks/use-media-query";
 import { Uploads } from "./uploads";
 import VariationsManager from "./variations-manager";
+import ProgressBarSettings from "./progress-bar-settings";
 
 const ActiveMenuItem = () => {
 	const { activeMenuItem } = useLayoutStore();
@@ -102,6 +103,10 @@ const ActiveMenuItem = () => {
 				console.log('Timeline elements updated:', updatedElements);
 			}} 
 		/>;
+	}
+
+	if (activeMenuItem === "progress-bar-settings") {
+		return <ProgressBarSettings />;
 	}
 
 	return null;

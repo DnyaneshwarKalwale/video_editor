@@ -190,10 +190,10 @@ class Video extends Trimmable {
 		const shouldUseLeftBacklog = segmentIndex > 0;
 		const leftBacklogSize = shouldUseLeftBacklog ? this.segmentSize : 0;
 
+		// Use original duration for timeline display - don't apply playback rate to timeline width
 		const totalWidth = timeMsToUnits(
 			this.duration,
 			this.tScale,
-			this.playbackRate,
 		);
 
 		const rightRemainingSize =
@@ -311,10 +311,10 @@ class Video extends Trimmable {
 	}
 
 	private generateTimestamps(startTime: number, count: number): number[] {
+		// Calculate time per thumbnail considering playback rate for visual display
 		const timePerThumbnail = unitsToTimeMs(
 			this.thumbnailWidth,
 			this.tScale,
-			this.playbackRate,
 		);
 
 		return Array.from({ length: count }, (_, i) => {
@@ -465,6 +465,22 @@ class Video extends Trimmable {
 	public setDuration(duration: number) {
 		this.duration = duration;
 		this.prevDuration = duration;
+		
+		// Recalculate width based on effective duration (considering playback rate)
+		this.updateWidthForPlaybackRate();
+	}
+	
+	public setPlaybackRate(playbackRate: number) {
+		this.playbackRate = playbackRate;
+		// Recalculate width when playback rate changes
+		this.updateWidthForPlaybackRate();
+	}
+	
+	private updateWidthForPlaybackRate() {
+		// Don't change timeline width based on playback rate
+		// The timeline should show the original duration, not the perceived duration
+		const newWidth = timeMsToUnits(this.duration, this.tScale);
+		this.set({ width: newWidth });
 	}
 
 	public async setSrc(src: string) {
@@ -496,14 +512,12 @@ class Video extends Trimmable {
 		const trimFromSize = timeMsToUnits(
 			this.trim.from,
 			this.tScale,
-			this.playbackRate,
 		);
 
 		let timeInFilmstripe = startTime;
 		const timePerThumbnail = unitsToTimeMs(
 			thumbnailWidth,
 			this.tScale,
-			this.playbackRate || 1,
 		);
 
 		// Clear the offscreen canvas
@@ -620,7 +634,6 @@ class Video extends Trimmable {
 		const trimFromSize = timeMsToUnits(
 			this.trim.from,
 			this.tScale,
-			this.playbackRate,
 		);
 
 		const offscreenSegments = calculateOffscreenSegments(

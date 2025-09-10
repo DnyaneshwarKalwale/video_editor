@@ -1,22 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button, Space, Typography, Input, List, Card, Modal, message } from 'antd';
-import { VideoCameraOutlined, FileTextOutlined, PictureOutlined, SoundOutlined, PlusOutlined, InfoCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { VideoCameraOutlined, FileTextOutlined, PictureOutlined, SoundOutlined, PlusOutlined, InfoCircleOutlined, SearchOutlined, FontSizeOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import Variations from './variations';
 import { MediaVariationModal } from '../variations/components/MediaVariationModal';
+import { FontVariationModal } from '../variations/components/FontVariationModal';
+import { SpeedVariationModal } from '../variations/components/SpeedVariationModal';
+import { TimelineElement as VariationTimelineElement } from '../variations/types/variation-types';
+
+interface TimelineElement {
+  id: string;
+  type: 'video' | 'text' | 'image' | 'audio' | 'font' | 'speed';
+  name: string;
+  content: string;
+  duration?: number;
+  variations: any[];
+}
 
 import './variations-manager.css';
 
 const { Text, Title } = Typography;
 const { Search } = Input;
 
-interface TimelineElement {
-  id: string;
-  type: 'video' | 'text' | 'image' | 'audio';
-  name: string;
-  content: string;
-  duration?: number;
-  variations: any[];
-}
 
 interface VariationsManagerProps {
   timelineElements: TimelineElement[];
@@ -33,12 +37,45 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [variationCounts, setVariationCounts] = useState<Record<string, number>>({});
 
+  // Create font elements from existing text elements
+  const createFontElementsFromText = useMemo(() => {
+    const textElements = timelineElements.filter(el => el.type === 'text');
+    return textElements.map(textEl => ({
+      id: `font-${textEl.id}`,
+      type: 'font' as const,
+      name: `Font Style - ${textEl.name}`,
+      content: 'Arial, sans-serif', // Default font
+      duration: textEl.duration,
+      variations: []
+    }));
+  }, [timelineElements]);
+
+  // Create speed elements (global for the entire project)
+  const createSpeedElements = useMemo(() => {
+    return [{
+      id: 'speed-global',
+      type: 'speed' as const,
+      name: 'Video Speed',
+      content: '1.0x',
+      duration: 0,
+      variations: []
+    }];
+  }, []);
+
+  const allElements = useMemo(() => {
+    const elements = [...timelineElements, ...createFontElementsFromText, ...createSpeedElements];
+    console.log(`🔍 All elements created:`, elements.map(el => ({ id: el.id, type: el.type, name: el.name })));
+    return elements;
+  }, [timelineElements, createFontElementsFromText, createSpeedElements]);
+
   // Load variation counts for all elements
   useEffect(() => {
     const loadVariationCounts = async () => {
+      console.log(`🔍 Loading variation counts for ${allElements.length} elements`);
       const counts: Record<string, number> = {};
       
-      for (const element of timelineElements) {
+      for (const element of allElements) {
+        console.log(`🔍 Processing element: ${element.id} (${element.type})`);
         try {
           // Get project ID from URL
           const projectId = window.location.pathname.split('/')[2];
@@ -80,6 +117,20 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
             } else {
               counts[element.id] = 1;
             }
+          } else if (element.type === 'font') {
+            // Load font variations
+            const response = await fetch(`/api/projects/${projectId}/font-variations`);
+            if (response.ok) {
+              const data = await response.json();
+              const elementVariations = data.fontVariations?.find((v: any) => v.elementId === element.id);
+              if (elementVariations && elementVariations.variations.length > 0) {
+                counts[element.id] = elementVariations.variations.length + 1; // +1 for original
+              } else {
+                counts[element.id] = 1;
+              }
+            } else {
+              counts[element.id] = 1;
+            }
           } else {
             counts[element.id] = 1;
           }
@@ -89,24 +140,25 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
         }
       }
       
+      console.log(`🔍 Setting variation counts from loadVariationCounts:`, counts);
       setVariationCounts(counts);
     };
 
-    if (timelineElements.length > 0) {
+    if (allElements.length > 0) {
       loadVariationCounts();
     }
-  }, [timelineElements]);
+  }, [allElements]);
 
   // Listen for project loaded event
   useEffect(() => {
     const handleProjectLoaded = (event: CustomEvent) => {
       console.log('Project loaded event received:', event.detail);
       // Reload variation counts when project is loaded
-      if (timelineElements.length > 0) {
+      if (allElements.length > 0) {
         const loadVariationCounts = async () => {
           const counts: Record<string, number> = {};
           
-          for (const element of timelineElements) {
+          for (const element of allElements) {
             try {
               const projectId = event.detail.projectId;
               
@@ -147,6 +199,39 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
                 } else {
                   counts[element.id] = 1;
                 }
+              } else if (element.type === 'font') {
+                // Load font variations
+                const response = await fetch(`/api/projects/${projectId}/font-variations`);
+                if (response.ok) {
+                  const data = await response.json();
+                  const elementVariations = data.fontVariations?.find((v: any) => v.elementId === element.id);
+                  if (elementVariations && elementVariations.variations.length > 0) {
+                    counts[element.id] = elementVariations.variations.length + 1; // +1 for original
+                  } else {
+                    counts[element.id] = 1;
+                  }
+                } else {
+                  counts[element.id] = 1;
+                }
+              } else if (element.type === 'speed') {
+                // Load speed variations
+                const response = await fetch(`/api/projects/${projectId}/speed-variations`);
+                if (response.ok) {
+                  const data = await response.json();
+                  console.log(`🔍 Loading speed variations for element ${element.id}:`, data);
+                  const elementVariations = data.speedVariations?.find((v: any) => v.elementId === element.id);
+                  console.log(`🔍 Found speed variations for ${element.id}:`, elementVariations);
+                  if (elementVariations && elementVariations.variations.length > 0) {
+                    counts[element.id] = elementVariations.variations.length + 1; // +1 for original
+                    console.log(`🔍 Set speed count for ${element.id}: ${counts[element.id]}`);
+                  } else {
+                    counts[element.id] = 1;
+                    console.log(`🔍 No speed variations found for ${element.id}, using count: 1`);
+                  }
+                } else {
+                  counts[element.id] = 1;
+                  console.log(`🔍 Failed to load speed variations for ${element.id}, using count: 1`);
+                }
               } else {
                 counts[element.id] = 1;
               }
@@ -168,7 +253,7 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
     return () => {
       window.removeEventListener('projectLoaded', handleProjectLoaded as EventListener);
     };
-  }, [timelineElements]);
+  }, [allElements]);
 
   const handleVariationsChange = (updatedElements: TimelineElement[]) => {
     onTimelineElementsChange(updatedElements);
@@ -189,6 +274,8 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
       case 'text': return <FileTextOutlined />;
       case 'image': return <PictureOutlined />;
       case 'audio': return <SoundOutlined />;
+      case 'font': return <FontSizeOutlined />;
+      case 'speed': return <PlayCircleOutlined />;
       default: return <FileTextOutlined />;
     }
   };
@@ -199,13 +286,15 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
       case 'text': return 'blue';
       case 'image': return 'orange';
       case 'audio': return 'purple';
+      case 'font': return 'green';
+      case 'speed': return 'red';
       default: return 'default';
     }
   };
 
 
 
-  const filteredElements = timelineElements.filter(element =>
+  const filteredElements = allElements.filter(element =>
     element.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     element.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -353,62 +442,12 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
                   console.log('Media variations saved to backend for element:', selectedElement.id);
                   message.success(`Added ${variations.length} ${selectedElement.type} variations successfully!`);
                   
-                  // Update variation counts
+                  // Update variation counts immediately and permanently
                   const newCount = variations.length + 1; // +1 for original
                   setVariationCounts(prev => ({
                     ...prev,
                     [selectedElement.id]: newCount
                   }));
-                  
-                  // Trigger a refresh of variation counts
-                  setTimeout(() => {
-                    const loadVariationCounts = async () => {
-                      const counts: Record<string, number> = {};
-                      
-                      for (const element of timelineElements) {
-                        try {
-                          const projectId = window.location.pathname.split('/')[2];
-                          
-                          if (element.type === 'text') {
-                            const response = await fetch(`/api/projects/${projectId}/text-variations`);
-                            if (response.ok) {
-                              const data = await response.json();
-                              const elementVariations = data.textVariations.find((v: any) => v.elementId === element.id);
-                              if (elementVariations) {
-                                counts[element.id] = elementVariations.variations.length + 1;
-                              } else {
-                                counts[element.id] = 1;
-                              }
-                            } else {
-                              counts[element.id] = 1;
-                            }
-                          } else if (['video', 'image', 'audio'].includes(element.type)) {
-                            const response = await fetch(`/api/projects/${projectId}/media-variations`);
-                            if (response.ok) {
-                              const data = await response.json();
-                              const elementVariations = data.mediaVariations.filter((v: any) => v.elementId === element.id);
-                              if (elementVariations && elementVariations.length > 0) {
-                                counts[element.id] = elementVariations.length + 1;
-                              } else {
-                                counts[element.id] = 1;
-                              }
-                            } else {
-                              counts[element.id] = 1;
-                            }
-                          } else {
-                            counts[element.id] = 1;
-                          }
-                        } catch (error) {
-                          console.error('Error loading variation count for element:', element.id, error);
-                          counts[element.id] = 1;
-                        }
-                      }
-                      
-                      setVariationCounts(counts);
-                    };
-                    
-                    loadVariationCounts();
-                  }, 1000);
                   
                   handleCloseVariationsModal();
                 } else {
@@ -424,6 +463,125 @@ const VariationsManager: React.FC<VariationsManagerProps> = ({
         />
       )}
 
+      {/* Font Variations Modal */}
+      {isVariationsModalVisible && selectedElement && selectedElement.type === 'font' && (() => {
+        console.log('Opening FONT modal for:', selectedElement.type);
+        return true;
+      })() && (
+        <FontVariationModal
+          isOpen={isVariationsModalVisible}
+          onClose={handleCloseVariationsModal}
+          element={{
+            id: selectedElement.id,
+            elementType: 'font' as const,
+            elementName: selectedElement.name,
+            currentVariationCount: variationCounts[selectedElement.id] || 1,
+            variations: [],
+            originalContent: selectedElement.content
+          }}
+          onAddVariations={async (variations) => {
+            // Save font variations to backend
+            if (selectedElement) {
+              try {
+                // Get project ID from URL
+                const projectId = window.location.pathname.split('/')[2];
+                
+                // For font elements, we need to map back to the original text element ID
+                const originalTextElementId = selectedElement.id.startsWith('font-') 
+                  ? selectedElement.id.replace('font-', '') 
+                  : selectedElement.id;
+                
+                // Save to backend
+                const response = await fetch(`/api/projects/${projectId}/font-variations`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    elementId: originalTextElementId,
+                    originalFont: selectedElement.content,
+                    variations: variations
+                  }),
+                });
+
+                if (response.ok) {
+                  console.log('Font variations saved to backend for element:', selectedElement.id);
+                  message.success(`Added ${variations.length} font variations successfully!`);
+                  
+                  // Update variation counts immediately and permanently
+                  const newCount = variations.length + 1; // +1 for original
+                  setVariationCounts(prev => ({
+                    ...prev,
+                    [selectedElement.id]: newCount
+                  }));
+                  
+                  handleCloseVariationsModal();
+                } else {
+                  console.error('Failed to save font variations to backend');
+                  message.error('Failed to save variations');
+                }
+              } catch (error) {
+                console.error('Error saving font variations:', error);
+                message.error('Error saving variations');
+              }
+            }
+          }}
+        />
+      )}
+
+      {/* Speed Variations Modal */}
+      {isVariationsModalVisible && selectedElement && selectedElement.type === 'speed' && (
+        <SpeedVariationModal
+          isOpen={isVariationsModalVisible}
+          onClose={handleCloseVariationsModal}
+          element={{
+            id: selectedElement.id,
+            elementType: 'speed' as const,
+            elementName: selectedElement.name,
+            currentVariationCount: variationCounts[selectedElement.id] || 1,
+            variations: [],
+            originalContent: selectedElement.content
+          }}
+          onAddVariations={async (variations) => {
+            if (selectedElement) {
+              const projectId = window.location.pathname.split('/')[2];
+              const response = await fetch(`/api/projects/${projectId}/speed-variations`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  elementId: selectedElement.id,
+                  originalSpeed: 1.0,
+                  variations: variations
+                }),
+              });
+
+              if (response.ok) {
+                console.log('Speed variations saved to backend for element:', selectedElement.id);
+                message.success(`Added ${variations.length} speed variations successfully!`);
+                
+                // Update variation counts immediately and permanently
+                const newCount = variations.length + 1; // +1 for original
+                console.log(`🔍 Updating speed variation count for ${selectedElement.id}: ${newCount}`);
+                setVariationCounts(prev => {
+                  const updated = {
+                    ...prev,
+                    [selectedElement.id]: newCount
+                  };
+                  console.log(`🔍 Updated variation counts:`, updated);
+                  return updated;
+                });
+                
+                handleCloseVariationsModal();
+              } else {
+                console.error('Failed to save speed variations to backend');
+                message.error('Failed to save variations');
+              }
+            }
+          }}
+        />
+      )}
 
     </div>
   );

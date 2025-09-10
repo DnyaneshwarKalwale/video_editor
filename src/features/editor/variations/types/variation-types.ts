@@ -1,6 +1,6 @@
 import { ITrackItem, IText } from '@designcombo/types';
 
-export type ElementType = 'video' | 'image' | 'audio' | 'text';
+export type ElementType = 'video' | 'image' | 'audio' | 'text' | 'font' | 'speed';
 
 export interface TextVariation {
   id: string;
@@ -21,6 +21,8 @@ export interface VideoVariation {
     videoElements?: any[];
     imageElements?: any[];
     audioElements?: any[];
+    fontElements?: any[];
+    speedElements?: any[];
     combination?: any[];
   };
 }
@@ -104,7 +106,7 @@ export interface VariationProject {
 
 export interface TimelineElement {
   id: string;
-  elementType: 'video' | 'image' | 'audio' | 'text';
+  elementType: 'video' | 'image' | 'audio' | 'text' | 'font' | 'speed';
   elementName: string;
   currentVariationCount: number;
   variations: any[];
@@ -120,6 +122,41 @@ export interface MediaVariation {
     fileSize?: number;
     fileType?: string;
     originalFile?: File;
+  };
+}
+
+export interface FontVariation {
+  id: string;
+  content: string;
+  type: 'manual' | 'ai';
+  metadata: {
+    fontFamily: string;
+    fontSize: number;
+    fontWeight: string;
+    color: string;
+    textAlign: 'left' | 'center' | 'right' | 'justify';
+    opacity: number;
+    fontStyle?: string;
+    textDecoration?: string;
+    lineHeight?: number;
+    letterSpacing?: string;
+    textShadow?: string;
+    // Custom font properties
+    isCustomFont?: boolean;
+    customFontUrl?: string;
+    customFontData?: any;
+  };
+}
+
+export interface SpeedVariation {
+  id: string;
+  content: string;
+  type: 'manual' | 'ai';
+  metadata: {
+    speed: number;
+    label: string;
+    duration: number;
+    description: string;
   };
 }
 

@@ -13,6 +13,7 @@ export interface SequenceItemOptions {
 	size?: ISize;
 	frame?: number;
 	isTransition?: boolean;
+	playbackRate?: number;
 }
 
 export const BaseSequence = ({
@@ -25,14 +26,24 @@ export const BaseSequence = ({
 	children: React.ReactNode;
 }) => {
 	const { details } = item as ITrackItem;
-	const { fps, isTransition } = options;
-	const { from, durationInFrames } = calculateFrames(
+	const { fps, isTransition, playbackRate } = options;
+	const { from, durationInFrames: originalDurationInFrames } = calculateFrames(
 		{
 			from: item.display.from,
 			to: item.display.to,
 		},
 		fps,
 	);
+	
+	// Adjust duration based on playback rate for slow-motion videos
+	const durationInFrames = playbackRate && playbackRate < 1.0 
+		? Math.ceil(originalDurationInFrames / playbackRate)
+		: originalDurationInFrames;
+	
+	// Debug logging for speed variations
+	if (playbackRate && playbackRate < 1.0) {
+		console.log(`🎬 BaseSequence: Video ${item.id} - playbackRate: ${playbackRate}x, originalDuration: ${originalDurationInFrames} frames, extendedDuration: ${durationInFrames} frames`);
+	}
 	const crop = details.crop || {
 		x: 0,
 		y: 0,
