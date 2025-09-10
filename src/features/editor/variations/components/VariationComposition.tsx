@@ -25,8 +25,19 @@ const VariationComposition: React.FC<VariationCompositionProps> = ({
   platformConfig,
   duration,
 }) => {
-  // Use the duration prop directly (it's already the effective duration from VideoPreview)
-  const effectiveDuration = duration;
+  // Calculate effective duration based on speed variations
+  const effectiveDuration = useMemo(() => {
+    if (variation.metadata?.combination) {
+      const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
+      if (speedItem && speedItem.metadata && speedItem.metadata.speed) {
+        const speedMultiplier = speedItem.metadata.speed;
+        const extendedDuration = duration / speedMultiplier;
+        console.log(`🔍 VariationComposition: Speed ${speedMultiplier}x, extending duration from ${duration}ms to ${extendedDuration}ms`);
+        return extendedDuration;
+      }
+    }
+    return duration;
+  }, [variation.metadata?.combination, duration]);
   const speedMultiplier = useMemo(() => {
     if (variation.metadata?.combination) {
       const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
@@ -100,16 +111,14 @@ const VariationComposition: React.FC<VariationCompositionProps> = ({
             // Apply all font styles from the variation
             fontSize: textOverlay.style?.fontSize || textItem.details.fontSize,
             fontFamily: textOverlay.style?.fontFamily || textItem.details.fontFamily,
-            fontWeight: typeof textOverlay.style?.fontWeight === 'string' 
-              ? parseInt(textOverlay.style.fontWeight) || textItem.details.fontWeight
-              : textOverlay.style?.fontWeight || textItem.details.fontWeight,
+            fontWeight: Number(textOverlay.style?.fontWeight || textItem.details.fontWeight),
             color: textOverlay.style?.color || textItem.details.color,
-            textAlign: (textOverlay.style?.textAlign as "left" | "center" | "right") || textItem.details.textAlign,
+            textAlign: (textOverlay.style?.textAlign || textItem.details.textAlign) as "center" | "left" | "right",
             opacity: textOverlay.style?.opacity || textItem.details.opacity,
             // Apply custom font properties if available
             ...((textOverlay.style as any)?.isCustomFont !== undefined && { isCustomFont: (textOverlay.style as any).isCustomFont }),
-            ...((textOverlay.style as any)?.customFontUrl && { customFontUrl: (textOverlay.style as any).customFontUrl }),
-            ...((textOverlay.style as any)?.customFontData && { customFontData: (textOverlay.style as any).customFontData }),
+            ...((textOverlay.style as any)?.customFontUrl !== undefined && { customFontUrl: (textOverlay.style as any).customFontUrl }),
+            ...((textOverlay.style as any)?.customFontData !== undefined && { customFontData: (textOverlay.style as any).customFontData }),
           },
         };
         console.log(`✅ Applied text "${textOverlay.text}" to text overlay ${textOverlay.id} with timing ${textOverlay.timing.from}-${textOverlay.timing.to}ms, position: top=${textOverlay.position?.top}, left=${textOverlay.position?.left}`);
@@ -154,7 +163,7 @@ const VariationComposition: React.FC<VariationCompositionProps> = ({
                   ...trackItem.display,
                   to: trackItem.display.from + extendedDuration
                 };
-                console.log(`🔍 Extended display timing for video ${trackItemId}: from ${trackItem.display.from}-${trackItem.display.to} to ${extendedDisplay.from}-${extendedDisplay.to} (speed: ${speedMultiplier}x)`);
+                console.log(`🔍 Extended display timing for video ${trackItemId}: from ${trackItem.display.from}-${trackItem.display.to} to ${extendedDisplay.from}-${extendedDisplay.to}`);
               }
               
               modified[trackItemId] = {

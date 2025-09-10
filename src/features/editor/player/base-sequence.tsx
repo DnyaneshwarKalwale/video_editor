@@ -35,15 +35,8 @@ export const BaseSequence = ({
 		fps,
 	);
 	
-	// Adjust duration based on playback rate for slow-motion videos
-	const durationInFrames = playbackRate && playbackRate < 1.0 
-		? Math.ceil(originalDurationInFrames / playbackRate)
-		: originalDurationInFrames;
-	
-	// Debug logging for speed variations
-	if (playbackRate && playbackRate < 1.0) {
-		console.log(`🎬 BaseSequence: Video ${item.id} - playbackRate: ${playbackRate}x, originalDuration: ${originalDurationInFrames} frames, extendedDuration: ${durationInFrames} frames`);
-	}
+	// Use original duration - Remotion handles playbackRate automatically
+	const durationInFrames = originalDurationInFrames;
 	const crop = details.crop || {
 		x: 0,
 		y: 0,

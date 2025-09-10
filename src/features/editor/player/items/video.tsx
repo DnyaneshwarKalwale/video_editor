@@ -24,7 +24,11 @@ export const Video = ({
 		<div style={calculateMediaStyles(details, crop)}>
 			<OffthreadVideo
 				startFrom={(item.trim?.from! / 1000) * fps}
-				endAt={(item.trim?.to! / 1000) * fps || 1 / fps}
+				endAt={(() => {
+					// Use display.to if available (for speed variations), otherwise use trim.to
+					const endTime = item.display?.to || item.trim?.to;
+					return (endTime! / 1000) * fps || 1 / fps;
+				})()}
 				playbackRate={playbackRate}
 				src={details.src}
 				volume={details.volume || 0 / 100}
