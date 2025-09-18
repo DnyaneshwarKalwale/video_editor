@@ -51,58 +51,86 @@ export function generateVariationFileName(variationData: VariationData, projectN
   // Check if this is the original variation
   const isOriginal = variationData.variation?.isOriginal || false;
   
-  if (isOriginal) {
-    // For original, use "M" prefix for all elements
-    parts.push('M-video', 'M-image', 'M-audio', 'M-text', 'M-font', 'M-speed');
-  } else {
-    // For variations, determine which elements have variations
-    const videoVariation = getVideoVariationIndex(variationData);
-    const imageVariation = getImageVariationIndex(variationData);
-    const audioVariation = getAudioVariationIndex(variationData);
-    const textVariation = getTextVariationIndex(variationData);
-    const fontVariation = getFontVariationIndex(variationData);
-    const speedVariation = getSpeedVariationIndex(variationData);
-    
-    // Add video part
-    if (videoVariation > 0) {
-      parts.push(`V${videoVariation}-video`);
-    } else {
+  // Check which elements actually exist and have variations
+  const videoVariation = getVideoVariationIndex(variationData);
+  const imageVariation = getImageVariationIndex(variationData);
+  const audioVariation = getAudioVariationIndex(variationData);
+  const textVariation = getTextVariationIndex(variationData);
+  const fontVariation = getFontVariationIndex(variationData);
+  const speedVariation = getSpeedVariationIndex(variationData);
+  
+  // Check if elements actually exist in the project
+  const hasVideo = (variationData.videoTrackItems && variationData.videoTrackItems.length > 0);
+  const hasImage = (variationData.imageTrackItems && variationData.imageTrackItems.length > 0);
+  const hasAudio = (variationData.audioTrackItems && variationData.audioTrackItems.length > 0);
+  const hasText = (variationData.textOverlays && variationData.textOverlays.length > 0);
+  
+  console.log('[VariationNaming] Element detection:', {
+    hasVideo,
+    hasImage,
+    hasAudio,
+    hasText,
+    videoCount: variationData.videoTrackItems?.length || 0,
+    imageCount: variationData.imageTrackItems?.length || 0,
+    audioCount: variationData.audioTrackItems?.length || 0,
+    textCount: variationData.textOverlays?.length || 0,
+    variations: {
+      video: videoVariation,
+      image: imageVariation,
+      audio: audioVariation,
+      text: textVariation,
+      font: fontVariation,
+      speed: speedVariation
+    }
+  });
+  
+  // Only include elements that actually exist in the project
+  if (hasVideo) {
+    if (isOriginal || videoVariation === 0) {
       parts.push('M-video');
-    }
-    
-    // Add image part
-    if (imageVariation > 0) {
-      parts.push(`V${imageVariation}-image`);
     } else {
+      parts.push(`V${videoVariation}-video`);
+    }
+  }
+  
+  if (hasImage) {
+    if (isOriginal || imageVariation === 0) {
       parts.push('M-image');
-    }
-    
-    // Add audio part
-    if (audioVariation > 0) {
-      parts.push(`V${audioVariation}-audio`);
     } else {
+      parts.push(`V${imageVariation}-image`);
+    }
+  }
+  
+  if (hasAudio) {
+    if (isOriginal || audioVariation === 0) {
       parts.push('M-audio');
-    }
-    
-    // Add text part
-    if (textVariation > 0) {
-      parts.push(`V${textVariation}-text`);
     } else {
+      parts.push(`V${audioVariation}-audio`);
+    }
+  }
+  
+  if (hasText) {
+    if (isOriginal || textVariation === 0) {
       parts.push('M-text');
-    }
-    
-    // Add font part
-    if (fontVariation > 0) {
-      parts.push(`V${fontVariation}-font`);
     } else {
+      parts.push(`V${textVariation}-text`);
+    }
+  }
+  
+  // Font and speed variations are always included if they exist in metadata
+  if (fontVariation > 0 || (variationData.metadata?.fontElements && variationData.metadata.fontElements.length > 0)) {
+    if (isOriginal || fontVariation === 0) {
       parts.push('M-font');
-    }
-    
-    // Add speed part
-    if (speedVariation > 0) {
-      parts.push(`V${speedVariation}-speed`);
     } else {
+      parts.push(`V${fontVariation}-font`);
+    }
+  }
+  
+  if (speedVariation > 0 || (variationData.metadata?.speedElements && variationData.metadata.speedElements.length > 0)) {
+    if (isOriginal || speedVariation === 0) {
       parts.push('M-speed');
+    } else {
+      parts.push(`V${speedVariation}-speed`);
     }
   }
   
@@ -127,23 +155,30 @@ export function generateVariationFileName(variationData: VariationData, projectN
  * Determines the video variation index from the variation data
  */
 function getVideoVariationIndex(variationData: VariationData): number {
+  // Check metadata combination for video variations (this is the main source)
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'video') {
+        // Extract variation index from the key (e.g., "VIDEO0" = 0, "VIDEO1" = 1)
+        const keyMatch = element.key?.match(/VIDEO(\d+)/);
+        if (keyMatch) {
+          const index = parseInt(keyMatch[1]);
+          if (index > 0) {
+            console.log('[VariationNaming] Found video variation in combination:', index);
+            return index;
+          }
+        }
+      }
+    }
+  }
+  
   // Check metadata for video elements
   if (variationData.metadata?.videoElements) {
     const videoElements = variationData.metadata.videoElements;
     for (const element of videoElements) {
       if (element.variationIndex && element.variationIndex > 0) {
         console.log('[VariationNaming] Found video variation index:', element.variationIndex);
-        return element.variationIndex;
-      }
-    }
-  }
-  
-  // Check metadata combination for video variations
-  if (variationData.metadata?.combination) {
-    const combination = variationData.metadata.combination;
-    for (const element of combination) {
-      if (element.type === 'video' && element.variationIndex && element.variationIndex > 0) {
-        console.log('[VariationNaming] Found video variation in combination:', element.variationIndex);
         return element.variationIndex;
       }
     }
@@ -167,21 +202,29 @@ function getVideoVariationIndex(variationData: VariationData): number {
  * Determines the image variation index from the variation data
  */
 function getImageVariationIndex(variationData: VariationData): number {
+  // Check metadata combination for image variations (this is the main source)
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'image') {
+        // Extract variation index from the key (e.g., "IMAGE0" = 0, "IMAGE1" = 1)
+        const keyMatch = element.key?.match(/IMAGE(\d+)/);
+        if (keyMatch) {
+          const index = parseInt(keyMatch[1]);
+          if (index > 0) {
+            console.log('[VariationNaming] Found image variation in combination:', index);
+            return index;
+          }
+        }
+      }
+    }
+  }
+  
   // Check metadata for image elements
   if (variationData.metadata?.imageElements) {
     const imageElements = variationData.metadata.imageElements;
     for (const element of imageElements) {
       if (element.variationIndex && element.variationIndex > 0) {
-        return element.variationIndex;
-      }
-    }
-  }
-  
-  // Check metadata combination for image variations
-  if (variationData.metadata?.combination) {
-    const combination = variationData.metadata.combination;
-    for (const element of combination) {
-      if (element.type === 'image' && element.variationIndex && element.variationIndex > 0) {
         return element.variationIndex;
       }
     }
@@ -194,6 +237,24 @@ function getImageVariationIndex(variationData: VariationData): number {
  * Determines the audio variation index from the variation data
  */
 function getAudioVariationIndex(variationData: VariationData): number {
+  // Check metadata combination for audio variations (this is the main source)
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'audio') {
+        // Extract variation index from the key (e.g., "AUDIO0" = 0, "AUDIO1" = 1)
+        const keyMatch = element.key?.match(/AUDIO(\d+)/);
+        if (keyMatch) {
+          const index = parseInt(keyMatch[1]);
+          if (index > 0) {
+            console.log('[VariationNaming] Found audio variation in combination:', index);
+            return index;
+          }
+        }
+      }
+    }
+  }
+  
   // Check metadata for audio elements
   if (variationData.metadata?.audioElements) {
     const audioElements = variationData.metadata.audioElements;
@@ -220,14 +281,21 @@ function getAudioVariationIndex(variationData: VariationData): number {
  * Determines the text variation index from the variation data
  */
 function getTextVariationIndex(variationData: VariationData): number {
-  // Check metadata for text elements
+  // Check metadata combination for text variations (this is the main source)
   if (variationData.metadata?.combination) {
     const combination = variationData.metadata.combination;
     console.log('[VariationNaming] Checking combination for text variations:', combination);
     for (const element of combination) {
-      if (element.type === 'text' && element.variationIndex && element.variationIndex > 0) {
-        console.log('[VariationNaming] Found text variation in combination:', element.variationIndex);
-        return element.variationIndex;
+      if (element.type === 'text') {
+        // Extract variation index from the key (e.g., "TEXT0" = 0, "TEXT1" = 1)
+        const keyMatch = element.key?.match(/TEXT(\d+)/);
+        if (keyMatch) {
+          const index = parseInt(keyMatch[1]);
+          if (index > 0) {
+            console.log('[VariationNaming] Found text variation in combination:', index);
+            return index;
+          }
+        }
       }
     }
   }
@@ -251,21 +319,29 @@ function getTextVariationIndex(variationData: VariationData): number {
  * Determines the font variation index from the variation data
  */
 function getFontVariationIndex(variationData: VariationData): number {
+  // Check metadata combination for font variations (this is the main source)
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'font') {
+        // Extract variation index from the key (e.g., "FONT0" = 0, "FONT1" = 1)
+        const keyMatch = element.key?.match(/FONT(\d+)/);
+        if (keyMatch) {
+          const index = parseInt(keyMatch[1]);
+          if (index > 0) {
+            console.log('[VariationNaming] Found font variation in combination:', index);
+            return index;
+          }
+        }
+      }
+    }
+  }
+  
   // Check metadata for font elements
   if (variationData.metadata?.fontElements) {
     const fontElements = variationData.metadata.fontElements;
     for (const element of fontElements) {
       if (element.variationIndex && element.variationIndex > 0) {
-        return element.variationIndex;
-      }
-    }
-  }
-  
-  // Check metadata combination for font variations
-  if (variationData.metadata?.combination) {
-    const combination = variationData.metadata.combination;
-    for (const element of combination) {
-      if (element.type === 'font' && element.variationIndex && element.variationIndex > 0) {
         return element.variationIndex;
       }
     }
@@ -287,21 +363,29 @@ function getFontVariationIndex(variationData: VariationData): number {
  * Determines the speed variation index from the variation data
  */
 function getSpeedVariationIndex(variationData: VariationData): number {
+  // Check metadata combination for speed variations (this is the main source)
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'speed') {
+        // Extract variation index from the key (e.g., "SPEED0" = 0, "SPEED1" = 1)
+        const keyMatch = element.key?.match(/SPEED(\d+)/);
+        if (keyMatch) {
+          const index = parseInt(keyMatch[1]);
+          if (index > 0) {
+            console.log('[VariationNaming] Found speed variation in combination:', index);
+            return index;
+          }
+        }
+      }
+    }
+  }
+  
   // Check metadata for speed elements
   if (variationData.metadata?.speedElements) {
     const speedElements = variationData.metadata.speedElements;
     for (const element of speedElements) {
       if (element.variationIndex && element.variationIndex > 0) {
-        return element.variationIndex;
-      }
-    }
-  }
-  
-  // Check metadata combination for speed variations
-  if (variationData.metadata?.combination) {
-    const combination = variationData.metadata.combination;
-    for (const element of combination) {
-      if (element.type === 'speed' && element.variationIndex && element.variationIndex > 0) {
         return element.variationIndex;
       }
     }
@@ -337,19 +421,33 @@ export function generateDetailedVariationFileName(variationData: VariationData, 
   // Check if this is the original variation
   const isOriginal = variationData.variation?.isOriginal || false;
   
-  if (isOriginal) {
-    // For original, use "Main" prefix
-    parts.push('Main-video', 'Main-image', 'Main-audio', 'Main-text', 'Main-font', 'Main-speed');
-  } else {
-    // For variations, use element names and variation indices
-    const videoInfo = getVideoVariationInfo(variationData);
-    const imageInfo = getImageVariationInfo(variationData);
-    const audioInfo = getAudioVariationInfo(variationData);
-    const textInfo = getTextVariationInfo(variationData);
-    const fontInfo = getFontVariationInfo(variationData);
-    const speedInfo = getSpeedVariationInfo(variationData);
-    
-    parts.push(videoInfo, imageInfo, audioInfo, textInfo, fontInfo, speedInfo);
+  // Check which elements actually exist and have variations
+  const videoInfo = getVideoVariationInfo(variationData);
+  const imageInfo = getImageVariationInfo(variationData);
+  const audioInfo = getAudioVariationInfo(variationData);
+  const textInfo = getTextVariationInfo(variationData);
+  const fontInfo = getFontVariationInfo(variationData);
+  const speedInfo = getSpeedVariationInfo(variationData);
+  
+  // Check if elements actually exist in the project
+  const hasVideo = (variationData.videoTrackItems && variationData.videoTrackItems.length > 0);
+  const hasImage = (variationData.imageTrackItems && variationData.imageTrackItems.length > 0);
+  const hasAudio = (variationData.audioTrackItems && variationData.audioTrackItems.length > 0);
+  const hasText = (variationData.textOverlays && variationData.textOverlays.length > 0);
+  
+  // Only include elements that actually exist in the project
+  if (hasVideo) parts.push(videoInfo);
+  if (hasImage) parts.push(imageInfo);
+  if (hasAudio) parts.push(audioInfo);
+  if (hasText) parts.push(textInfo);
+  
+  // Font and speed variations are included if they exist in metadata
+  if (fontInfo !== 'Main-font' || (variationData.metadata?.fontElements && variationData.metadata.fontElements.length > 0)) {
+    parts.push(fontInfo);
+  }
+  
+  if (speedInfo !== 'Main-speed' || (variationData.metadata?.speedElements && variationData.metadata.speedElements.length > 0)) {
+    parts.push(speedInfo);
   }
   
   // Join parts with underscores
