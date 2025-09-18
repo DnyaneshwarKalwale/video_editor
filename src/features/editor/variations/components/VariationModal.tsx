@@ -121,7 +121,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                   value: v.text,
                   type: element.type,
                   elementId: element.id,
-                  originalValue: element.content
+                  originalValue: element.content,
+                  variationIndex: index + 1
                 }))
               ];
               elementVariations[element.id] = variations;
@@ -158,7 +159,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                   type: element.type,
               elementId: element.id,
                   originalValue: element.content,
-                  metadata: v.metadata
+                  metadata: v.metadata,
+                  variationIndex: index + 1
                 }))
               ];
               elementVariations[element.id] = variations;
@@ -175,11 +177,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
             }
           } else if (element.type === 'font') {
             // Handle font variations - map back to original text element ID
-            const originalTextElementId = element.id.startsWith('font-') 
-              ? element.id.replace('font-', '') 
+            const originalTextElementId = element.id.startsWith('font-')
+              ? element.id.replace('font-', '')
               : element.id;
             const elementVariationData = fontData.fontVariations.find((v: any) => v.elementId === originalTextElementId);
-            
+
             if (elementVariationData && elementVariationData.variations.length > 0) {
               // Create variations array with original + font variations
               const variations = [
@@ -211,7 +213,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                   type: element.type,
                   elementId: element.id,
                   originalValue: element.content,
-                  metadata: v.metadata
+                  metadata: v.metadata,
+                  variationIndex: index + 1
                 }))
               ];
               elementVariations[element.id] = variations;
@@ -256,7 +259,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                   type: element.type,
                   elementId: element.id,
                   originalValue: element.content,
-                  metadata: v.metadata
+                  metadata: v.metadata,
+                  variationIndex: index + 1
                 }))
               ];
               elementVariations[element.id] = variations;
@@ -587,7 +591,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                 value: v.text,
                 type: element.type,
                 elementId: element.id,
-                originalValue: element.content
+                originalValue: element.content,
+                variationIndex: index + 1
               }))
             ];
             elementVariations[element.id] = variations;
