@@ -2,10 +2,13 @@ import React from 'react';
 import { AbsoluteFill, Sequence, useCurrentFrame, Video, Audio } from 'remotion';
 import { getInputProps } from 'remotion';
 import { useRef, useEffect } from 'react';
+import { ProgressBar } from '../components/shared/ProgressBar';
 
 const VideoComposition = () => {
   const frame = useCurrentFrame();
   const currentTimeInMs = (frame / 24) * 1000; // 24fps
+  
+
   
   // Get the input props from the JSON file passed via --props
   const inputProps = getInputProps() as any;
@@ -18,13 +21,26 @@ const VideoComposition = () => {
     duration = 5000,
     videoTrackItems = [],
     audioTrackItems = [],
-    progressBarSettings = null,
-    effectiveDuration = null,
-    speedMultiplier = null
+    progressBarSettings = null
   } = inputProps || {};
+
+  // Calculate effective duration based on speed variations
+  const effectiveDuration = React.useMemo(() => {
+    if (variation?.metadata?.combination) {
+      const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
+      if (speedItem && speedItem.metadata && speedItem.metadata.speed) {
+        const speedMultiplier = speedItem.metadata.speed;
+        const extendedDuration = duration / speedMultiplier;
+        console.log(`🔍 VideoComposition: Speed variation ${speedMultiplier}x, extending duration from ${duration}ms to ${extendedDuration}ms`);
+        return extendedDuration;
+      }
+    }
+    return duration;
+  }, [variation?.metadata?.combination, duration]);
   
-  // If we've exceeded the actual duration, don't render anything
-  if (currentTimeInMs > duration) {
+  
+  // If we've exceeded the effective duration, don't render anything
+  if (currentTimeInMs > effectiveDuration) {
     return <AbsoluteFill style={{ backgroundColor: 'transparent' }} />;
   }
 
@@ -144,179 +160,125 @@ const VideoComposition = () => {
         );
       })}
 
-      {/* Render Progress Bar - Always visible */}
-      {progressBarSettings && progressBarSettings.isVisible && (
-        <ProgressBarRenderer 
-          platformConfig={{
-            width: platformConfig.width,
-            height: platformConfig.height,
-            aspectRatio: platformConfig.width > platformConfig.height ? '16:9' : platformConfig.width < platformConfig.height ? '9:16' : '1:1'
-          }}
-          effectiveDuration={effectiveDuration}
-          speedMultiplier={speedMultiplier}
-          settings={progressBarSettings}
-        />
-      )}
+
+      {/* Inline Progress Bar for Downloaded Videos */}
+      {(() => {
+        const settings = progressBarSettings || {
+          backgroundColor: 'rgba(0, 0, 0, 0.3)',
+          progressColor: '#ff6b35',
+          scrubberColor: '#ffffff',
+          height: 30,
+          scrubberSize: 24,
+          borderRadius: 4,
+          opacity: 1,
+          shadowBlur: 4,
+          shadowColor: 'rgba(0, 0, 0, 0.4)',
+          isVisible: true,
+          useDeceptiveProgress: true,
+          fastStartDuration: 1,
+          fastStartProgress: 0.1
+        };
+
+        if (!settings.isVisible) {
+          return null;
+        }
+
+        // Calculate deceptive progress using user settings
+        const getDeceptiveProgress = (currentTime: number, totalDuration: number): number => {
+          const timeRatio = Math.min(currentTime / totalDuration, 1);
+
+          // Use actual settings from user
+          const fastStartDurationMs = settings.fastStartDuration * 1000; // Convert seconds to ms
+          const fastStartProgressTarget = settings.fastStartProgress; // 0-1 range
+          const fastStartTimeRatio = fastStartDurationMs / totalDuration;
+
+          // Fast initial jump - reach target progress in fast start duration
+          if (timeRatio <= fastStartTimeRatio && fastStartTimeRatio > 0) {
+            return (timeRatio / fastStartTimeRatio) * fastStartProgressTarget;
+          }
+
+          // If fast start duration is 0, use linear progress
+          if (fastStartDurationMs === 0) {
+            return timeRatio;
+          }
+
+          // Exponential slowdown for remaining progress
+          const remainingTime = (timeRatio - fastStartTimeRatio) / (1 - fastStartTimeRatio);
+          const k = 3; // Controls how much it slows down
+          const exponentialProgress = 1 - Math.exp(-k * remainingTime);
+
+          return fastStartProgressTarget + (exponentialProgress * (1 - fastStartProgressTarget));
+        };
+
+        let progress = getDeceptiveProgress(currentTimeInMs, effectiveDuration);
+
+        // Adjust for speed variations
+        const speedMultiplier = (() => {
+          if (variation?.metadata?.combination) {
+            const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
+            return speedItem?.metadata?.speed || 1.0;
+          }
+          return 1.0;
+        })();
+
+        if (speedMultiplier > 1) {
+          progress = Math.min(progress * speedMultiplier * 0.7, 1);
+        } else if (speedMultiplier < 1) {
+          progress = progress / Math.max(speedMultiplier, 0.3);
+        }
+
+        progress = Math.min(progress, 1);
+
+        return (
+          <AbsoluteFill style={{ pointerEvents: 'none', zIndex: 1000, opacity: settings.opacity }}>
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                width: platformConfig.width,
+                height: settings.height,
+                backgroundColor: settings.backgroundColor,
+                borderRadius: `${settings.borderRadius}px`,
+                overflow: 'hidden',
+              }}
+            >
+              {/* Progress fill */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: `${progress * 100}%`,
+                  height: '100%',
+                  backgroundColor: settings.progressColor,
+                  borderRadius: `${settings.borderRadius}px`,
+                }}
+              />
+
+              {/* Scrubber */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: `${progress * 100}%`,
+                  width: `${settings.scrubberSize}px`,
+                  height: `${settings.scrubberSize}px`,
+                  backgroundColor: settings.scrubberColor,
+                  borderRadius: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  border: '2px solid rgba(255, 255, 255, 0.8)',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+                }}
+              />
+            </div>
+          </AbsoluteFill>
+        );
+      })()}
     </AbsoluteFill>
   );
 };
 
-// Progress Bar Renderer for Remotion
-const ProgressBarRenderer: React.FC<{
-  platformConfig: {
-    width: number;
-    height: number;
-    aspectRatio: string;
-  };
-  effectiveDuration?: number;
-  speedMultiplier?: number;
-  settings: any;
-}> = ({ platformConfig, effectiveDuration, speedMultiplier, settings }) => {
-  const frame = useCurrentFrame();
-  const fps = 24;
-  
-  // Use effective duration for variations, fallback to original duration
-  const actualDuration = effectiveDuration || 5000;
-  
-  // Calculate current progress based on frame
-  const currentTimeInMs = (frame / fps) * 1000;
-  
-  // Create deceptive progress bar with gradual speed transitions
-  const getDeceptiveProgress = (actualTime: number, totalDuration: number) => {
-    if (!settings.useDeceptiveProgress) {
-      // Normal progress
-      return Math.min(actualTime / totalDuration, 1);
-    }
-    
-    const progressRatio = actualTime / totalDuration;
-    const fastStartRatio = settings.fastStartDuration / (totalDuration / 1000); // Convert to ratio
-    
-    // Phase 1: Very fast start (first 10%)
-    if (progressRatio <= fastStartRatio) {
-      return (progressRatio / fastStartRatio) * settings.fastStartProgress;
-    }
-    
-    // Phase 2-8: 7 distinct speed phases with specific multipliers
-    const remainingRatio = progressRatio - fastStartRatio;
-    const remainingBarSpace = 1 - settings.fastStartProgress;
-    
-    // Speed multipliers: 2x, 1.75x, 1.5x, 1x, 0.75x, 0.5x, 0.25x
-    const speedMultipliers = [2, 1.75, 1.5, 1, 0.75, 0.5, 0.25];
-    
-    // Calculate how much progress each phase should cover based on speed
-    // Faster phases cover more progress in same time
-    const totalSpeedWeight = speedMultipliers.reduce((sum, speed) => sum + speed, 0);
-    const progressPerPhase = speedMultipliers.map(speed => (speed / totalSpeedWeight) * remainingBarSpace);
-    
-    // Time distribution (equal time for each phase)
-    const timePerPhase = 1 / speedMultipliers.length;
-    
-    let deceptiveProgress = settings.fastStartProgress;
-    let accumulatedProgress = 0;
-    
-    for (let i = 0; i < speedMultipliers.length; i++) {
-      const phaseStart = i * timePerPhase;
-      const phaseEnd = (i + 1) * timePerPhase;
-      
-      if (remainingRatio >= phaseStart && remainingRatio <= phaseEnd) {
-        // Current phase
-        const phaseProgress = (remainingRatio - phaseStart) / timePerPhase;
-        deceptiveProgress += accumulatedProgress + (progressPerPhase[i] * phaseProgress);
-        break;
-      } else if (remainingRatio > phaseEnd) {
-        // Past phase - add full progress for this phase
-        accumulatedProgress += progressPerPhase[i];
-      }
-    }
-    
-    return Math.min(deceptiveProgress, 1);
-  };
-  
-  const progress = getDeceptiveProgress(currentTimeInMs, actualDuration);
-  
-  // Platform-specific positioning - Always at the very bottom, full width
-  const getPlatformStyles = () => {
-    const { width, height, aspectRatio } = platformConfig;
-    
-    // Always position at the very bottom, full width from corner to corner
-    return {
-      top: height - settings.height, // At the very bottom
-      left: 0, // Start from the very left corner
-      width: width, // Full width from left to right
-      height: settings.height, // Use settings height
-    };
-  };
-  
-  const styles = getPlatformStyles();
-  
-  // Don't render if not visible
-  if (!settings.isVisible) {
-    return null;
-  }
-  
-  // Debug logging for progress bar rendering
-  console.log('[ProgressBarRenderer] Rendering progress bar:', {
-    frame,
-    currentTimeInMs,
-    actualDuration,
-    progress,
-    settings: {
-      isVisible: settings.isVisible,
-      height: settings.height,
-      backgroundColor: settings.backgroundColor,
-      progressColor: settings.progressColor
-    }
-  });
-
-  return (
-    <AbsoluteFill
-      style={{
-        pointerEvents: 'none',
-        zIndex: 1000, // Always on top
-        opacity: settings.opacity,
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          ...styles,
-          backgroundColor: settings.backgroundColor,
-          borderRadius: `${settings.borderRadius}px`,
-          overflow: 'hidden',
-        }}
-      >
-        {/* Progress Fill */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            width: `${progress * 100}%`,
-            height: '100%',
-            backgroundColor: settings.progressColor,
-            borderRadius: `${settings.borderRadius}px`,
-            transition: 'none', // No transitions in video rendering
-          }}
-        />
-        
-        {/* Scrubber */}
-        <div
-          style={{
-            position: 'absolute',
-            left: `${progress * 100}%`,
-            top: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: `${settings.scrubberSize}px`,
-            height: `${settings.scrubberSize}px`,
-            backgroundColor: settings.scrubberColor,
-            borderRadius: '50%',
-            border: '2px solid rgba(255, 255, 255, 0.8)',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
-          }}
-        />
-      </div>
-    </AbsoluteFill>
-  );
-};
+// Removed old DeceptiveProgressBarRenderer - now using shared ProgressBar component
 
 export default VideoComposition; 

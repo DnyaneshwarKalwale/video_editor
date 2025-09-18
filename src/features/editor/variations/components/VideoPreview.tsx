@@ -169,14 +169,14 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
       {/* Complete Video Composition with Remotion Player - Only load when visible and slot available */}
       {isVisible && shouldLoad && canLoad && !hasError && (() => {
         const fps = 30; // Use consistent fps
-        // Calculate effective duration for this variation
+        // Calculate effective duration for speed variations
         let effectiveDuration = duration;
         if (variation.metadata?.combination) {
           const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
           if (speedItem && speedItem.metadata && speedItem.metadata.speed) {
             const speedMultiplier = speedItem.metadata.speed;
             effectiveDuration = duration / speedMultiplier;
-            console.log(`🔍 VideoPreview: Speed ${speedMultiplier}x, extending duration from ${duration}ms to ${effectiveDuration}ms`);
+            console.log(`🔍 VideoPreview: Speed variation ${speedMultiplier}x, extending duration from ${duration}ms to ${effectiveDuration}ms`);
           }
         }
         const durationInFrames = Math.ceil(effectiveDuration / 1000 * fps);

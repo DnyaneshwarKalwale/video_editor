@@ -24,6 +24,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
     }
 
+    console.log('[Progress Bar API] User settings from database:', {
+      userEmail: session.user.email,
+      hasSettings: !!user?.progress_bar_settings,
+      settings: user?.progress_bar_settings
+    });
+
     return NextResponse.json({ 
       settings: user?.progress_bar_settings || null 
     });

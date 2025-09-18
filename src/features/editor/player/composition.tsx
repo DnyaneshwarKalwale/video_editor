@@ -312,14 +312,15 @@ const Composition = () => {
 				}
 				return null;
 			})}
-			
-			{/* Persistent Progress Bar - Always visible */}
-			<PersistentProgressBar 
+
+			{/* Progress Bar - Always visible in preview */}
+			<PersistentProgressBar
 				platformConfig={{
 					width: size.width,
 					height: size.height,
 					aspectRatio: size.width > size.height ? '16:9' : size.width < size.height ? '9:16' : '1:1'
 				}}
+				effectiveDuration={effectiveDuration}
 			/>
 		</>
 	);

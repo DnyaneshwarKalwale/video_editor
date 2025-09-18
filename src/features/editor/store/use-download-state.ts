@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { useDownloadManager } from './use-download-manager';
 import { useSession } from 'next-auth/react';
+import { useProgressBarStore } from './use-progress-bar-store';
+import { generateVariationFileName } from '@/utils/variation-naming';
 
 interface DownloadState {
   exporting: boolean;
@@ -27,9 +29,14 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
 
   exportVideo: async (stateManager, projectName = 'Untitled Project') => {
     const { addDownload } = useDownloadManager.getState();
-    
+    const { settings: progressBarSettings, loadSettings } = useProgressBarStore.getState();
+
     try {
       set({ exporting: true, progress: 0, output: null });
+
+      // Ensure progress bar settings are loaded
+      await loadSettings();
+      const { settings: loadedProgressBarSettings } = useProgressBarStore.getState();
 
       // Get the current scene data using the correct method
       const sceneData = stateManager.getState();
@@ -115,13 +122,24 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
         duration: sceneData.duration || 5000,
         videoTrackItems,
         audioTrackItems,
+        progressBarSettings: loadedProgressBarSettings, // Include loaded progress bar settings
         projectId: projectName,
         projectName: projectName,
       };
 
+      console.log('Progress bar settings being sent to download:', {
+        originalSettings: progressBarSettings,
+        loadedSettings: loadedProgressBarSettings,
+        isVisible: loadedProgressBarSettings.isVisible,
+        fastStartDuration: loadedProgressBarSettings.fastStartDuration
+      });
+
+      // Generate meaningful filename based on variation data
+      const filename = generateVariationFileName(videoData, projectName);
+      
       // Add to download manager
       const downloadId = addDownload(
-        `${projectName}.mp4`,
+        filename,
         'video',
         videoData
       );

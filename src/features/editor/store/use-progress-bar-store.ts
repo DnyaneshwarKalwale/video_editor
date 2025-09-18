@@ -47,8 +47,8 @@ const defaultSettings: ProgressBarSettings = {
   shadowColor: 'rgba(0, 0, 0, 0.4)',
   isVisible: true,
   useDeceptiveProgress: false,
-  fastStartDuration: 3, // 3 seconds fast start
-  fastStartProgress: 0.1, // reach 10% in first 3 seconds
+  fastStartDuration: 0, // 0 seconds fast start (changed from 3)
+  fastStartProgress: 0.1, // reach 10% in first 0 seconds
 };
 
 export const useProgressBarStore = create<ProgressBarStore>((set, get) => ({
@@ -77,7 +77,15 @@ export const useProgressBarStore = create<ProgressBarStore>((set, get) => ({
       const data = await response.json();
       
       if (data.settings) {
-        set({ settings: { ...defaultSettings, ...data.settings } });
+        const mergedSettings = { ...defaultSettings, ...data.settings };
+        console.log('[Progress Bar Store] Loaded settings from API:', {
+          apiSettings: data.settings,
+          defaultSettings,
+          mergedSettings
+        });
+        set({ settings: mergedSettings });
+      } else {
+        console.log('[Progress Bar Store] No settings from API, using defaults');
       }
     } catch (error) {
       console.error('Error loading progress bar settings:', error);

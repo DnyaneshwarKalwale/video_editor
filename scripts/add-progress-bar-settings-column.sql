@@ -22,7 +22,7 @@ BEGIN
             "shadowColor": "rgba(0, 0, 0, 0.4)", 
             "isVisible": true, 
             "useDeceptiveProgress": false, 
-            "fastStartDuration": 3, 
+            "fastStartDuration": 0, 
             "fastStartProgress": 0.1
         }'::jsonb;
         
@@ -46,7 +46,7 @@ SET progress_bar_settings = '{
     "shadowColor": "rgba(0, 0, 0, 0.4)", 
     "isVisible": true, 
     "useDeceptiveProgress": false, 
-    "fastStartDuration": 3, 
+    "fastStartDuration": 0, 
     "fastStartProgress": 0.1
 }'::jsonb
 WHERE progress_bar_settings IS NULL;

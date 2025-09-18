@@ -10,6 +10,7 @@ import useStore from '../../store/use-store';
 import VariationDownloadProgressModal from './VariationDownloadProgressModal';
 import { useDownloadManager } from '../../store/use-download-manager';
 import { useProgressBarStore } from '../../store/use-progress-bar-store';
+import { generateVariationFileName } from '@/utils/variation-naming';
 
 
 const VariationModal: React.FC<VariationModalProps> = ({
@@ -759,6 +760,10 @@ const VariationModal: React.FC<VariationModalProps> = ({
       setDownloadingVariation(variation.id);
       setShowProgressModal(true);
 
+      // Ensure progress bar settings are loaded
+      await loadProgressBarSettings();
+      const { settings: loadedProgressBarSettings } = useProgressBarStore.getState();
+
       // Get scene data from the store
       const storeState = useStore.getState();
       const canvasWidth = storeState.size.width;
@@ -948,17 +953,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
         metadata: variation.metadata, // Include the full metadata with all variations
       };
 
-      // Calculate effective duration and speed multiplier for variations
-      let effectiveDuration = storeState.duration || 5000;
-      let speedMultiplier = 1.0;
-      
-      if (variation.metadata?.combination) {
-        const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
-        if (speedItem && speedItem.metadata && speedItem.metadata.speed) {
-          speedMultiplier = speedItem.metadata.speed;
-          effectiveDuration = (storeState.duration || 5000) / speedMultiplier;
-        }
-      }
+      // Use original duration - speed variations will be handled differently
+      const effectiveDuration = storeState.duration || 5000;
 
       // Prepare variation data
       const downloadData = {
@@ -973,14 +969,16 @@ const VariationModal: React.FC<VariationModalProps> = ({
         videoTrackItems,
         audioTrackItems,
         imageTrackItems,
-        progressBarSettings: progressBarSettings?.isVisible ? progressBarSettings : null,
-        effectiveDuration: effectiveDuration,
-        speedMultiplier: speedMultiplier,
+        progressBarSettings: loadedProgressBarSettings ? { ...loadedProgressBarSettings, isVisible: true } : { isVisible: true },
       };
 
+      // Generate meaningful filename based on variation data
+      const projectName = project.platformConfig?.name || 'Untitled Project';
+      const filename = generateVariationFileName(downloadData, projectName);
+      
       // Add to download manager
       const downloadId = addDownload(
-        `variation-${variation.id}`,
+        filename,
         'variation',
         downloadData
       );

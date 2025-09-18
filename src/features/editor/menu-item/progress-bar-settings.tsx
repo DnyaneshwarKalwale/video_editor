@@ -84,22 +84,34 @@ const ProgressBarSettings: React.FC = () => {
                  <Slider
                    value={[settings.fastStartDuration]}
                    onValueChange={([value]) => updateSettings({ fastStartDuration: value })}
-                   min={1}
+                   min={0}
                    max={10}
                    step={1}
                    className="mt-1"
                  />
                </div>
                <div>
-                 <Label className="text-sm">Fast Start Progress: {Math.round(settings.fastStartProgress * 100)}%</Label>
-                 <Slider
-                   value={[settings.fastStartProgress * 100]}
-                   onValueChange={([value]) => updateSettings({ fastStartProgress: value / 100 })}
-                   min={1}
-                   max={20}
-                   step={1}
-                   className="mt-1"
-                 />
+                 <Label className="text-sm">Fast Start Progress (%)</Label>
+                 <div className="flex items-center space-x-2 mt-1">
+                   <input
+                     type="number"
+                     value={Math.round(settings.fastStartProgress * 100)}
+                     onChange={(e) => {
+                       const value = parseFloat(e.target.value) || 0;
+                       const clampedValue = Math.max(0, Math.min(100, value));
+                       updateSettings({ fastStartProgress: clampedValue / 100 });
+                     }}
+                     min="0"
+                     max="100"
+                     step="1"
+                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                     placeholder="Enter percentage (0-100)"
+                   />
+                   <span className="text-sm text-gray-500">%</span>
+                 </div>
+                 <p className="text-xs text-gray-500">
+                   Percentage of progress to reach in fast start duration
+                 </p>
                </div>
              </div>
            )}

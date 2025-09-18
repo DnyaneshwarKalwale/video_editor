@@ -3,6 +3,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
+import { generateVariationFileName } from '@/utils/variation-naming';
 
 const execAsync = promisify(exec);
 
@@ -425,9 +426,8 @@ export async function PUT(request: NextRequest) {
         console.error('Error cleaning up video file:', cleanupError);
       }
       
-      // Generate filename without double extension
-      const baseFilename = `variation-${jobId}`;
-      const filename = baseFilename.endsWith('.mp4') ? baseFilename : `${baseFilename}.mp4`;
+      // Generate meaningful filename based on variation data
+      const filename = generateVariationFileName(job.videoData, job.videoData?.projectName);
       
       return new NextResponse(videoBuffer, {
         headers: {

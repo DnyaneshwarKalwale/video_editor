@@ -25,28 +25,9 @@ const VariationComposition: React.FC<VariationCompositionProps> = ({
   platformConfig,
   duration,
 }) => {
-  // Calculate effective duration based on speed variations
-  const effectiveDuration = useMemo(() => {
-    if (variation.metadata?.combination) {
-      const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
-      if (speedItem && speedItem.metadata && speedItem.metadata.speed) {
-        const speedMultiplier = speedItem.metadata.speed;
-        const extendedDuration = duration / speedMultiplier;
-        console.log(`🔍 VariationComposition: Speed ${speedMultiplier}x, extending duration from ${duration}ms to ${extendedDuration}ms`);
-        return extendedDuration;
-      }
-    }
-    return duration;
-  }, [variation.metadata?.combination, duration]);
-  const speedMultiplier = useMemo(() => {
-    if (variation.metadata?.combination) {
-      const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
-      if (speedItem && speedItem.metadata && speedItem.metadata.speed) {
-        return speedItem.metadata.speed;
-      }
-    }
-    return 1.0;
-  }, [variation.metadata?.combination]);
+  // The duration passed in is already the effective duration from VideoPreview
+  // We don't need to calculate it again here
+  const effectiveDuration = duration;
   const {
     trackItemIds,
     trackItemsMap,
@@ -141,46 +122,54 @@ const VariationComposition: React.FC<VariationCompositionProps> = ({
       console.log('🔍 Speed elements in combination:', combination.filter(item => item.type === 'speed'));
       
       combination.forEach((item: any) => {
-        // Handle speed variations - apply to all video elements AND canvas video
+        // Handle speed variations - apply to ALL elements (video, audio, text)
         if (item.type === 'speed' && item.metadata) {
-          console.log(`🔍 Applying speed variation:`, item.metadata);
-          console.log(`🔍 Available video elements:`, Object.keys(modified).filter(id => modified[id]?.type === 'video'));
-          console.log(`🔍 All track items:`, Object.keys(modified).map(id => ({ id, type: modified[id]?.type, hasPlaybackRate: 'playbackRate' in (modified[id] || {}) })));
+          const speedMultiplier = item.metadata.speed || 1.0;
+          console.log(`🔍 Applying speed variation ${speedMultiplier}x to ALL timeline elements`);
           
-          // Apply speed to all video elements
+          // Apply speed variation to ALL elements on the timeline
           Object.keys(modified).forEach(trackItemId => {
             const trackItem = modified[trackItemId];
-            if (trackItem && trackItem.type === 'video') {
-              const originalPlaybackRate = trackItem.playbackRate;
-              const speedMultiplier = item.metadata.speed || 1.0;
+            if (trackItem) {
+              // Calculate new display duration based on speed
+              const originalDuration = trackItem.display.to - trackItem.display.from;
+              const newDuration = originalDuration / speedMultiplier;
               
-              // Extend display timing for slow videos
-              let extendedDisplay = trackItem.display;
-              if (speedMultiplier < 1.0) {
-                const originalDuration = trackItem.display.to - trackItem.display.from;
-                const extendedDuration = originalDuration / speedMultiplier;
-                extendedDisplay = {
-                  ...trackItem.display,
-                  to: trackItem.display.from + extendedDuration
+              // Apply speed variation to all element types
+              if (trackItem.type === 'video') {
+                modified[trackItemId] = {
+                  ...trackItem,
+                  // Keep the individual playbackRate from user settings, then apply speed variation on top
+                  playbackRate: (trackItem.playbackRate || 1.0) * speedMultiplier,
+                  display: {
+                    ...trackItem.display,
+                    to: trackItem.display.from + newDuration
+                  }
                 };
-                console.log(`🔍 Extended display timing for video ${trackItemId}: from ${trackItem.display.from}-${trackItem.display.to} to ${extendedDisplay.from}-${extendedDisplay.to}`);
+                console.log(`✅ Applied ${speedMultiplier}x speed variation to video ${trackItemId}: ${originalDuration}ms → ${newDuration}ms`);
+              } else if (trackItem.type === 'audio') {
+                modified[trackItemId] = {
+                  ...trackItem,
+                  playbackRate: (trackItem.playbackRate || 1.0) * speedMultiplier,
+                  display: {
+                    ...trackItem.display,
+                    to: trackItem.display.from + newDuration
+                  }
+                };
+                console.log(`✅ Applied ${speedMultiplier}x speed variation to audio ${trackItemId}: ${originalDuration}ms → ${newDuration}ms`);
+              } else if (trackItem.type === 'text') {
+                // For text, just adjust the display timing (no playback rate)
+                modified[trackItemId] = {
+                  ...trackItem,
+                  display: {
+                    ...trackItem.display,
+                    to: trackItem.display.from + newDuration
+                  }
+                };
+                console.log(`✅ Applied ${speedMultiplier}x speed variation to text ${trackItemId}: ${originalDuration}ms → ${newDuration}ms`);
               }
-              
-              modified[trackItemId] = {
-                ...trackItem,
-                playbackRate: speedMultiplier,
-                display: extendedDisplay,
-              };
-              console.log(`✅ Applied speed ${speedMultiplier}x to video ${trackItemId} (was ${originalPlaybackRate})`);
             }
           });
-          
-          // Speed is handled via playbackRate, no need to stretch timing
-          console.log(`🔍 Speed variation applied via playbackRate: ${item.metadata.speed}x`);
-          
-          // Also apply speed to the entire composition duration/frame rate
-          // This affects the canvas video that's automatically created
-          console.log(`🔍 Applying speed ${item.metadata.speed}x to canvas video duration`);
         }
         // Use elementId for direct mapping if available
         else if (item.elementId && trackItemsMap[item.elementId] && item.type !== 'text') {
@@ -289,10 +278,9 @@ const VariationComposition: React.FC<VariationCompositionProps> = ({
       })}
       
       {/* Persistent Progress Bar - Always visible */}
-      <PersistentProgressBar 
+      <PersistentProgressBar
         platformConfig={platformConfig}
         effectiveDuration={effectiveDuration}
-        speedMultiplier={speedMultiplier}
       />
     </AbsoluteFill>
   );

@@ -3,6 +3,7 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { supabase, TABLES } from '@/lib/supabase';
+import { generateVariationFileName } from '@/utils/variation-naming';
 
 const execAsync = promisify(exec);
 
@@ -126,6 +127,13 @@ async function processLambdaJob(jobId: string, videoData: any) {
     const tempDataPath = `temp-lambda-data-${jobId}.json`;
     const fs = require('fs');
     fs.writeFileSync(tempDataPath, JSON.stringify(videoData, null, 2));
+
+    // Debug: Log what's being sent to Lambda
+    console.log(`[Lambda Job ${jobId}] 📄 JSON data written for Lambda:`, {
+      hasProgressBarSettings: !!videoData.progressBarSettings,
+      progressBarIsVisible: videoData.progressBarSettings?.isVisible,
+      progressBarSettings: videoData.progressBarSettings
+    });
 
     // Build the Lambda render command
     const lambdaCommand = `npx remotion lambda render ${LAMBDA_CONFIG.serveUrl} ${LAMBDA_CONFIG.compositionId} --props=${tempDataPath} --region=${LAMBDA_CONFIG.region} --function-name=${LAMBDA_CONFIG.functionName} --concurrency=20 --timeout=600000`;
@@ -304,23 +312,57 @@ export async function POST(request: NextRequest) {
     userSessions.set(session.user.id, userSessionId);
 
     const body = await request.json();
-    const { variation, textOverlays, platformConfig, duration, videoTrackItems, audioTrackItems, projectId, projectName } = body;
+    const { variation, textOverlays, platformConfig, duration, videoTrackItems, audioTrackItems, projectId, projectName, progressBarSettings: requestProgressBarSettings } = body;
 
-    // Fetch user's progress bar settings
-    let progressBarSettings = null;
-    try {
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('progress_bar_settings')
-        .eq('email', session.user.email)
-        .single();
+    // Use progress bar settings from request if provided, otherwise fetch from database
+    let progressBarSettings;
 
-      if (!error && user?.progress_bar_settings) {
-        progressBarSettings = user.progress_bar_settings;
-        console.log(`[Lambda Job] Loaded progress bar settings for user ${session.user.email}:`, progressBarSettings);
+    console.log(`[Lambda Job] Request progress bar settings:`, requestProgressBarSettings);
+
+    if (requestProgressBarSettings) {
+      // Use settings from the request (e.g., from VariationModal)
+      progressBarSettings = requestProgressBarSettings;
+      console.log(`[Lambda Job] Using progress bar settings from request:`, {
+        isVisible: progressBarSettings.isVisible,
+        fastStartDuration: progressBarSettings.fastStartDuration,
+        fastStartProgress: progressBarSettings.fastStartProgress,
+        fullSettings: progressBarSettings
+      });
+    } else {
+      // Fallback to user's saved settings or defaults
+      progressBarSettings = {
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        progressColor: '#ff6b35',
+        scrubberColor: '#ffffff',
+        height: 16,
+        scrubberSize: 18,
+        borderRadius: 4,
+        opacity: 1,
+        shadowBlur: 4,
+        shadowColor: 'rgba(0, 0, 0, 0.4)',
+        isVisible: true,
+        useDeceptiveProgress: false,
+        fastStartDuration: 0, // Updated from 3 to 0
+        fastStartProgress: 0.1,
+      };
+
+      try {
+        const { data: user, error } = await supabase
+          .from('users')
+          .select('progress_bar_settings')
+          .eq('email', session.user.email)
+          .single();
+
+        if (!error && user?.progress_bar_settings) {
+          // Merge user settings with defaults to ensure all properties exist
+          progressBarSettings = { ...progressBarSettings, ...user.progress_bar_settings };
+          console.log(`[Lambda Job] Loaded progress bar settings from database for user ${session.user.email}:`, progressBarSettings);
+        } else {
+          console.log(`[Lambda Job] Using default progress bar settings for user ${session.user.email}`);
+        }
+      } catch (error) {
+        console.error('[Lambda Job] Error fetching progress bar settings, using defaults:', error);
       }
-    } catch (error) {
-      console.error('[Lambda Job] Error fetching progress bar settings:', error);
     }
 
     // Create video data with duration limit for Lambda
@@ -334,28 +376,82 @@ export async function POST(request: NextRequest) {
       console.log(`[Lambda Job ${jobId}] Duration capped from ${duration}ms to ${maxDuration}ms for Lambda`);
     }
     
-    // Calculate effective duration and speed multiplier for variations
-    let effectiveDuration = actualDuration;
+    // Apply speed variations to all track items if present
     let speedMultiplier = 1.0;
-    
     if (variation?.metadata?.combination) {
       const speedItem = variation.metadata.combination.find((item: any) => item.type === 'speed');
       if (speedItem && speedItem.metadata && speedItem.metadata.speed) {
         speedMultiplier = speedItem.metadata.speed;
-        effectiveDuration = actualDuration / speedMultiplier;
-        console.log(`[Lambda Job] Speed variation detected: ${speedMultiplier}x, effective duration: ${effectiveDuration}ms`);
       }
     }
+
+    const processedVideoTrackItems = (videoTrackItems || []).map((videoItem: any) => {
+      if (speedMultiplier !== 1.0) {
+        // Apply speed variation and adjust display timing
+        const originalDuration = videoItem.display.to - videoItem.display.from;
+        const newDuration = originalDuration / speedMultiplier;
+        
+        return {
+          ...videoItem,
+          // Keep individual playbackRate and multiply by speed variation
+          playbackRate: (videoItem.playbackRate || 1.0) * speedMultiplier,
+          display: {
+            ...videoItem.display,
+            to: videoItem.display.from + newDuration
+          }
+        };
+      }
+      return videoItem;
+    });
+
+    const processedAudioTrackItems = (audioTrackItems || []).map((audioItem: any) => {
+      if (speedMultiplier !== 1.0) {
+        // Apply speed variation and adjust display timing
+        const originalDuration = audioItem.display.to - audioItem.display.from;
+        const newDuration = originalDuration / speedMultiplier;
+        
+        return {
+          ...audioItem,
+          playbackRate: (audioItem.playbackRate || 1.0) * speedMultiplier,
+          display: {
+            ...audioItem.display,
+            to: audioItem.display.from + newDuration
+          }
+        };
+      }
+      return audioItem;
+    });
+
+    const processedTextOverlays = (textOverlays || []).map((textItem: any) => {
+      if (speedMultiplier !== 1.0 && textItem.timing) {
+        // Apply speed variation to text timing
+        const originalDuration = textItem.timing.to - textItem.timing.from;
+        const newDuration = originalDuration / speedMultiplier;
+        
+        return {
+          ...textItem,
+          timing: {
+            ...textItem.timing,
+            to: textItem.timing.from + newDuration
+          }
+        };
+      }
+      return textItem;
+    });
     
+    // Calculate effective duration for speed variations
+    const effectiveDuration = speedMultiplier !== 1.0 ? actualDuration / speedMultiplier : actualDuration;
+    if (speedMultiplier !== 1.0) {
+      console.log(`[Lambda Job ${jobId}] Speed variation ${speedMultiplier}x: adjusting duration from ${actualDuration}ms to ${effectiveDuration}ms`);
+    }
+
     const videoData = {
       variation: variation || { id: 'default', isOriginal: true },
-      textOverlays: textOverlays || [],
+      textOverlays: processedTextOverlays,
       platformConfig: platformConfig || { width: 1080, height: 1920, aspectRatio: '9:16' },
-      duration: actualDuration,
-      effectiveDuration: effectiveDuration,
-      speedMultiplier: speedMultiplier,
-      videoTrackItems: videoTrackItems || [],
-      audioTrackItems: audioTrackItems || [],
+      duration: effectiveDuration, // Use effective duration for speed variations
+      videoTrackItems: processedVideoTrackItems,
+      audioTrackItems: processedAudioTrackItems,
       progressBarSettings: progressBarSettings,
       userId: session.user.id, // Include userId for cost tracking
       userEmail: session.user.email,
@@ -364,6 +460,15 @@ export async function POST(request: NextRequest) {
       projectId: projectId || 'unknown',
       projectName: projectName || 'Unknown Project',
     };
+
+    // Debug logging for final video data
+    console.log(`[Lambda Job] Final video data progress bar settings:`, {
+      isVisible: videoData.progressBarSettings.isVisible,
+      fastStartDuration: videoData.progressBarSettings.fastStartDuration,
+      fastStartProgress: videoData.progressBarSettings.fastStartProgress,
+      useDeceptiveProgress: videoData.progressBarSettings.useDeceptiveProgress,
+      fullSettings: videoData.progressBarSettings
+    });
     
     // Create job entry with user isolation
     const job = {
@@ -519,9 +624,8 @@ export async function PUT(request: NextRequest) {
       
       console.log(`[Lambda Job ${jobId}] Successfully downloaded video: ${videoBuffer.byteLength} bytes`);
       
-      // Generate filename without double extension
-      const baseFilename = `lambda-video-${jobId}`;
-      const filename = baseFilename.endsWith('.mp4') ? baseFilename : `${baseFilename}.mp4`;
+      // Generate meaningful filename based on variation data
+      const filename = generateVariationFileName(job.videoData, job.videoData?.projectName);
       
       return new NextResponse(videoBuffer, {
         headers: {

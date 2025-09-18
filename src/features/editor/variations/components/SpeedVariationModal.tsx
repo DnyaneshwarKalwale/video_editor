@@ -27,19 +27,8 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
     speed: 1.0,
     label: 'Normal Speed'
   });
+  const [customSpeed, setCustomSpeed] = useState('1.0');
 
-  // Common speed presets
-  const speedPresets = [
-    { value: 0.25, label: '0.25x', description: 'Very Slow', category: 'slow' },
-    { value: 0.5, label: '0.5x', description: 'Slow', category: 'slow' },
-    { value: 0.75, label: '0.75x', description: 'Slightly Slow', category: 'slow' },
-    { value: 1.0, label: '1.0x', description: 'Normal Speed', category: 'normal' },
-    { value: 1.25, label: '1.25x', description: 'Slightly Fast', category: 'fast' },
-    { value: 1.5, label: '1.5x', description: 'Fast', category: 'fast' },
-    { value: 2.0, label: '2.0x', description: 'Very Fast', category: 'fast' },
-    { value: 3.0, label: '3.0x', description: 'Ultra Fast', category: 'fast' },
-    { value: 4.0, label: '4.0x', description: 'Extreme Speed', category: 'fast' }
-  ];
 
   // Load existing speed variations when modal opens
   useEffect(() => {
@@ -82,23 +71,35 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
   };
 
   const handleAddVariation = () => {
+    const speedValue = parseFloat(customSpeed);
+    if (isNaN(speedValue) || speedValue < 0.1 || speedValue > 2.0) {
+      message.error('Please enter a valid speed between 0.1 and 2.0');
+      return;
+    }
+    
+    const exists = speedVariations.some(v => Math.abs(v.metadata.speed - speedValue) < 0.01);
+    if (exists) {
+      message.error('This speed already exists');
+      return;
+    }
+
     const newVariation: SpeedVariation = {
       id: `speed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      content: `1.0x - Normal Speed`,
+      content: `${speedValue}x - ${editForm.label || 'Custom Speed'}`,
       type: 'manual',
       metadata: {
-        speed: 1.0,
-        label: 'Normal Speed',
-        duration: 0, // Will be calculated based on original duration
-        description: 'Normal playback speed'
+        speed: speedValue,
+        label: editForm.label || 'Custom Speed',
+        duration: 0,
+        description: editForm.label || 'Custom Speed'
       }
     };
 
     setSpeedVariations([...speedVariations, newVariation]);
     setEditingVariation(newVariation.id);
     setEditForm({
-      speed: 1.0,
-      label: 'Normal Speed'
+      speed: speedValue,
+      label: editForm.label || 'Custom Speed'
     });
   };
 
@@ -130,7 +131,7 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
             ...variation.metadata,
             speed: editForm.speed,
             label: editForm.label,
-            description: speedPresets.find(p => p.value === editForm.speed)?.description || 'Custom speed'
+            description: editForm.label || 'Custom speed'
           }
         };
       }
@@ -275,65 +276,89 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
           border: '1px solid #d9d9d9'
         }}>
           <Text type="secondary">
-            Create different playback speeds for your video element. Each speed variation will multiply your total video combinations.
+            Create different playback speeds for your video element. Enter any speed value between 0.1x (very slow) and 2.0x (very fast). Each speed variation will multiply your total video combinations.
           </Text>
         </div>
 
-        {/* Quick Speed Presets */}
+        {/* Custom Speed Input */}
         <div style={{ marginBottom: '20px' }}>
           <Text strong style={{ display: 'block', marginBottom: '12px', fontSize: '14px' }}>
-            Quick Add Common Speeds:
+            Add Custom Speed:
           </Text>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {speedPresets.slice(0, 6).map(preset => {
-              const exists = speedVariations.some(v => v.metadata.speed === preset.value);
-              return (
-                <Button
-                  key={preset.value}
-                  size="small"
-                  disabled={exists}
-                  onClick={() => {
-                    const newVariation: SpeedVariation = {
-                      id: `speed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                      content: `${preset.value}x - ${preset.description}`,
-                      type: 'manual',
-                      metadata: {
-                        speed: preset.value,
-                        label: preset.description,
-                        duration: 0,
-                        description: preset.description
-                      }
-                    };
-                    setSpeedVariations([...speedVariations, newVariation]);
-                    message.success(`Added ${preset.label} speed variation`);
-                  }}
-                  style={{ 
-                    borderColor: getSpeedColor(preset.value),
-                    color: exists ? '#bfbfbf' : getSpeedColor(preset.value)
-                  }}
-                >
-                  {preset.label} {exists && '✓'}
-                </Button>
-              );
-            })}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px' }}>
+                Speed Value (0.1 to 2.0)
+              </label>
+              <Input
+                type="number"
+                value={customSpeed}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setCustomSpeed(value);
+                }}
+                placeholder="Enter speed (e.g., 1.1, 0.9, 1.5)"
+                min="0.1"
+                max="2.0"
+                step="0.1"
+                style={{ width: '100%' }}
+                size="middle"
+              />
+              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                Range: 0.1x (very slow) to 2.0x (very fast)
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px' }}>
+                Label (Optional)
+              </label>
+              <Input
+                value={editForm.label}
+                onChange={(e) => setEditForm({...editForm, label: e.target.value})}
+                placeholder="Enter custom label"
+                size="middle"
+              />
+            </div>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                const speedValue = parseFloat(customSpeed);
+                if (isNaN(speedValue) || speedValue < 0.1 || speedValue > 2.0) {
+                  message.error('Please enter a valid speed between 0.1 and 2.0');
+                  return;
+                }
+                
+                const exists = speedVariations.some(v => Math.abs(v.metadata.speed - speedValue) < 0.01);
+                if (exists) {
+                  message.error('This speed already exists');
+                  return;
+                }
+
+                const newVariation: SpeedVariation = {
+                  id: `speed-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  content: `${speedValue}x - ${editForm.label || 'Custom Speed'}`,
+                  type: 'manual',
+                  metadata: {
+                    speed: speedValue,
+                    label: editForm.label || 'Custom Speed',
+                    duration: 0,
+                    description: editForm.label || 'Custom Speed'
+                  }
+                };
+                setSpeedVariations([...speedVariations, newVariation]);
+                message.success(`Added ${speedValue}x speed variation`);
+                setCustomSpeed('1.0');
+                setEditForm({ speed: 1.0, label: 'Normal Speed' });
+              }}
+              size="middle"
+              style={{ height: '32px' }}
+            >
+              Add Speed
+            </Button>
           </div>
         </div>
 
-        {/* Add Custom Variation Button */}
-        <Button
-          type="dashed"
-          icon={<PlusOutlined />}
-          onClick={handleAddVariation}
-          style={{ 
-            width: '100%', 
-            height: '56px',
-            marginBottom: '20px',
-            fontSize: '14px',
-            fontWeight: 500
-          }}
-        >
-          Add Custom Speed Variation
-        </Button>
 
         {/* Variations List */}
         <div>
@@ -347,7 +372,7 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
             }}>
               <PlayCircleOutlined style={{ fontSize: '48px', color: '#bfbfbf', marginBottom: '16px' }} />
               <div style={{ fontSize: '16px', color: '#8c8c8c', marginBottom: '8px' }}>No speed variations yet</div>
-              <div style={{ fontSize: '14px', color: '#bfbfbf' }}>Use quick presets above or add a custom variation</div>
+              <div style={{ fontSize: '14px', color: '#bfbfbf' }}>Enter a custom speed value above to get started</div>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
@@ -412,33 +437,26 @@ export const SpeedVariationModal: React.FC<SpeedVariationModalProps> = ({
                     <div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
                         <div>
-                          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px' }}>Speed Multiplier</label>
-                          <Select
+                          <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px' }}>Speed Value (0.1 to 2.0)</label>
+                          <Input
+                            type="number"
                             value={editForm.speed}
-                            onChange={(value) => {
-                              const preset = speedPresets.find(p => p.value === value);
-                              setEditForm({
-                                speed: value,
-                                label: preset?.description || 'Custom Speed'
-                              });
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value) && value >= 0.1 && value <= 2.0) {
+                                setEditForm({
+                                  speed: value,
+                                  label: editForm.label
+                                });
+                              }
                             }}
+                            placeholder="Enter speed (e.g., 1.1, 0.9, 1.5)"
+                            min="0.1"
+                            max="2.0"
+                            step="0.1"
                             style={{ width: '100%' }}
-                            placeholder="Select speed"
                             size="middle"
-                          >
-                            {speedPresets.map(preset => (
-                              <Option key={preset.value} value={preset.value}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ color: getSpeedColor(preset.value), fontWeight: 500 }}>
-                                    {preset.label}
-                                  </span>
-                                  <span style={{ fontSize: '12px', color: '#666' }}>
-                                    {preset.description}
-                                  </span>
-                                </div>
-                              </Option>
-                            ))}
-                          </Select>
+                          />
                         </div>
                         <div>
                           <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '13px' }}>Custom Label</label>
