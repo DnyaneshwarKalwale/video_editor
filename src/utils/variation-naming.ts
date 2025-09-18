@@ -36,17 +36,6 @@ export interface VariationData {
 export function generateVariationFileName(variationData: VariationData, projectName?: string): string {
   const parts: string[] = [];
   
-  // Debug logging to see what data we're receiving
-  console.log('[VariationNaming] Input data:', {
-    variation: variationData.variation,
-    hasMetadata: !!variationData.metadata,
-    metadataKeys: variationData.metadata ? Object.keys(variationData.metadata) : [],
-    combination: variationData.metadata?.combination,
-    videoTrackItems: variationData.videoTrackItems?.length || 0,
-    audioTrackItems: variationData.audioTrackItems?.length || 0,
-    imageTrackItems: variationData.imageTrackItems?.length || 0,
-    textOverlays: variationData.textOverlays?.length || 0
-  });
   
   // Check if this is the original variation
   const isOriginal = variationData.variation?.isOriginal || false;
@@ -65,24 +54,6 @@ export function generateVariationFileName(variationData: VariationData, projectN
   const hasAudio = (variationData.audioTrackItems && variationData.audioTrackItems.length > 0);
   const hasText = (variationData.textOverlays && variationData.textOverlays.length > 0);
   
-  console.log('[VariationNaming] Element detection:', {
-    hasVideo,
-    hasImage,
-    hasAudio,
-    hasText,
-    videoCount: variationData.videoTrackItems?.length || 0,
-    imageCount: variationData.imageTrackItems?.length || 0,
-    audioCount: variationData.audioTrackItems?.length || 0,
-    textCount: variationData.textOverlays?.length || 0,
-    variations: {
-      video: videoVariation,
-      image: imageVariation,
-      audio: audioVariation,
-      text: textVariation,
-      font: fontVariation,
-      speed: speedVariation
-    }
-  });
   
   // Only include elements that actually exist in the project
   if (hasVideo) {
@@ -117,21 +88,15 @@ export function generateVariationFileName(variationData: VariationData, projectN
     }
   }
   
-  // Font and speed variations are always included if they exist in metadata
-  if (fontVariation > 0 || (variationData.metadata?.fontElements && variationData.metadata.fontElements.length > 0)) {
-    if (isOriginal || fontVariation === 0) {
-      parts.push('M-font');
-    } else {
-      parts.push(`V${fontVariation}-font`);
-    }
+  // Font and speed variations are only included if there are actual variations (index > 0)
+  if (fontVariation > 0) {
+    const fontInfo = getFontVariationName(variationData);
+    parts.push(`V${fontVariation}-${fontInfo}`);
   }
-  
-  if (speedVariation > 0 || (variationData.metadata?.speedElements && variationData.metadata.speedElements.length > 0)) {
-    if (isOriginal || speedVariation === 0) {
-      parts.push('M-speed');
-    } else {
-      parts.push(`V${speedVariation}-speed`);
-    }
+
+  if (speedVariation > 0) {
+    const speedInfo = getSpeedVariationName(variationData);
+    parts.push(`V${speedVariation}-${speedInfo}`);
   }
   
   // Join parts with underscores
@@ -165,7 +130,6 @@ function getVideoVariationIndex(variationData: VariationData): number {
         if (keyMatch) {
           const index = parseInt(keyMatch[1]);
           if (index > 0) {
-            console.log('[VariationNaming] Found video variation in combination:', index);
             return index;
           }
         }
@@ -178,7 +142,6 @@ function getVideoVariationIndex(variationData: VariationData): number {
     const videoElements = variationData.metadata.videoElements;
     for (const element of videoElements) {
       if (element.variationIndex && element.variationIndex > 0) {
-        console.log('[VariationNaming] Found video variation index:', element.variationIndex);
         return element.variationIndex;
       }
     }
@@ -188,13 +151,11 @@ function getVideoVariationIndex(variationData: VariationData): number {
   if (variationData.videoTrackItems) {
     for (const item of variationData.videoTrackItems) {
       if (item.variationIndex && item.variationIndex > 0) {
-        console.log('[VariationNaming] Found video variation in track items:', item.variationIndex);
         return item.variationIndex;
       }
     }
   }
   
-  console.log('[VariationNaming] No video variation found, using main');
   return 0; // No variation (main/original)
 }
 
@@ -212,7 +173,6 @@ function getImageVariationIndex(variationData: VariationData): number {
         if (keyMatch) {
           const index = parseInt(keyMatch[1]);
           if (index > 0) {
-            console.log('[VariationNaming] Found image variation in combination:', index);
             return index;
           }
         }
@@ -247,7 +207,6 @@ function getAudioVariationIndex(variationData: VariationData): number {
         if (keyMatch) {
           const index = parseInt(keyMatch[1]);
           if (index > 0) {
-            console.log('[VariationNaming] Found audio variation in combination:', index);
             return index;
           }
         }
@@ -284,7 +243,6 @@ function getTextVariationIndex(variationData: VariationData): number {
   // Check metadata combination for text variations (this is the main source)
   if (variationData.metadata?.combination) {
     const combination = variationData.metadata.combination;
-    console.log('[VariationNaming] Checking combination for text variations:', combination);
     for (const element of combination) {
       if (element.type === 'text') {
         // Extract variation index from the key (e.g., "TEXT0" = 0, "TEXT1" = 1)
@@ -292,7 +250,6 @@ function getTextVariationIndex(variationData: VariationData): number {
         if (keyMatch) {
           const index = parseInt(keyMatch[1]);
           if (index > 0) {
-            console.log('[VariationNaming] Found text variation in combination:', index);
             return index;
           }
         }
@@ -302,16 +259,13 @@ function getTextVariationIndex(variationData: VariationData): number {
   
   // Check text overlays for variations
   if (variationData.textOverlays) {
-    console.log('[VariationNaming] Checking text overlays for variations:', variationData.textOverlays);
     for (const overlay of variationData.textOverlays) {
       if (overlay.variationIndex && overlay.variationIndex > 0) {
-        console.log('[VariationNaming] Found text variation in overlays:', overlay.variationIndex);
         return overlay.variationIndex;
       }
     }
   }
   
-  console.log('[VariationNaming] No text variation found, using main');
   return 0; // No variation (main/original)
 }
 
@@ -329,7 +283,6 @@ function getFontVariationIndex(variationData: VariationData): number {
         if (keyMatch) {
           const index = parseInt(keyMatch[1]);
           if (index > 0) {
-            console.log('[VariationNaming] Found font variation in combination:', index);
             return index;
           }
         }
@@ -373,7 +326,6 @@ function getSpeedVariationIndex(variationData: VariationData): number {
         if (keyMatch) {
           const index = parseInt(keyMatch[1]);
           if (index > 0) {
-            console.log('[VariationNaming] Found speed variation in combination:', index);
             return index;
           }
         }
@@ -441,12 +393,12 @@ export function generateDetailedVariationFileName(variationData: VariationData, 
   if (hasAudio) parts.push(audioInfo);
   if (hasText) parts.push(textInfo);
   
-  // Font and speed variations are included if they exist in metadata
-  if (fontInfo !== 'Main-font' || (variationData.metadata?.fontElements && variationData.metadata.fontElements.length > 0)) {
+  // Font and speed variations are only included if they have actual variations
+  if (fontInfo !== 'Main-font') {
     parts.push(fontInfo);
   }
-  
-  if (speedInfo !== 'Main-speed' || (variationData.metadata?.speedElements && variationData.metadata.speedElements.length > 0)) {
+
+  if (speedInfo !== 'Main-speed') {
     parts.push(speedInfo);
   }
   
@@ -535,22 +487,30 @@ function getFontVariationInfo(variationData: VariationData): string {
     const fontElements = variationData.metadata.fontElements;
     for (const element of fontElements) {
       if (element.variationIndex && element.variationIndex > 0) {
-        const name = element.elementName || 'font';
+        let name = 'font';
+        if (element.metadata?.fontFamily) {
+          const fontName = element.metadata.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
+          name = `font-${fontName}`;
+        }
         return `V${element.variationIndex}-${name}`;
       }
     }
   }
-  
+
   if (variationData.metadata?.combination) {
     const combination = variationData.metadata.combination;
     for (const element of combination) {
       if (element.type === 'font' && element.variationIndex && element.variationIndex > 0) {
-        const name = element.elementName || 'font';
+        let name = 'font';
+        if (element.metadata?.fontFamily) {
+          const fontName = element.metadata.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
+          name = `font-${fontName}`;
+        }
         return `V${element.variationIndex}-${name}`;
       }
     }
   }
-  
+
   return 'Main-font';
 }
 
@@ -560,6 +520,7 @@ function getSpeedVariationInfo(variationData: VariationData): string {
     for (const element of speedElements) {
       if (element.variationIndex && element.variationIndex > 0) {
         const name = element.elementName || 'speed';
+
         return `V${element.variationIndex}-${name}`;
       }
     }
@@ -576,4 +537,74 @@ function getSpeedVariationInfo(variationData: VariationData): string {
   }
   
   return 'Main-speed';
+}
+
+/**
+ * Gets a meaningful name for font variations
+ */
+function getFontVariationName(variationData: VariationData): string {
+  // Check metadata combination for font variations
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'font' && element.variationIndex && element.variationIndex > 0) {
+        if (element.metadata?.fontFamily) {
+          const fontName = element.metadata.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
+          return `font-${fontName}`;
+        }
+        return 'font';
+      }
+    }
+  }
+
+  // Check metadata for font elements
+  if (variationData.metadata?.fontElements) {
+    const fontElements = variationData.metadata.fontElements;
+    for (const element of fontElements) {
+      if (element.variationIndex && element.variationIndex > 0) {
+        if (element.metadata?.fontFamily) {
+          const fontName = element.metadata.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
+          return `font-${fontName}`;
+        }
+        return 'font';
+      }
+    }
+  }
+
+  return 'font';
+}
+
+/**
+ * Gets a meaningful name for speed variations
+ */
+function getSpeedVariationName(variationData: VariationData): string {
+  // Check metadata combination for speed variations
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'speed' && element.variationIndex && element.variationIndex > 0) {
+        if (element.metadata?.speed) {
+          const speed = parseFloat(element.metadata.speed);
+          return `speed-${speed}x`;
+        }
+        return 'speed';
+      }
+    }
+  }
+
+  // Check metadata for speed elements
+  if (variationData.metadata?.speedElements) {
+    const speedElements = variationData.metadata.speedElements;
+    for (const element of speedElements) {
+      if (element.variationIndex && element.variationIndex > 0) {
+        if (element.metadata?.speed) {
+          const speed = parseFloat(element.metadata.speed);
+          return `speed-${speed}x`;
+        }
+        return 'speed';
+      }
+    }
+  }
+
+  return 'speed';
 }
