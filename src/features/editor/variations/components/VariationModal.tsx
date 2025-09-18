@@ -974,7 +974,21 @@ const VariationModal: React.FC<VariationModalProps> = ({
 
       // Generate meaningful filename based on variation data
       const projectName = project.platformConfig?.name || 'Untitled Project';
-      const filename = generateVariationFileName(downloadData, projectName);
+      
+      // Prepare data in the format expected by generateVariationFileName
+      const variationNamingData = {
+        variation: {
+          id: variation.id,
+          isOriginal: variation.isOriginal
+        },
+        videoTrackItems,
+        audioTrackItems,
+        imageTrackItems,
+        textOverlays,
+        metadata: variation.metadata
+      };
+      
+      const filename = generateVariationFileName(variationNamingData, projectName);
       
       // Add to download manager
       const downloadId = addDownload(
@@ -1154,7 +1168,25 @@ const VariationModal: React.FC<VariationModalProps> = ({
                       {/* Video name and buttons */}
                       <div className="text-center space-y-2">
                         <span className="text-sm text-gray-700 font-medium">
-                          {variation.isOriginal ? 'Original' : `Variation ${index}`}
+                          {variation.isOriginal ? 'Original' : (() => {
+                            // Generate meaningful variation name
+                            const variationNamingData = {
+                              variation: {
+                                id: variation.id,
+                                isOriginal: variation.isOriginal
+                              },
+                              videoTrackItems: project.videoTrackItems,
+                              audioTrackItems: project.audioTrackItems,
+                              textOverlays: project.textOverlays,
+                              metadata: variation.metadata
+                            };
+                            
+                            const filename = generateVariationFileName(variationNamingData, project.platformConfig?.name);
+                            
+                            // Extract just the variation part (remove project name and .mp4)
+                            const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
+                            return variationPart;
+                          })()}
                         </span>
                         <div className="flex items-center justify-center gap-2">
                           <button
@@ -1217,7 +1249,23 @@ const VariationModal: React.FC<VariationModalProps> = ({
             isOpen={showProgressModal}
             onClose={() => setShowProgressModal(false)}
             progress={downloadProgress}
-            variationName={downloadingVariation.isOriginal ? 'Original' : `Variation ${downloadingVariation.id}`}
+            variationName={downloadingVariation.isOriginal ? 'Original' : (() => {
+              // Generate meaningful variation name for progress modal
+              const variationNamingData = {
+                variation: {
+                  id: downloadingVariation.id,
+                  isOriginal: downloadingVariation.isOriginal
+                },
+                videoTrackItems: project.videoTrackItems,
+                audioTrackItems: project.audioTrackItems,
+                textOverlays: project.textOverlays,
+                metadata: downloadingVariation.metadata
+              };
+              
+              const filename = generateVariationFileName(variationNamingData, project.platformConfig?.name);
+              const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
+              return variationPart;
+            })()}
             isCompleted={downloadProgress === 100}
             downloadUrl={downloadUrl || undefined}
             onDownload={handleDownloadAgain}

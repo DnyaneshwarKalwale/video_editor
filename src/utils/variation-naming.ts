@@ -16,6 +16,7 @@ export interface VariationData {
     isOriginal?: boolean;
   };
   videoTrackItems?: any[];
+  imageTrackItems?: any[];
   audioTrackItems?: any[];
   textOverlays?: any[];
   metadata?: {
@@ -30,20 +31,33 @@ export interface VariationData {
 
 /**
  * Generates a meaningful filename for a video variation
- * Format: M-video_M-audio_M-text_M-font_M-speed.mp4 or V1-video_M-audio_V2-text_V3-font_V4-speed.mp4
+ * Format: M-video_M-image_M-audio_M-text_M-font_M-speed.mp4 or V1-video_V2-image_M-audio_V3-text_V4-font_V5-speed.mp4
  */
 export function generateVariationFileName(variationData: VariationData, projectName?: string): string {
   const parts: string[] = [];
+  
+  // Debug logging to see what data we're receiving
+  console.log('[VariationNaming] Input data:', {
+    variation: variationData.variation,
+    hasMetadata: !!variationData.metadata,
+    metadataKeys: variationData.metadata ? Object.keys(variationData.metadata) : [],
+    combination: variationData.metadata?.combination,
+    videoTrackItems: variationData.videoTrackItems?.length || 0,
+    audioTrackItems: variationData.audioTrackItems?.length || 0,
+    imageTrackItems: variationData.imageTrackItems?.length || 0,
+    textOverlays: variationData.textOverlays?.length || 0
+  });
   
   // Check if this is the original variation
   const isOriginal = variationData.variation?.isOriginal || false;
   
   if (isOriginal) {
     // For original, use "M" prefix for all elements
-    parts.push('M-video', 'M-audio', 'M-text', 'M-font', 'M-speed');
+    parts.push('M-video', 'M-image', 'M-audio', 'M-text', 'M-font', 'M-speed');
   } else {
     // For variations, determine which elements have variations
     const videoVariation = getVideoVariationIndex(variationData);
+    const imageVariation = getImageVariationIndex(variationData);
     const audioVariation = getAudioVariationIndex(variationData);
     const textVariation = getTextVariationIndex(variationData);
     const fontVariation = getFontVariationIndex(variationData);
@@ -54,6 +68,13 @@ export function generateVariationFileName(variationData: VariationData, projectN
       parts.push(`V${videoVariation}-video`);
     } else {
       parts.push('M-video');
+    }
+    
+    // Add image part
+    if (imageVariation > 0) {
+      parts.push(`V${imageVariation}-image`);
+    } else {
+      parts.push('M-image');
     }
     
     // Add audio part
@@ -111,6 +132,18 @@ function getVideoVariationIndex(variationData: VariationData): number {
     const videoElements = variationData.metadata.videoElements;
     for (const element of videoElements) {
       if (element.variationIndex && element.variationIndex > 0) {
+        console.log('[VariationNaming] Found video variation index:', element.variationIndex);
+        return element.variationIndex;
+      }
+    }
+  }
+  
+  // Check metadata combination for video variations
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'video' && element.variationIndex && element.variationIndex > 0) {
+        console.log('[VariationNaming] Found video variation in combination:', element.variationIndex);
         return element.variationIndex;
       }
     }
@@ -120,7 +153,36 @@ function getVideoVariationIndex(variationData: VariationData): number {
   if (variationData.videoTrackItems) {
     for (const item of variationData.videoTrackItems) {
       if (item.variationIndex && item.variationIndex > 0) {
+        console.log('[VariationNaming] Found video variation in track items:', item.variationIndex);
         return item.variationIndex;
+      }
+    }
+  }
+  
+  console.log('[VariationNaming] No video variation found, using main');
+  return 0; // No variation (main/original)
+}
+
+/**
+ * Determines the image variation index from the variation data
+ */
+function getImageVariationIndex(variationData: VariationData): number {
+  // Check metadata for image elements
+  if (variationData.metadata?.imageElements) {
+    const imageElements = variationData.metadata.imageElements;
+    for (const element of imageElements) {
+      if (element.variationIndex && element.variationIndex > 0) {
+        return element.variationIndex;
+      }
+    }
+  }
+  
+  // Check metadata combination for image variations
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'image' && element.variationIndex && element.variationIndex > 0) {
+        return element.variationIndex;
       }
     }
   }
@@ -161,8 +223,10 @@ function getTextVariationIndex(variationData: VariationData): number {
   // Check metadata for text elements
   if (variationData.metadata?.combination) {
     const combination = variationData.metadata.combination;
+    console.log('[VariationNaming] Checking combination for text variations:', combination);
     for (const element of combination) {
       if (element.type === 'text' && element.variationIndex && element.variationIndex > 0) {
+        console.log('[VariationNaming] Found text variation in combination:', element.variationIndex);
         return element.variationIndex;
       }
     }
@@ -170,13 +234,16 @@ function getTextVariationIndex(variationData: VariationData): number {
   
   // Check text overlays for variations
   if (variationData.textOverlays) {
+    console.log('[VariationNaming] Checking text overlays for variations:', variationData.textOverlays);
     for (const overlay of variationData.textOverlays) {
       if (overlay.variationIndex && overlay.variationIndex > 0) {
+        console.log('[VariationNaming] Found text variation in overlays:', overlay.variationIndex);
         return overlay.variationIndex;
       }
     }
   }
   
+  console.log('[VariationNaming] No text variation found, using main');
   return 0; // No variation (main/original)
 }
 
@@ -272,16 +339,17 @@ export function generateDetailedVariationFileName(variationData: VariationData, 
   
   if (isOriginal) {
     // For original, use "Main" prefix
-    parts.push('Main-video', 'Main-audio', 'Main-text', 'Main-font', 'Main-speed');
+    parts.push('Main-video', 'Main-image', 'Main-audio', 'Main-text', 'Main-font', 'Main-speed');
   } else {
     // For variations, use element names and variation indices
     const videoInfo = getVideoVariationInfo(variationData);
+    const imageInfo = getImageVariationInfo(variationData);
     const audioInfo = getAudioVariationInfo(variationData);
     const textInfo = getTextVariationInfo(variationData);
     const fontInfo = getFontVariationInfo(variationData);
     const speedInfo = getSpeedVariationInfo(variationData);
     
-    parts.push(videoInfo, audioInfo, textInfo, fontInfo, speedInfo);
+    parts.push(videoInfo, imageInfo, audioInfo, textInfo, fontInfo, speedInfo);
   }
   
   // Join parts with underscores
@@ -312,6 +380,30 @@ function getVideoVariationInfo(variationData: VariationData): string {
     }
   }
   return 'Main-video';
+}
+
+function getImageVariationInfo(variationData: VariationData): string {
+  if (variationData.metadata?.imageElements) {
+    const imageElements = variationData.metadata.imageElements;
+    for (const element of imageElements) {
+      if (element.variationIndex && element.variationIndex > 0) {
+        const name = element.elementName || 'image';
+        return `V${element.variationIndex}-${name}`;
+      }
+    }
+  }
+  
+  if (variationData.metadata?.combination) {
+    const combination = variationData.metadata.combination;
+    for (const element of combination) {
+      if (element.type === 'image' && element.variationIndex && element.variationIndex > 0) {
+        const name = element.elementName || 'image';
+        return `V${element.variationIndex}-${name}`;
+      }
+    }
+  }
+  
+  return 'Main-image';
 }
 
 function getAudioVariationInfo(variationData: VariationData): string {

@@ -61,7 +61,14 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     const k = 3; // Controls how much it slows down
     const exponentialProgress = 1 - Math.exp(-k * remainingTime);
 
-    return fastStartProgressTarget + (exponentialProgress * (1 - fastStartProgressTarget));
+    let progress = fastStartProgressTarget + (exponentialProgress * (1 - fastStartProgressTarget));
+    
+    // Ensure progress reaches exactly 100% when time is complete
+    if (timeRatio >= 0.99) { // When we're very close to the end
+      progress = 1.0;
+    }
+    
+    return progress;
   };
 
   let progress = getDeceptiveProgress(currentTimeInMs, duration);
@@ -102,7 +109,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
             width: `${progress * 100}%`,
             height: '100%',
             backgroundColor: settings.progressColor,
-            borderRadius: `${settings.borderRadius}px`,
+            borderRadius: progress >= 1.0 ? `${settings.borderRadius}px` : `${settings.borderRadius}px 0 0 ${settings.borderRadius}px`,
           }}
         />
 
@@ -111,7 +118,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
           style={{
             position: 'absolute',
             top: '50%',
-            left: `${progress * 100}%`,
+            left: `${Math.min(progress * 100, 100)}%`,
             width: `${settings.scrubberSize}px`,
             height: `${settings.scrubberSize}px`,
             backgroundColor: settings.scrubberColor,

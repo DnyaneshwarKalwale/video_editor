@@ -625,7 +625,15 @@ export async function PUT(request: NextRequest) {
       console.log(`[Lambda Job ${jobId}] Successfully downloaded video: ${videoBuffer.byteLength} bytes`);
       
       // Generate meaningful filename based on variation data
-      const filename = generateVariationFileName(job.videoData, job.videoData?.projectName);
+      const variationNamingData = {
+        variation: job.videoData?.variation,
+        videoTrackItems: job.videoData?.videoTrackItems,
+        audioTrackItems: job.videoData?.audioTrackItems,
+        imageTrackItems: job.videoData?.imageTrackItems,
+        textOverlays: job.videoData?.textOverlays,
+        metadata: job.videoData?.variation?.metadata
+      };
+      const filename = generateVariationFileName(variationNamingData, job.videoData?.projectName);
       
       return new NextResponse(videoBuffer, {
         headers: {
