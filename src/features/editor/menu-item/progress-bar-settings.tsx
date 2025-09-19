@@ -79,40 +79,91 @@ const ProgressBarSettings: React.FC = () => {
            
            {settings.useDeceptiveProgress && (
              <div className="space-y-3 pl-4 border-l-2 border-gray-200">
-               <div>
-                 <Label className="text-sm">Fast Start Duration: {settings.fastStartDuration}s</Label>
-                 <Slider
-                   value={[settings.fastStartDuration]}
-                   onValueChange={([value]) => updateSettings({ fastStartDuration: value })}
-                   min={0}
-                   max={10}
-                   step={1}
-                   className="mt-1"
-                 />
-               </div>
-               <div>
-                 <Label className="text-sm">Fast Start Progress (%)</Label>
-                 <div className="flex items-center space-x-2 mt-1">
-                   <input
-                     type="number"
-                     value={Math.round(settings.fastStartProgress * 100)}
-                     onChange={(e) => {
-                       const value = parseFloat(e.target.value) || 0;
-                       const clampedValue = Math.max(0, Math.min(100, value));
-                       updateSettings({ fastStartProgress: clampedValue / 100 });
-                     }}
-                     min="0"
-                     max="100"
-                     step="1"
-                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                     placeholder="Enter percentage (0-100)"
-                   />
-                   <span className="text-sm text-gray-500">%</span>
-                 </div>
-                 <p className="text-xs text-gray-500">
-                   Percentage of progress to reach in fast start duration
-                 </p>
-               </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm">Fast Start Duration</Label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <input
+                        type="number"
+                        value={settings.fastStartDuration}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          const clampedValue = Math.max(0, Math.min(60, value));
+                          updateSettings({ fastStartDuration: clampedValue });
+                        }}
+                        min="0"
+                        max="60"
+                        step="0.5"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0-60"
+                      />
+                      <span className="text-sm text-gray-500">sec</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm">Fast End Duration</Label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <input
+                        type="number"
+                        value={settings.fastEndDuration}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          const clampedValue = Math.max(0, Math.min(60, value));
+                          updateSettings({ fastEndDuration: clampedValue });
+                        }}
+                        min="0"
+                        max="60"
+                        step="0.5"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0-60"
+                      />
+                      <span className="text-sm text-gray-500">sec</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm">Fast Start Progress</Label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <input
+                        type="number"
+                        value={Math.round(settings.fastStartProgress * 100)}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          const clampedValue = Math.max(0, Math.min(100, value));
+                          updateSettings({ fastStartProgress: clampedValue / 100 });
+                        }}
+                        min="0"
+                        max="100"
+                        step="1"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0-100"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm">Fast End Start Progress</Label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <input
+                        type="number"
+                        value={Math.round(settings.fastEndProgress * 100)}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          const clampedValue = Math.max(0, Math.min(100, value));
+                          updateSettings({ fastEndProgress: clampedValue / 100 });
+                        }}
+                        min="0"
+                        max="100"
+                        step="1"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="0-100"
+                      />
+                      <span className="text-sm text-gray-500">%</span>
+                    </div>
+                  </div>
+                </div>
+
              </div>
            )}
          </div>
@@ -145,54 +196,81 @@ const ProgressBarSettings: React.FC = () => {
         {/* Size */}
         <div className="space-y-3">
           <h4 className="font-medium">Size</h4>
-          <div>
-            <Label className="text-sm">Height: {settings.height}px</Label>
-            <Slider
-              value={[settings.height]}
-              onValueChange={([value]) => updateSettings({ height: value })}
-              min={4}
-              max={32}
-              step={2}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-sm">Scrubber Size: {settings.scrubberSize}px</Label>
-            <Slider
-              value={[settings.scrubberSize]}
-              onValueChange={([value]) => updateSettings({ scrubberSize: value })}
-              min={8}
-              max={32}
-              step={2}
-              className="mt-1"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-sm">Height</Label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  value={settings.height}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 4;
+                    const clampedValue = Math.max(4, value);
+                    updateSettings({ height: clampedValue });
+                  }}
+                  min="4"
+                  step="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="4+"
+                />
+                <span className="text-sm text-gray-500 whitespace-nowrap">px</span>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Scrubber Size</Label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  value={settings.scrubberSize}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 8;
+                    const clampedValue = Math.max(8, value);
+                    updateSettings({ scrubberSize: clampedValue });
+                  }}
+                  min="8"
+                  step="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="8+"
+                />
+                <span className="text-sm text-gray-500 whitespace-nowrap">px</span>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Effects */}
         <div className="space-y-3">
           <h4 className="font-medium">Effects</h4>
-          <div>
-            <Label className="text-sm">Border Radius: {settings.borderRadius}px</Label>
-            <Slider
-              value={[settings.borderRadius]}
-              onValueChange={([value]) => updateSettings({ borderRadius: value })}
-              min={0}
-              max={20}
-              step={1}
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label className="text-sm">Opacity: {Math.round(settings.opacity * 100)}%</Label>
-            <Slider
-              value={[settings.opacity * 100]}
-              onValueChange={([value]) => updateSettings({ opacity: value / 100 })}
-              min={10}
-              max={100}
-              step={5}
-              className="mt-1"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-sm">Border Radius</Label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  value={settings.borderRadius}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    const clampedValue = Math.max(0, value);
+                    updateSettings({ borderRadius: clampedValue });
+                  }}
+                  min="0"
+                  step="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="0+"
+                />
+                <span className="text-sm text-gray-500 whitespace-nowrap">px</span>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm">Opacity: {Math.round(settings.opacity * 100)}%</Label>
+              <Slider
+                value={[settings.opacity * 100]}
+                onValueChange={([value]) => updateSettings({ opacity: value / 100 })}
+                min={10}
+                max={100}
+                step={5}
+              />
+            </div>
           </div>
         </div>
       </div>

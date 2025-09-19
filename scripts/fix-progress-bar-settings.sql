@@ -1,12 +1,12 @@
 -- Fix progress bar settings in Supabase
 -- This migration updates existing users to have the correct progress bar settings
 
--- Update users who have the old fastStartDuration of 3 to 0
+-- Update users who have the old fastStartDuration of 3 to 10 (new default)
 UPDATE users 
 SET progress_bar_settings = jsonb_set(
     progress_bar_settings,
     '{fastStartDuration}',
-    '0'::jsonb
+    '10'::jsonb
 )
 WHERE progress_bar_settings->>'fastStartDuration' = '3'
 AND progress_bar_settings ? 'fastStartDuration';
@@ -48,8 +48,10 @@ SET progress_bar_settings = '{
     "shadowColor": "rgba(0, 0, 0, 0.4)", 
     "isVisible": true,
     "useDeceptiveProgress": false,
-    "fastStartDuration": 0,
-    "fastStartProgress": 0.1
+    "fastStartDuration": 10,
+    "fastStartProgress": 0.1,
+    "fastEndDuration": 5,
+    "fastEndProgress": 0.9
 }'::jsonb
 WHERE progress_bar_settings IS NULL;
 
@@ -68,8 +70,10 @@ SET progress_bar_settings = COALESCE(progress_bar_settings, '{}'::jsonb) || '{
     "shadowColor": "rgba(0, 0, 0, 0.4)", 
     "isVisible": true,
     "useDeceptiveProgress": false,
-    "fastStartDuration": 0,
-    "fastStartProgress": 0.1
+    "fastStartDuration": 10,
+    "fastStartProgress": 0.1,
+    "fastEndDuration": 5,
+    "fastEndProgress": 0.9
 }'::jsonb
 WHERE NOT (progress_bar_settings ? 'backgroundColor' 
            AND progress_bar_settings ? 'progressColor' 
@@ -85,7 +89,7 @@ WHERE NOT (progress_bar_settings ? 'backgroundColor'
 SELECT
     COUNT(*) as total_users,
     COUNT(progress_bar_settings) as users_with_settings,
-    COUNT(CASE WHEN progress_bar_settings->>'fastStartDuration' = '0' THEN 1 END) as users_with_zero_start,                                                     
+    COUNT(CASE WHEN progress_bar_settings->>'fastStartDuration' = '10' THEN 1 END) as users_with_ten_second_start,                                                     
     COUNT(CASE WHEN progress_bar_settings->>'isVisible' = 'true' THEN 1 END) as users_with_visible_progress_bar,                                                
     COUNT(CASE WHEN progress_bar_settings->>'useDeceptiveProgress' = 'false' THEN 1 END) as users_with_deceptive_disabled,
     COUNT(CASE WHEN progress_bar_settings ? 'backgroundColor' THEN 1 END) as users_with_background_color,

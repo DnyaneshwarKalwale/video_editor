@@ -13,8 +13,10 @@ interface ProgressBarSettings {
   shadowColor: string;
   isVisible: boolean;
   useDeceptiveProgress: boolean;
-  fastStartDuration: number; // seconds to show fast progress
+  fastStartDuration: number; // seconds to show fast progress at start
   fastStartProgress: number; // percentage to reach in fast start (0-1)
+  fastEndDuration: number; // seconds to show fast progress at end
+  fastEndProgress: number; // percentage to start fast progress at end (0-1)
 }
 
 interface ProgressBarProps {
@@ -46,29 +48,48 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     const fastStartProgressTarget = settings.fastStartProgress; // 0-1 range
     const fastStartTimeRatio = fastStartDurationMs / totalDuration;
 
+    const fastEndDurationMs = settings.fastEndDuration * 1000; // Convert seconds to ms
+    const fastEndProgressStart = settings.fastEndProgress; // 0-1 range
+    const fastEndTimeRatio = 1 - (fastEndDurationMs / totalDuration);
+
     // Fast initial jump - reach target progress in fast start duration
     if (timeRatio <= fastStartTimeRatio && fastStartTimeRatio > 0) {
       return (timeRatio / fastStartTimeRatio) * fastStartProgressTarget;
     }
 
-    // If fast start duration is 0, use linear progress
-    if (fastStartDurationMs === 0) {
+    // Fast end jump - accelerate from fastEndProgressStart to 100%
+    if (timeRatio >= fastEndTimeRatio && fastEndTimeRatio < 1) {
+      const endTimeRatio = (timeRatio - fastEndTimeRatio) / (1 - fastEndTimeRatio);
+      return fastEndProgressStart + (endTimeRatio * (1 - fastEndProgressStart));
+    }
+
+    // If both durations are 0, use linear progress
+    if (fastStartDurationMs === 0 && fastEndDurationMs === 0) {
       return timeRatio;
     }
 
-    // Exponential slowdown for remaining progress
-    const remainingTime = (timeRatio - fastStartTimeRatio) / (1 - fastStartTimeRatio);
-    const k = 3; // Controls how much it slows down
-    const exponentialProgress = 1 - Math.exp(-k * remainingTime);
-
-    let progress = fastStartProgressTarget + (exponentialProgress * (1 - fastStartProgressTarget));
+    // Exponential slowdown for the middle section
+    const middleStartTime = fastStartTimeRatio;
+    const middleEndTime = fastEndTimeRatio;
+    const middleDuration = middleEndTime - middleStartTime;
     
-    // Ensure progress reaches exactly 100% when time is complete
-    if (timeRatio >= 0.99) { // When we're very close to the end
-      progress = 1.0;
+    if (middleDuration > 0) {
+      const middleTimeRatio = (timeRatio - middleStartTime) / middleDuration;
+      const k = 3; // Exponential factor
+      const exponentialProgress = 1 - Math.exp(-k * middleTimeRatio);
+      
+      let progress = fastStartProgressTarget + (exponentialProgress * (fastEndProgressStart - fastStartProgressTarget));
+      
+      // Ensure we reach exactly 100% at the end
+      if (timeRatio >= 0.99) {
+        progress = 1.0;
+      }
+      
+      return progress;
     }
-    
-    return progress;
+
+    // Fallback to linear if no middle section
+    return timeRatio;
   };
 
   let progress = getDeceptiveProgress(currentTimeInMs, duration);

@@ -7,7 +7,7 @@ import { ProgressBar } from '../components/shared/ProgressBar';
 const VideoComposition = () => {
   const frame = useCurrentFrame();
   const currentTimeInMs = (frame / 24) * 1000; // 24fps
-  
+
 
   
   // Get the input props from the JSON file passed via --props
@@ -164,16 +164,16 @@ const VideoComposition = () => {
       {/* Inline Progress Bar for Downloaded Videos */}
       {(() => {
         const settings = progressBarSettings || {
-          backgroundColor: 'rgba(0, 0, 0, 0.3)',
-          progressColor: '#ff6b35',
-          scrubberColor: '#ffffff',
+  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  progressColor: '#ff6b35',
+  scrubberColor: '#ffffff',
           height: 30,
           scrubberSize: 24,
-          borderRadius: 4,
-          opacity: 1,
-          shadowBlur: 4,
-          shadowColor: 'rgba(0, 0, 0, 0.4)',
-          isVisible: true,
+  borderRadius: 4,
+  opacity: 1,
+  shadowBlur: 4,
+  shadowColor: 'rgba(0, 0, 0, 0.4)',
+  isVisible: true,
           useDeceptiveProgress: true,
           fastStartDuration: 1,
           fastStartProgress: 0.1
@@ -184,8 +184,8 @@ const VideoComposition = () => {
         }
 
         // Calculate deceptive progress using user settings
-        const getDeceptiveProgress = (currentTime: number, totalDuration: number): number => {
-          const timeRatio = Math.min(currentTime / totalDuration, 1);
+  const getDeceptiveProgress = (currentTime: number, totalDuration: number): number => {
+    const timeRatio = Math.min(currentTime / totalDuration, 1);
 
           // Use actual settings from user
           const fastStartDurationMs = settings.fastStartDuration * 1000; // Convert seconds to ms
@@ -200,12 +200,12 @@ const VideoComposition = () => {
           // If fast start duration is 0, use linear progress
           if (fastStartDurationMs === 0) {
             return timeRatio;
-          }
+    }
 
-          // Exponential slowdown for remaining progress
+    // Exponential slowdown for remaining progress
           const remainingTime = (timeRatio - fastStartTimeRatio) / (1 - fastStartTimeRatio);
-          const k = 3; // Controls how much it slows down
-          const exponentialProgress = 1 - Math.exp(-k * remainingTime);
+    const k = 3; // Controls how much it slows down
+    const exponentialProgress = 1 - Math.exp(-k * remainingTime);
 
           let progress = fastStartProgressTarget + (exponentialProgress * (1 - fastStartProgressTarget));
           
@@ -228,57 +228,57 @@ const VideoComposition = () => {
           return 1.0;
         })();
 
-        if (speedMultiplier > 1) {
-          progress = Math.min(progress * speedMultiplier * 0.7, 1);
-        } else if (speedMultiplier < 1) {
-          progress = progress / Math.max(speedMultiplier, 0.3);
-        }
+  if (speedMultiplier > 1) {
+    progress = Math.min(progress * speedMultiplier * 0.7, 1);
+  } else if (speedMultiplier < 1) {
+    progress = progress / Math.max(speedMultiplier, 0.3);
+  }
 
-        progress = Math.min(progress, 1);
+  progress = Math.min(progress, 1);
 
-        return (
+  return (
           <AbsoluteFill style={{ pointerEvents: 'none', zIndex: 1000, opacity: settings.opacity }}>
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                width: platformConfig.width,
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: platformConfig.width,
                 height: settings.height,
                 backgroundColor: settings.backgroundColor,
                 borderRadius: `${settings.borderRadius}px`,
-                overflow: 'hidden',
-              }}
-            >
-                    {/* Progress fill */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: `${progress * 100}%`,
-                        height: '100%',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Progress fill */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: `${progress * 100}%`,
+            height: '100%',
                         backgroundColor: settings.progressColor,
                         borderRadius: progress >= 1.0 ? `${settings.borderRadius}px` : `${settings.borderRadius}px 0 0 ${settings.borderRadius}px`,
-                      }}
-                    />
+          }}
+        />
 
-              {/* Scrubber */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '50%',
+        {/* Scrubber */}
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
                   left: `${Math.min(progress * 100, 100)}%`,
                   width: `${settings.scrubberSize}px`,
                   height: `${settings.scrubberSize}px`,
                   backgroundColor: settings.scrubberColor,
-                  borderRadius: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  border: '2px solid rgba(255, 255, 255, 0.8)',
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
-                }}
-              />
-            </div>
+            borderRadius: '50%',
+            transform: 'translate(-50%, -50%)',
+            border: '2px solid rgba(255, 255, 255, 0.8)',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
+          }}
+        />
+      </div>
           </AbsoluteFill>
         );
       })()}

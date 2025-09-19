@@ -177,11 +177,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
             }
           } else if (element.type === 'font') {
             // Handle font variations - map back to original text element ID
-            const originalTextElementId = element.id.startsWith('font-')
-              ? element.id.replace('font-', '')
+            const originalTextElementId = element.id.startsWith('font-') 
+              ? element.id.replace('font-', '') 
               : element.id;
             const elementVariationData = fontData.fontVariations.find((v: any) => v.elementId === originalTextElementId);
-
+            
             if (elementVariationData && elementVariationData.variations.length > 0) {
               // Create variations array with original + font variations
               const variations = [
@@ -994,7 +994,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
       };
       
       const filename = generateVariationFileName(variationNamingData, projectName);
-      
+
       // Add to download manager
       const downloadId = addDownload(
         filename,

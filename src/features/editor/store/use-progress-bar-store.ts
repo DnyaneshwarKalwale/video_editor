@@ -21,8 +21,10 @@ interface ProgressBarSettings {
   
   // Deceptive Progress (for ads)
   useDeceptiveProgress: boolean;
-  fastStartDuration: number; // seconds to show fast progress
+  fastStartDuration: number; // seconds to show fast progress at start
   fastStartProgress: number; // percentage to reach in fast start (0-1)
+  fastEndDuration: number; // seconds to show fast progress at end
+  fastEndProgress: number; // percentage to start fast progress at end (0-1)
 }
 
 interface ProgressBarStore {
@@ -47,8 +49,10 @@ const defaultSettings: ProgressBarSettings = {
   shadowColor: 'rgba(0, 0, 0, 0.4)',
   isVisible: true,
   useDeceptiveProgress: false,
-  fastStartDuration: 0, // 0 seconds fast start (changed from 3)
-  fastStartProgress: 0.1, // reach 10% in first 0 seconds
+  fastStartDuration: 10, // 10 seconds fast start (user can adjust 0-60)
+  fastStartProgress: 0.1, // reach 10% in first 10 seconds
+  fastEndDuration: 5, // 5 seconds fast end (user can adjust 0-60)
+  fastEndProgress: 0.9, // start fast progress at 90%
 };
 
 export const useProgressBarStore = create<ProgressBarStore>((set, get) => ({
