@@ -11,6 +11,7 @@ import VariationDownloadProgressModal from './VariationDownloadProgressModal';
 import { useDownloadManager } from '../../store/use-download-manager';
 import { useProgressBarStore } from '../../store/use-progress-bar-store';
 import { generateVariationFileName } from '@/utils/variation-naming';
+import EditableFilename from './EditableFilename';
 
 
 const VariationModal: React.FC<VariationModalProps> = ({
@@ -27,6 +28,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [downloadingVariation, setDownloadingVariation] = useState<VideoVariation | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [customNames, setCustomNames] = useState<Record<string, string>>({});
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
@@ -754,6 +756,13 @@ const VariationModal: React.FC<VariationModalProps> = ({
     generateVariations();
   };
 
+  const handleNameChange = (variationId: string, newName: string) => {
+    setCustomNames(prev => ({
+      ...prev,
+      [variationId]: newName
+    }));
+  };
+
   const handleDownload = async (variation: any) => {
     // Prevent multiple downloads of the same variation
     if (downloadingVariationId === variation.id) {
@@ -980,20 +989,28 @@ const VariationModal: React.FC<VariationModalProps> = ({
       // Generate meaningful filename based on variation data
       const projectName = project.platformConfig?.name || 'Untitled Project';
       
-      // Prepare data in the format expected by generateVariationFileName
-      const variationNamingData = {
-        variation: {
-          id: variation.id,
-          isOriginal: variation.isOriginal
-        },
-        videoTrackItems,
-        audioTrackItems,
-        imageTrackItems,
-        textOverlays,
-        metadata: variation.metadata
-      };
-      
-      const filename = generateVariationFileName(variationNamingData, projectName);
+      // Use custom name if available, otherwise generate smart name
+      let filename: string;
+      if (customNames[variation.id]) {
+        // Use custom name with project prefix
+        const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_');
+        filename = `${cleanProjectName}_${customNames[variation.id]}.mp4`;
+      } else {
+        // Prepare data in the format expected by generateVariationFileName
+        const variationNamingData = {
+          variation: {
+            id: variation.id,
+            isOriginal: variation.isOriginal
+          },
+          videoTrackItems,
+          audioTrackItems,
+          imageTrackItems,
+          textOverlays,
+          metadata: variation.metadata
+        };
+        
+        filename = generateVariationFileName(variationNamingData, projectName);
+      }
 
       // Add to download manager
       const downloadId = addDownload(
@@ -1172,27 +1189,41 @@ const VariationModal: React.FC<VariationModalProps> = ({
                       
                       {/* Video name and buttons */}
                       <div className="text-center space-y-2">
-                        <span className="text-sm text-gray-700 font-medium">
-                          {variation.isOriginal ? 'Original' : (() => {
-                            // Generate meaningful variation name
-                            const variationNamingData = {
-                              variation: {
-                                id: variation.id,
-                                isOriginal: variation.isOriginal
-                              },
-                              videoTrackItems: project.videoTrackItems,
-                              audioTrackItems: project.audioTrackItems,
-                              textOverlays: project.textOverlays,
-                              metadata: variation.metadata
-                            };
-                            
-                            const filename = generateVariationFileName(variationNamingData, project.platformConfig?.name);
-                            
-                            // Extract just the variation part (remove project name and .mp4)
-                            const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
-                            return variationPart;
-                          })()}
-                        </span>
+                        <div className="w-full">
+                          <EditableFilename
+                            variationId={variation.id}
+                            currentName={(() => {
+                              // Use custom name if available, otherwise generate smart name
+                              if (customNames[variation.id]) {
+                                return customNames[variation.id];
+                              }
+                              
+                              if (variation.isOriginal) {
+                                return 'Original';
+                              }
+                              
+                              // Generate meaningful variation name
+                              const variationNamingData = {
+                                variation: {
+                                  id: variation.id,
+                                  isOriginal: variation.isOriginal
+                                },
+                                videoTrackItems: project.videoTrackItems,
+                                audioTrackItems: project.audioTrackItems,
+                                textOverlays: project.textOverlays,
+                                metadata: variation.metadata
+                              };
+                              
+                              const filename = generateVariationFileName(variationNamingData, project.platformConfig?.name);
+                              
+                              // Extract just the variation part (remove project name and .mp4)
+                              const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
+                              return variationPart;
+                            })()}
+                            onNameChange={handleNameChange}
+                            className="w-full"
+                          />
+                        </div>
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleDownload(variation)}
