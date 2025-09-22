@@ -109,4 +109,4 @@ export async function processUpload(
   }
   callbacks.onStatus(uploadId, 'failed', 'No file or URL provided');
   throw new Error('No file or URL provided');
-} 
+} // h
