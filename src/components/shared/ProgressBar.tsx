@@ -39,60 +39,62 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   speedMultiplier = 1.0
 }) => {
 
-  // Calculate deceptive progress using user settings
-  const getDeceptiveProgress = (currentTime: number, totalDuration: number): number => {
-    const timeRatio = Math.min(currentTime / totalDuration, 1);
+  // Calculate variable speed progress - progress bar always goes 0% to 100% but speed varies
+  const getVariableSpeedProgress = (currentTime: number, totalDuration: number): number => {
+    const currentTimeMs = currentTime;
 
-    // Use actual settings from user
-    const fastStartDurationMs = settings.fastStartDuration * 1000; // Convert seconds to ms
-    const fastStartProgressTarget = settings.fastStartProgress; // 0-1 range
-    const fastStartTimeRatio = fastStartDurationMs / totalDuration;
+    // Convert user settings to milliseconds
+    const fastStartDurationMs = settings.fastStartDuration * 1000;
+    const fastEndDurationMs = settings.fastEndDuration * 1000;
 
-    const fastEndDurationMs = settings.fastEndDuration * 1000; // Convert seconds to ms
-    const fastEndProgressStart = settings.fastEndProgress; // 0-1 range
-    const fastEndTimeRatio = 1 - (fastEndDurationMs / totalDuration);
+    // Speed multipliers (reinterpret progress values as speed multipliers)
+    // If user sets 0.5, that means 5x speed (0.5 * 10 = 5)
+    const fastStartSpeed = Math.max(settings.fastStartProgress * 10, 1);
+    const fastEndSpeed = Math.max(settings.fastEndProgress * 10, 1);
+    const normalSpeed = 1.0; // Normal speed for middle section
 
-    // Fast initial jump - reach target progress in fast start duration
-    if (timeRatio <= fastStartTimeRatio && fastStartTimeRatio > 0) {
-      return (timeRatio / fastStartTimeRatio) * fastStartProgressTarget;
+    // Time boundaries in milliseconds
+    const fastStartEndTime = Math.min(fastStartDurationMs, totalDuration);
+    const fastEndStartTime = Math.max(totalDuration - fastEndDurationMs, fastStartEndTime);
+
+    let effectiveTime = 0;
+
+    // Calculate effective time based on which period we're in
+    if (currentTimeMs <= fastStartEndTime) {
+      // In fast start period
+      effectiveTime = currentTimeMs * fastStartSpeed;
+    } else if (currentTimeMs >= fastEndStartTime) {
+      // In fast end period
+      const fastStartEffectiveTime = fastStartEndTime * fastStartSpeed;
+      const middleEffectiveTime = (fastEndStartTime - fastStartEndTime) * normalSpeed;
+      const fastEndElapsed = currentTimeMs - fastEndStartTime;
+      const fastEndEffectiveTime = fastEndElapsed * fastEndSpeed;
+
+      effectiveTime = fastStartEffectiveTime + middleEffectiveTime + fastEndEffectiveTime;
+    } else {
+      // In middle period (normal/slow speed)
+      const fastStartEffectiveTime = fastStartEndTime * fastStartSpeed;
+      const middleElapsed = currentTimeMs - fastStartEndTime;
+      const middleEffectiveTime = middleElapsed * normalSpeed;
+
+      effectiveTime = fastStartEffectiveTime + middleEffectiveTime;
     }
 
-    // Fast end jump - accelerate from fastEndProgressStart to 100%
-    if (timeRatio >= fastEndTimeRatio && fastEndTimeRatio < 1) {
-      const endTimeRatio = (timeRatio - fastEndTimeRatio) / (1 - fastEndTimeRatio);
-      return fastEndProgressStart + (endTimeRatio * (1 - fastEndProgressStart));
-    }
+    // Calculate total effective duration (what the total would be with speed changes)
+    const totalFastStartEffective = fastStartEndTime * fastStartSpeed;
+    const totalMiddleEffective = (fastEndStartTime - fastStartEndTime) * normalSpeed;
+    const totalFastEndEffective = (totalDuration - fastEndStartTime) * fastEndSpeed;
+    const totalEffectiveDuration = totalFastStartEffective + totalMiddleEffective + totalFastEndEffective;
 
-    // If both durations are 0, use linear progress
-    if (fastStartDurationMs === 0 && fastEndDurationMs === 0) {
-      return timeRatio;
-    }
+    // Calculate progress as ratio of effective time to total effective duration
+    const progress = Math.min(effectiveTime / totalEffectiveDuration, 1);
 
-    // Exponential slowdown for the middle section
-    const middleStartTime = fastStartTimeRatio;
-    const middleEndTime = fastEndTimeRatio;
-    const middleDuration = middleEndTime - middleStartTime;
-    
-    if (middleDuration > 0) {
-      const middleTimeRatio = (timeRatio - middleStartTime) / middleDuration;
-      const k = 3; // Exponential factor
-      const exponentialProgress = 1 - Math.exp(-k * middleTimeRatio);
-      
-      let progress = fastStartProgressTarget + (exponentialProgress * (fastEndProgressStart - fastStartProgressTarget));
-      
-      // Ensure we reach exactly 100% at the end
-      if (timeRatio >= 0.99) {
-        progress = 1.0;
-      }
-      
-      return progress;
-    }
-
-    // Fallback to linear if no middle section
-    return timeRatio;
+    return progress;
   };
 
-  let progress = getDeceptiveProgress(currentTimeInMs, duration);
+  let progress = settings.useDeceptiveProgress ?
+    getVariableSpeedProgress(currentTimeInMs, duration) :
+    Math.min(currentTimeInMs / duration, 1);
 
   // Adjust for speed variations
   if (speedMultiplier > 1) {
