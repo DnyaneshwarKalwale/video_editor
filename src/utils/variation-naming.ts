@@ -615,9 +615,9 @@ interface NamingPattern {
   };
 }
 
-// Default naming pattern (current system)
+// Default naming pattern (current system - V1, V2, V3)
 const defaultNamingPattern: NamingPattern = {
-  type: 'letters',
+  type: 'numbers', // Changed from 'letters' to 'numbers' to get V1, V2, V3
   elementNames: {
     video: 'video',
     image: 'image',
@@ -628,25 +628,87 @@ const defaultNamingPattern: NamingPattern = {
   }
 };
 
-// Get user's naming pattern (for now, return default)
-function getUserNamingPattern(): NamingPattern {
-  // TODO: This should read from user preferences/localStorage
+// Get user's naming pattern (async version for database)
+async function getUserNamingPatternAsync(): Promise<NamingPattern> {
+  try {
+    const projectId = window.location.pathname.split('/')[2];
+    const response = await fetch(`/api/projects/${projectId}/naming-pattern`);
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.pattern) {
+        return {
+          type: data.pattern.pattern_type === 'default' ? 'numbers' : data.pattern.pattern_type === 'numbers' ? 'custom' : data.pattern.pattern_type,
+          customSequence: data.pattern.pattern_type === 'numbers' ? ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] : undefined,
+          elementNames: data.pattern.element_names
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error loading naming pattern:', error);
+  }
   return defaultNamingPattern;
+}
+
+// Synchronous fallback for existing code
+function getUserNamingPattern(): NamingPattern {
+  return defaultNamingPattern;
+}
+
+// Get naming pattern by ID
+function getNamingPatternById(patternId: string): NamingPattern {
+  const patterns: Record<string, NamingPattern> = {
+    'default': {
+      type: 'numbers',
+      elementNames: {
+        video: 'video', image: 'image', audio: 'audio',
+        text: 'text', font: 'font', speed: 'speed'
+      }
+    },
+    'numbers': {
+      type: 'custom', // Pure numbers: 1, 2, 3
+      customSequence: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+      elementNames: {
+        video: 'video', image: 'image', audio: 'audio',
+        text: 'text', font: 'font', speed: 'speed'
+      }
+    },
+    'letters': {
+      type: 'letters', // Lowercase: a, b, c
+      elementNames: {
+        video: 'video', image: 'image', audio: 'audio',
+        text: 'text', font: 'font', speed: 'speed'
+      }
+    },
+    'letters-upper': {
+      type: 'uppercase_letters', // Uppercase: A, B, C
+      elementNames: {
+        video: 'video', image: 'image', audio: 'audio',
+        text: 'text', font: 'font', speed: 'speed'
+      }
+    }
+  };
+
+  return patterns[patternId] || defaultNamingPattern;
 }
 
 // Apply naming pattern to an element
 function applyNamingPatternToElement(
-  elementType: string, 
-  variationIndex: number, 
-  isOriginal: boolean, 
+  elementType: string,
+  variationIndex: number,
+  isOriginal: boolean,
   pattern: NamingPattern
 ): string {
   const elementName = pattern.elementNames?.[elementType as keyof typeof pattern.elementNames] || elementType;
-  
+
+  // For pure numbers pattern, use 1 for original instead of M
   if (isOriginal || variationIndex === 0) {
+    if (pattern.type === 'custom' && pattern.customSequence?.[0]) {
+      return `${pattern.customSequence[0]}-${elementName}`;
+    }
     return `M-${elementName}`;
   }
-  
+
   const prefix = getVariationPrefix(variationIndex, pattern);
   return `${prefix}-${elementName}`;
 }
@@ -655,7 +717,7 @@ function applyNamingPatternToElement(
 function getVariationPrefix(index: number, pattern: NamingPattern): string {
   switch (pattern.type) {
     case 'numbers':
-      return index.toString();
+      return `V${index}`; // Default V1, V2, V3 behavior
     case 'letters':
       return String.fromCharCode(96 + index); // a, b, c, d...
     case 'uppercase_letters':

@@ -12,8 +12,7 @@ import { useDownloadManager } from '../../store/use-download-manager';
 import { useProgressBarStore } from '../../store/use-progress-bar-store';
 import { generateVariationFileName } from '@/utils/variation-naming';
 import EditableFilename from './EditableFilename';
-import NamingPatternSelector from '@/components/naming/NamingPatternSelector';
-import { getUserNamingPattern } from '@/utils/naming-patterns';
+import SimpleNamingSelector from '@/components/naming/SimpleNamingSelector';
 
 
 const VariationModal: React.FC<VariationModalProps> = ({
@@ -32,7 +31,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [customNames, setCustomNames] = useState<Record<string, string>>({});
   const [showNamingSettings, setShowNamingSettings] = useState(false);
-  const [currentNamingPattern, setCurrentNamingPattern] = useState(getUserNamingPattern());
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
@@ -1325,12 +1323,12 @@ const VariationModal: React.FC<VariationModalProps> = ({
       )}
 
       {/* Naming Pattern Settings Modal */}
-      <NamingPatternSelector
+      <SimpleNamingSelector
         isOpen={showNamingSettings}
         onClose={() => setShowNamingSettings(false)}
-        onPatternChange={(pattern) => {
-          setCurrentNamingPattern(pattern);
-          // Optionally refresh variations to show new naming
+        onPatternChange={(patternId) => {
+          // Pattern changed - could refresh variations if needed
+          console.log('Naming pattern changed to:', patternId);
         }}
       />
     </>
