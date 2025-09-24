@@ -35,9 +35,9 @@ export interface VariationData {
  * Can be customized to: A-video_B-image_A-audio_B-text_C-font_D-speed.mp4 or 1-video_2-image_1-audio_2-text_3-font_4-speed.mp4
  * Note: Font and speed only appear when user adds variations (not for originals)
  */
-export function generateVariationFileName(variationData: VariationData, projectName?: string): string {
+export function generateVariationFileName(variationData: VariationData, projectName?: string, customNamingPattern?: NamingPattern): string {
   const parts: string[] = [];
-  const namingPattern = getUserNamingPattern();
+  const namingPattern = customNamingPattern || getUserNamingPattern();
 
   // Check if this is the original variation
   const isOriginal = variationData.variation?.isOriginal || false;
@@ -652,8 +652,10 @@ async function getUserNamingPatternAsync(): Promise<NamingPattern> {
   return defaultNamingPattern;
 }
 
-// Synchronous fallback for existing code
+// Synchronous fallback for existing code - this should be replaced with async version
 function getUserNamingPattern(): NamingPattern {
+  // This is a fallback - in practice, we should use getUserNamingPatternAsync
+  // But since generateVariationFileName is called synchronously, we need to handle this differently
   return defaultNamingPattern;
 }
 
@@ -746,4 +748,13 @@ function toRomanNumeral(num: number): string {
     }
   }
   return result;
+}
+
+/**
+ * Async function to generate variation filename with user's custom naming pattern
+ * This should be used in components that need to load the user's naming pattern
+ */
+export async function generateVariationFileNameAsync(variationData: VariationData, projectName?: string): Promise<string> {
+  const namingPattern = await getUserNamingPatternAsync();
+  return generateVariationFileName(variationData, projectName, namingPattern);
 }

@@ -10,7 +10,7 @@ import useStore from '../../store/use-store';
 import VariationDownloadProgressModal from './VariationDownloadProgressModal';
 import { useDownloadManager } from '../../store/use-download-manager';
 import { useProgressBarStore } from '../../store/use-progress-bar-store';
-import { generateVariationFileName } from '@/utils/variation-naming';
+import { generateVariationFileName, generateVariationFileNameAsync } from '@/utils/variation-naming';
 import EditableFilename from './EditableFilename';
 import SimpleNamingSelector from '@/components/naming/SimpleNamingSelector';
 
@@ -31,6 +31,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [customNames, setCustomNames] = useState<Record<string, string>>({});
   const [showNamingSettings, setShowNamingSettings] = useState(false);
+  const [namingPattern, setNamingPattern] = useState<any>(null);
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
@@ -41,6 +42,58 @@ const VariationModal: React.FC<VariationModalProps> = ({
   useEffect(() => {
     loadProgressBarSettings();
   }, [loadProgressBarSettings]);
+
+  // Load naming pattern when modal opens
+  const loadNamingPattern = async () => {
+    try {
+      const projectId = window.location.pathname.split('/')[2];
+      const response = await fetch(`/api/projects/${projectId}/naming-pattern`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setNamingPattern(data.pattern);
+      }
+    } catch (error) {
+      console.error('Error loading naming pattern:', error);
+    }
+  };
+
+  // Update variation names when naming pattern changes
+  const updateVariationNames = async () => {
+    if (!namingPattern || variations.length === 0) return;
+    
+    const updatedVariations = await Promise.all(
+      variations.map(async (variation) => {
+        if (customNames[variation.id]) {
+          return variation; // Keep custom names as is
+        }
+        
+        // Generate new name with current naming pattern
+        const variationNamingData = {
+          variation: {
+            id: variation.id,
+            isOriginal: variation.isOriginal
+          },
+          videoTrackItems: project.videoTrackItems,
+          audioTrackItems: project.audioTrackItems,
+          textOverlays: project.textOverlays,
+          metadata: variation.metadata
+        };
+        
+        const filename = await generateVariationFileNameAsync(variationNamingData, project.platformConfig?.name);
+        const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
+        
+        return {
+          ...variation,
+          text: variationPart // Update the display name
+        };
+      })
+    );
+    
+    setVariations(updatedVariations);
+  };
 
   const loadVariationsFromSidebar = async () => {
     // Get all timeline elements
@@ -531,12 +584,20 @@ const VariationModal: React.FC<VariationModalProps> = ({
     setVariations(allVideoCombinations);
   };
 
-  // Load variations when modal opens
+  // Load variations and naming pattern when modal opens
   useEffect(() => {
     if (isOpen) {
       loadVariationsFromSidebar();
+      loadNamingPattern();
     }
   }, [isOpen]);
+
+  // Update variation names when naming pattern changes
+  useEffect(() => {
+    if (namingPattern && variations.length > 0) {
+      updateVariationNames();
+    }
+  }, [namingPattern]);
 
   const generateVariations = async () => {
     setIsGenerating(true);
@@ -998,20 +1059,20 @@ const VariationModal: React.FC<VariationModalProps> = ({
         const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_');
         filename = `${cleanProjectName}_${customNames[variation.id]}.mp4`;
       } else {
-      // Prepare data in the format expected by generateVariationFileName
-      const variationNamingData = {
-        variation: {
-          id: variation.id,
-          isOriginal: variation.isOriginal
-        },
-        videoTrackItems,
-        audioTrackItems,
-        imageTrackItems,
-        textOverlays,
-        metadata: variation.metadata
-      };
-      
-        filename = generateVariationFileName(variationNamingData, projectName);
+        // Prepare data in the format expected by generateVariationFileName
+        const variationNamingData = {
+          variation: {
+            id: variation.id,
+            isOriginal: variation.isOriginal
+          },
+          videoTrackItems,
+          audioTrackItems,
+          imageTrackItems,
+          textOverlays,
+          metadata: variation.metadata
+        };
+        
+        filename = await generateVariationFileNameAsync(variationNamingData, projectName);
       }
 
       // Add to download manager
@@ -1215,23 +1276,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                                 return 'Original';
                               }
                               
-                            // Generate meaningful variation name
-                            const variationNamingData = {
-                              variation: {
-                                id: variation.id,
-                                isOriginal: variation.isOriginal
-                              },
-                              videoTrackItems: project.videoTrackItems,
-                              audioTrackItems: project.audioTrackItems,
-                              textOverlays: project.textOverlays,
-                              metadata: variation.metadata
-                            };
-                            
-                            const filename = generateVariationFileName(variationNamingData, project.platformConfig?.name);
-                            
-                            // Extract just the variation part (remove project name and .mp4)
-                            const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
-                            return variationPart;
+                            // Use the variation's current text (which should be updated with the latest naming pattern)
+                            return variation.text;
                           })()}
                             onNameChange={handleNameChange}
                             className="w-full"
@@ -1298,23 +1344,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
             isOpen={showProgressModal}
             onClose={() => setShowProgressModal(false)}
             progress={downloadProgress}
-            variationName={downloadingVariation.isOriginal ? 'Original' : (() => {
-              // Generate meaningful variation name for progress modal
-              const variationNamingData = {
-                variation: {
-                  id: downloadingVariation.id,
-                  isOriginal: downloadingVariation.isOriginal
-                },
-                videoTrackItems: project.videoTrackItems,
-                audioTrackItems: project.audioTrackItems,
-                textOverlays: project.textOverlays,
-                metadata: downloadingVariation.metadata
-              };
-              
-              const filename = generateVariationFileName(variationNamingData, project.platformConfig?.name);
-              const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
-              return variationPart;
-            })()}
+            variationName={downloadingVariation.isOriginal ? 'Original' : downloadingVariation.text}
             isCompleted={downloadProgress === 100}
             downloadUrl={downloadUrl || undefined}
             onDownload={handleDownloadAgain}
@@ -1326,11 +1356,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
       <SimpleNamingSelector
         isOpen={showNamingSettings}
         onClose={() => setShowNamingSettings(false)}
-        onPatternChange={(patternId) => {
-          // Pattern changed - refresh variations to show new naming
+        onPatternChange={async (patternId) => {
+          // Pattern changed - reload naming pattern and update variation names
           console.log('Naming pattern changed to:', patternId);
-          // Reload variations to apply new naming pattern
-          loadVariationsFromSidebar();
+          await loadNamingPattern();
+          // The useEffect will automatically update variation names when namingPattern changes
         }}
       />
     </>
