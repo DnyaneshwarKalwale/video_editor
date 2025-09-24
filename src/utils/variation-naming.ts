@@ -30,16 +30,18 @@ export interface VariationData {
 }
 
 /**
- * Generates a meaningful filename for a video variation
- * Format: M-video_M-image_M-audio_M-text_M-font_M-speed.mp4 or V1-video_V2-image_M-audio_V3-text_V4-font_V5-speed.mp4
+ * Generates a meaningful filename for a video variation using flexible naming patterns
+ * Default format: M-video_M-image_M-audio_M-text_V1-font_V2-speed.mp4
+ * Can be customized to: A-video_B-image_A-audio_B-text_C-font_D-speed.mp4 or 1-video_2-image_1-audio_2-text_3-font_4-speed.mp4
+ * Note: Font and speed only appear when user adds variations (not for originals)
  */
 export function generateVariationFileName(variationData: VariationData, projectName?: string): string {
   const parts: string[] = [];
-  
-  
+  const namingPattern = getUserNamingPattern();
+
   // Check if this is the original variation
   const isOriginal = variationData.variation?.isOriginal || false;
-  
+
   // Check which elements actually exist and have variations
   const videoVariation = getVideoVariationIndex(variationData);
   const imageVariation = getImageVariationIndex(variationData);
@@ -47,56 +49,46 @@ export function generateVariationFileName(variationData: VariationData, projectN
   const textVariation = getTextVariationIndex(variationData);
   const fontVariation = getFontVariationIndex(variationData);
   const speedVariation = getSpeedVariationIndex(variationData);
-  
+
   // Check if elements actually exist in the project
   const hasVideo = (variationData.videoTrackItems && variationData.videoTrackItems.length > 0);
   const hasImage = (variationData.imageTrackItems && variationData.imageTrackItems.length > 0);
   const hasAudio = (variationData.audioTrackItems && variationData.audioTrackItems.length > 0);
   const hasText = (variationData.textOverlays && variationData.textOverlays.length > 0);
-  
-  
+
   // Only include elements that actually exist in the project
   if (hasVideo) {
-    if (isOriginal || videoVariation === 0) {
-      parts.push('M-video');
-    } else {
-      parts.push(`V${videoVariation}-video`);
-    }
+    const elementName = applyNamingPatternToElement('video', videoVariation, isOriginal || videoVariation === 0, namingPattern);
+    parts.push(elementName);
   }
-  
+
   if (hasImage) {
-    if (isOriginal || imageVariation === 0) {
-      parts.push('M-image');
-    } else {
-      parts.push(`V${imageVariation}-image`);
-    }
+    const elementName = applyNamingPatternToElement('image', imageVariation, isOriginal || imageVariation === 0, namingPattern);
+    parts.push(elementName);
   }
-  
+
   if (hasAudio) {
-    if (isOriginal || audioVariation === 0) {
-      parts.push('M-audio');
-    } else {
-      parts.push(`V${audioVariation}-audio`);
-    }
+    const elementName = applyNamingPatternToElement('audio', audioVariation, isOriginal || audioVariation === 0, namingPattern);
+    parts.push(elementName);
   }
-  
+
   if (hasText) {
-    if (isOriginal || textVariation === 0) {
-      parts.push('M-text');
-    } else {
-      parts.push(`V${textVariation}-text`);
-    }
+    const elementName = applyNamingPatternToElement('text', textVariation, isOriginal || textVariation === 0, namingPattern);
+    parts.push(elementName);
   }
   
   // Font and speed variations are only included if there are actual variations (index > 0)
+  // This ensures M-font and M-speed don't show for originals
   if (fontVariation > 0) {
     const fontInfo = getFontVariationName(variationData);
-    parts.push(`V${fontVariation}-${fontInfo}`);
+    const elementName = applyNamingPatternToElement(fontInfo, fontVariation, false, namingPattern);
+    parts.push(elementName);
   }
 
   if (speedVariation > 0) {
     const speedInfo = getSpeedVariationName(variationData);
-    parts.push(`V${speedVariation}-${speedInfo}`);
+    const elementName = applyNamingPatternToElement(speedInfo, speedVariation, false, namingPattern);
+    parts.push(elementName);
   }
   
   // Join parts with underscores
@@ -607,4 +599,87 @@ function getSpeedVariationName(variationData: VariationData): string {
   }
 
   return 'speed';
+}
+
+// Naming pattern configuration
+interface NamingPattern {
+  type: 'numbers' | 'letters' | 'uppercase_letters' | 'roman' | 'custom';
+  customSequence?: string[];
+  elementNames?: {
+    video?: string;
+    image?: string;
+    audio?: string;
+    text?: string;
+    font?: string;
+    speed?: string;
+  };
+}
+
+// Default naming pattern (current system)
+const defaultNamingPattern: NamingPattern = {
+  type: 'letters',
+  elementNames: {
+    video: 'video',
+    image: 'image',
+    audio: 'audio',
+    text: 'text',
+    font: 'font',
+    speed: 'speed'
+  }
+};
+
+// Get user's naming pattern (for now, return default)
+function getUserNamingPattern(): NamingPattern {
+  // TODO: This should read from user preferences/localStorage
+  return defaultNamingPattern;
+}
+
+// Apply naming pattern to an element
+function applyNamingPatternToElement(
+  elementType: string, 
+  variationIndex: number, 
+  isOriginal: boolean, 
+  pattern: NamingPattern
+): string {
+  const elementName = pattern.elementNames?.[elementType as keyof typeof pattern.elementNames] || elementType;
+  
+  if (isOriginal || variationIndex === 0) {
+    return `M-${elementName}`;
+  }
+  
+  const prefix = getVariationPrefix(variationIndex, pattern);
+  return `${prefix}-${elementName}`;
+}
+
+// Get variation prefix based on pattern
+function getVariationPrefix(index: number, pattern: NamingPattern): string {
+  switch (pattern.type) {
+    case 'numbers':
+      return index.toString();
+    case 'letters':
+      return String.fromCharCode(96 + index); // a, b, c, d...
+    case 'uppercase_letters':
+      return String.fromCharCode(64 + index); // A, B, C, D...
+    case 'roman':
+      return toRomanNumeral(index);
+    case 'custom':
+      return pattern.customSequence?.[index - 1] || `V${index}`;
+    default:
+      return `V${index}`;
+  }
+}
+
+// Convert number to Roman numeral
+function toRomanNumeral(num: number): string {
+  const values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
+  const symbols = ['M', 'CM', 'D', 'CD', 'C', 'XC', 'L', 'XL', 'X', 'IX', 'V', 'IV', 'I'];
+  
+  let result = '';
+  for (let i = 0; i < values.length; i++) {
+    while (num >= values[i]) {
+      result += symbols[i];
+      num -= values[i];
+    }
+  }
+  return result;
 }

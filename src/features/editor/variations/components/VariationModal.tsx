@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, RefreshCw, Download } from 'lucide-react';
+import { X, Loader2, RefreshCw, Download, Settings } from 'lucide-react';
 import ScalezLoader from "@/components/ui/scalez-loader";
 import { VariationModalProps, VideoVariation, TextOverlayData } from '../types/variation-types';
 import VideoPreview from './VideoPreview';
@@ -12,6 +12,8 @@ import { useDownloadManager } from '../../store/use-download-manager';
 import { useProgressBarStore } from '../../store/use-progress-bar-store';
 import { generateVariationFileName } from '@/utils/variation-naming';
 import EditableFilename from './EditableFilename';
+import NamingPatternSelector from '@/components/naming/NamingPatternSelector';
+import { getUserNamingPattern } from '@/utils/naming-patterns';
 
 
 const VariationModal: React.FC<VariationModalProps> = ({
@@ -29,6 +31,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [downloadingVariation, setDownloadingVariation] = useState<VideoVariation | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [customNames, setCustomNames] = useState<Record<string, string>>({});
+  const [showNamingSettings, setShowNamingSettings] = useState(false);
+  const [currentNamingPattern, setCurrentNamingPattern] = useState(getUserNamingPattern());
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
@@ -1099,6 +1103,17 @@ const VariationModal: React.FC<VariationModalProps> = ({
             
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <Button
+                onClick={() => setShowNamingSettings(true)}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                title="Customize naming pattern"
+              >
+                <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Naming</span>
+              </Button>
+
+              <Button
                 onClick={handleDownloadAll}
                 disabled={isGenerating || variations.length === 0}
                 variant="outline"
@@ -1108,7 +1123,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
                 <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">Download All</span>
               </Button>
-              
+
               <Button
                 onClick={handleRegenerateVariations}
                 disabled={isGenerating}
@@ -1308,6 +1323,16 @@ const VariationModal: React.FC<VariationModalProps> = ({
           />
         </>
       )}
+
+      {/* Naming Pattern Settings Modal */}
+      <NamingPatternSelector
+        isOpen={showNamingSettings}
+        onClose={() => setShowNamingSettings(false)}
+        onPatternChange={(pattern) => {
+          setCurrentNamingPattern(pattern);
+          // Optionally refresh variations to show new naming
+        }}
+      />
     </>
   );
 };
