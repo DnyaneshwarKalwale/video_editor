@@ -111,7 +111,16 @@ export async function PUT(
 
     if (error) {
       console.error('Error saving naming pattern:', error);
-      return NextResponse.json({ error: 'Failed to save naming pattern' }, { status: 500 });
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      return NextResponse.json({ 
+        error: 'Failed to save naming pattern',
+        details: error.message 
+      }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -121,7 +130,11 @@ export async function PUT(
 
   } catch (error) {
     console.error('Error in PUT naming pattern:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 

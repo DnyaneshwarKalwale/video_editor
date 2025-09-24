@@ -114,10 +114,15 @@ export const SimpleNamingSelector: React.FC<SimpleNamingSelectorProps> = ({
         onPatternChange?.(selectedPattern);
         onClose();
       } else {
-        console.error('Failed to save naming pattern');
+        const errorData = await response.json();
+        console.error('Failed to save naming pattern:', errorData);
+        
+        // Show user-friendly error message
+        alert(`Failed to save naming pattern: ${errorData.details || errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error saving naming pattern:', error);
+      alert('Network error while saving naming pattern. Please try again.');
     } finally {
       setIsLoading(false);
     }
