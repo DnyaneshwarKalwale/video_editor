@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings, RotateCcw } from 'lucide-react';
+import { Settings, RotateCcw, Save, Loader2 } from 'lucide-react';
+import NamingConventionsService from '@/services/naming-conventions-service';
 
 export interface NamingConfig {
   elementNames: {
@@ -11,6 +12,8 @@ export interface NamingConfig {
     audio: string;
     text: string;
     image: string;
+    font: string;
+    speed: string;
   };
   pattern: {
     type: 'numbers' | 'letters_upper' | 'letters_lower' | 'roman' | 'custom';
@@ -34,7 +37,9 @@ const defaultConfig: NamingConfig = {
     video: 'video',
     audio: 'audio',
     text: 'text',
-    image: 'image'
+    image: 'image',
+    font: 'font',
+    speed: 'speed'
   },
   pattern: {
     type: 'letters_upper'
@@ -61,6 +66,8 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [localConfig, setLocalConfig] = useState<NamingConfig>(config);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleElementNameChange = (element: keyof NamingConfig['elementNames'], value: string) => {
     setLocalConfig(prev => ({
@@ -113,19 +120,56 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
     }));
   };
 
-  const handleSave = () => {
-    onConfigChange(localConfig);
-    setIsOpen(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const success = await NamingConventionsService.saveUserNamingConvention(localConfig);
+      if (success) {
+        onConfigChange(localConfig);
+        setIsOpen(false);
+      } else {
+        console.error('Failed to save naming convention');
+      }
+    } catch (error) {
+      console.error('Error saving naming convention:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleReset = () => {
-    setLocalConfig(defaultConfig);
+  const handleReset = async () => {
+    setIsLoading(true);
+    try {
+      const success = await NamingConventionsService.resetToDefaults();
+      if (success) {
+        setLocalConfig(defaultConfig);
+        onConfigChange(defaultConfig);
+      } else {
+        console.error('Failed to reset naming convention');
+      }
+    } catch (error) {
+      console.error('Error resetting naming convention:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleApplyToAll = () => {
-    onConfigChange(localConfig);
-    onApplyToAll();
-    setIsOpen(false);
+  const handleApplyToAll = async () => {
+    setIsSaving(true);
+    try {
+      const success = await NamingConventionsService.saveUserNamingConvention(localConfig);
+      if (success) {
+        onConfigChange(localConfig);
+        onApplyToAll();
+        setIsOpen(false);
+      } else {
+        console.error('Failed to save naming convention');
+      }
+    } catch (error) {
+      console.error('Error saving naming convention:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const generatePreview = () => {
@@ -148,7 +192,7 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
       }
     };
 
-    const variationPart = `M-${elementNames.video}_${getPatternValue(1)}-${elementNames.text}_${getPatternValue(2)}-${elementNames.audio}`;
+     const variationPart = `M-${elementNames.video}_${getPatternValue(1)}-${elementNames.text}_${getPatternValue(2)}-${elementNames.audio}_${getPatternValue(3)}-${elementNames.font}_${getPatternValue(4)}-${elementNames.speed}`;
     
     if (platform.enabled) {
       const platformName = platform.customName || 'ProjectName';
@@ -164,22 +208,24 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
         variant="outline"
         size="sm"
         onClick={() => setIsOpen(true)}
-        className={`flex items-center gap-2 ${className}`}
+        className={`flex items-center gap-1 ${className}`}
+        title="Naming Settings"
       >
         <Settings className="h-4 w-4" />
-        Naming Settings
+        <span className="hidden xl:inline">Naming</span>
       </Button>
     );
   }
 
   return (
-    <div className={`bg-white border rounded-lg p-4 space-y-4 shadow-lg ${className}`}>
+    <div className={`bg-white border rounded-lg p-4 space-y-4 shadow-lg max-w-md w-full ${className}`}>
       <div className="flex items-center justify-between">
-        <h3 className="font-medium">Naming Configuration</h3>
+        <h3 className="font-medium text-sm">Naming Configuration</h3>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setIsOpen(false)}
+          className="h-6 w-6 p-0"
         >
           ×
         </Button>
@@ -188,14 +234,14 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
       {/* Element Names */}
       <div className="space-y-3">
         <Label className="text-sm font-medium">Element Names</Label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <Label className="text-xs">Video</Label>
             <Input
               value={localConfig.elementNames.video}
               onChange={(e) => handleElementNameChange('video', e.target.value)}
-              placeholder="video, clip, footage..."
-              className="text-sm"
+              placeholder="video, clip..."
+              className="text-sm h-8"
             />
           </div>
           <div>
@@ -203,8 +249,8 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
             <Input
               value={localConfig.elementNames.audio}
               onChange={(e) => handleElementNameChange('audio', e.target.value)}
-              placeholder="audio, music, sound..."
-              className="text-sm"
+              placeholder="audio, music..."
+              className="text-sm h-8"
             />
           </div>
           <div>
@@ -212,21 +258,39 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
             <Input
               value={localConfig.elementNames.text}
               onChange={(e) => handleElementNameChange('text', e.target.value)}
-              placeholder="text, title, caption..."
-              className="text-sm"
+              placeholder="text, title..."
+              className="text-sm h-8"
             />
           </div>
-          <div>
-            <Label className="text-xs">Image</Label>
-            <Input
-              value={localConfig.elementNames.image}
-              onChange={(e) => handleElementNameChange('image', e.target.value)}
-              placeholder="image, photo, graphic..."
-              className="text-sm"
-            />
-          </div>
-        </div>
-      </div>
+           <div>
+             <Label className="text-xs">Image</Label>
+             <Input
+               value={localConfig.elementNames.image}
+               onChange={(e) => handleElementNameChange('image', e.target.value)}
+               placeholder="image, photo..."
+               className="text-sm h-8"
+             />
+           </div>
+           <div>
+             <Label className="text-xs">Font</Label>
+             <Input
+               value={localConfig.elementNames.font}
+               onChange={(e) => handleElementNameChange('font', e.target.value)}
+               placeholder="font, typography..."
+               className="text-sm h-8"
+             />
+           </div>
+           <div>
+             <Label className="text-xs">Speed</Label>
+             <Input
+               value={localConfig.elementNames.speed}
+               onChange={(e) => handleElementNameChange('speed', e.target.value)}
+               placeholder="speed, velocity..."
+               className="text-sm h-8"
+             />
+           </div>
+         </div>
+       </div>
 
       {/* Pattern Type */}
       <div className="space-y-3">
@@ -235,7 +299,7 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
           value={localConfig.pattern.type}
           onValueChange={handlePatternTypeChange}
         >
-          <SelectTrigger>
+          <SelectTrigger className="h-8">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -252,12 +316,12 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
       {localConfig.pattern.type === 'custom' && (
         <div className="space-y-2">
           <Label className="text-sm font-medium">Custom Sequence</Label>
-          <Input
-            value={localConfig.pattern.customSequence?.join(', ') || ''}
-            onChange={(e) => handleCustomSequenceChange(e.target.value)}
-            placeholder="First, Second, Third, Fourth..."
-            className="text-sm"
-          />
+           <Input
+             value={localConfig.pattern.customSequence?.join(', ') || ''}
+             onChange={(e) => handleCustomSequenceChange(e.target.value)}
+             placeholder="First, Second, Third..."
+             className="text-sm h-8"
+           />
           <p className="text-xs text-gray-500">
             Separate items with commas
           </p>
@@ -282,12 +346,12 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
         {localConfig.platform.enabled && (
           <div className="space-y-2">
             <Label className="text-sm font-medium">Platform Name</Label>
-            <Input
-              value={localConfig.platform.customName || ''}
-              onChange={(e) => handlePlatformNameChange(e.target.value)}
-              placeholder="reel, tiktok, youtube, instagram..."
-              className="text-sm"
-            />
+             <Input
+               value={localConfig.platform.customName || ''}
+               onChange={(e) => handlePlatformNameChange(e.target.value)}
+               placeholder="reel, tiktok, youtube..."
+               className="text-sm h-8"
+             />
             <p className="text-xs text-gray-500">
               Leave empty to use project name, or enter custom platform name
             </p>
@@ -308,23 +372,46 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
         <Button
           onClick={handleApplyToAll}
           size="sm"
-          className="flex-1"
+          className="flex-1 h-8 text-xs"
+          disabled={isSaving}
         >
-          Apply to All Variations
+          {isSaving ? (
+            <>
+              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-3 w-3 mr-1" />
+              Apply to All
+            </>
+          )}
         </Button>
         <Button
           onClick={handleSave}
           variant="outline"
           size="sm"
+          className="h-8 w-8 p-0"
+          disabled={isSaving}
         >
-          Save
+          {isSaving ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            'Save'
+          )}
         </Button>
         <Button
           onClick={handleReset}
           variant="ghost"
           size="sm"
+          className="h-8 w-8 p-0"
+          disabled={isLoading}
         >
-          <RotateCcw className="h-4 w-4" />
+          {isLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <RotateCcw className="h-3 w-3" />
+          )}
         </Button>
       </div>
     </div>

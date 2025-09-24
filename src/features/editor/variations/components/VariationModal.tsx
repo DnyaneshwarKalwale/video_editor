@@ -14,6 +14,7 @@ import { generateVariationFileName } from '@/utils/variation-naming';
 import { generateFlexibleVariationFileName, updateAllVariationNames } from '@/utils/flexible-naming';
 import EditableFilename from './EditableFilename';
 import NamingConfiguration, { NamingConfig } from './NamingConfiguration';
+import NamingConventionsService from '@/services/naming-conventions-service';
 
 
 const VariationModal: React.FC<VariationModalProps> = ({
@@ -36,7 +37,9 @@ const VariationModal: React.FC<VariationModalProps> = ({
       video: 'video',
       audio: 'audio',
       text: 'text',
-      image: 'image'
+      image: 'image',
+      font: 'font',
+      speed: 'speed'
     },
     pattern: {
       type: 'letters_upper'
@@ -56,6 +59,22 @@ const VariationModal: React.FC<VariationModalProps> = ({
   useEffect(() => {
     loadProgressBarSettings();
   }, [loadProgressBarSettings]);
+
+  // Load user's saved naming conventions on mount
+  useEffect(() => {
+    const loadNamingConventions = async () => {
+      try {
+        const savedConfig = await NamingConventionsService.getUserNamingConvention();
+        setNamingConfig(savedConfig);
+      } catch (error) {
+        console.error('Error loading naming conventions:', error);
+      }
+    };
+
+    if (isOpen) {
+      loadNamingConventions();
+    }
+  }, [isOpen]);
 
   const loadVariationsFromSidebar = async () => {
     // Get all timeline elements
@@ -1028,17 +1047,17 @@ const VariationModal: React.FC<VariationModalProps> = ({
       } else {
         // Use flexible naming system
         const variationData = {
-          variation: {
-            id: variation.id,
-            isOriginal: variation.isOriginal
-          },
-          videoTrackItems,
-          audioTrackItems,
-          imageTrackItems,
-          textOverlays,
-          metadata: variation.metadata
-        };
-        
+        variation: {
+          id: variation.id,
+          isOriginal: variation.isOriginal
+        },
+        videoTrackItems,
+        audioTrackItems,
+        imageTrackItems,
+        textOverlays,
+        metadata: variation.metadata
+      };
+      
         filename = generateFlexibleVariationFileName(variationData, projectName, namingConfig);
       }
 
@@ -1108,9 +1127,9 @@ const VariationModal: React.FC<VariationModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-gray-900/60 flex items-center justify-center p-2 sm:p-4">
+      <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
         <div 
-          className="bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col w-full h-full sm:w-auto sm:h-auto max-w-7xl max-h-[90vh]"
+          className="bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col w-full h-full sm:w-auto sm:h-auto max-w-7xl max-h-[90vh] relative"
           style={{ 
             width: '95vw', 
             height: '95vh', 
@@ -1132,7 +1151,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
                 config={namingConfig}
                 onConfigChange={handleNamingConfigChange}
                 onApplyToAll={handleApplyNamingToAll}
-                className="hidden sm:block"
+                className="hidden lg:block"
               />
               <Button
                 onClick={handleDownloadAll}
@@ -1240,27 +1259,27 @@ const VariationModal: React.FC<VariationModalProps> = ({
                               
                               // Use flexible naming system
                               const variationData = {
-                                variation: {
-                                  id: variation.id,
-                                  isOriginal: variation.isOriginal
-                                },
-                                videoTrackItems: project.videoTrackItems,
-                                audioTrackItems: project.audioTrackItems,
+                              variation: {
+                                id: variation.id,
+                                isOriginal: variation.isOriginal
+                              },
+                              videoTrackItems: project.videoTrackItems,
+                              audioTrackItems: project.audioTrackItems,
                                 imageTrackItems: [], // Project doesn't have imageTrackItems
-                                textOverlays: project.textOverlays,
-                                metadata: variation.metadata
-                              };
-                              
+                              textOverlays: project.textOverlays,
+                              metadata: variation.metadata
+                            };
+                            
                               const filename = generateFlexibleVariationFileName(
                                 variationData, 
                                 project.platformConfig?.name,
                                 namingConfig
                               );
-                              
-                              // Extract just the variation part (remove project name and .mp4)
-                              const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
-                              return variationPart;
-                            })()}
+                            
+                            // Extract just the variation part (remove project name and .mp4)
+                            const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
+                            return variationPart;
+                          })()}
                             onNameChange={handleNameChange}
                             className="w-full"
                           />
