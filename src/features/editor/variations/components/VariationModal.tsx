@@ -1327,8 +1327,10 @@ const VariationModal: React.FC<VariationModalProps> = ({
         isOpen={showNamingSettings}
         onClose={() => setShowNamingSettings(false)}
         onPatternChange={(patternId) => {
-          // Pattern changed - could refresh variations if needed
+          // Pattern changed - refresh variations to show new naming
           console.log('Naming pattern changed to:', patternId);
+          // Reload variations to apply new naming pattern
+          loadVariationsFromSidebar();
         }}
       />
     </>

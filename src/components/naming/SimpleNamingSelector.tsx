@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_KEY || ''
-);
 
 interface NamingOption {
   id: string;
@@ -81,15 +75,8 @@ export const SimpleNamingSelector: React.FC<SimpleNamingSelectorProps> = ({
     setIsLoading(true);
     try {
       const projectId = window.location.pathname.split('/')[2];
-
-      // Get auth token from supabase client
-      const { data: { session } } = await supabase.auth.getSession();
-      const authHeaders = session?.access_token
-        ? { 'Authorization': `Bearer ${session.access_token}` }
-        : {};
-
       const response = await fetch(`/api/projects/${projectId}/naming-pattern`, {
-        headers: authHeaders
+        credentials: 'include' // Include cookies for authentication
       });
 
       if (response.ok) {
@@ -116,6 +103,7 @@ export const SimpleNamingSelector: React.FC<SimpleNamingSelectorProps> = ({
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies for authentication
         body: JSON.stringify({
           pattern_type: selectedPattern,
           element_names: elementNames

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '../../../auth/[...nextauth]/options';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -15,18 +17,14 @@ export async function GET(
     const resolvedParams = await params;
     const projectId = resolvedParams.id;
 
-    // Get user from auth header or session
-    const authHeader = request.headers.get('authorization');
-    let userId = null;
+    // Get user from NextAuth session
+    const session = await getServerSession(authOptions);
 
-    if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-      userId = user?.id;
-    }
-
-    if (!userId) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = session.user.id;
 
     const { data, error } = await supabase
       .from('project_naming_patterns')
@@ -60,18 +58,14 @@ export async function PUT(
     const projectId = resolvedParams.id;
     const { pattern_type, element_names } = await request.json();
 
-    // Get user from auth header or session
-    const authHeader = request.headers.get('authorization');
-    let userId = null;
+    // Get user from NextAuth session
+    const session = await getServerSession(authOptions);
 
-    if (authHeader) {
-      const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-      userId = user?.id;
-    }
-
-    if (!userId) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = session.user.id;
 
     // Validate input
     if (!pattern_type || !element_names) {
@@ -140,10 +134,20 @@ export async function DELETE(
     const resolvedParams = await params;
     const projectId = resolvedParams.id;
 
+    // Get user from NextAuth session
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+
     const { error } = await supabase
       .from('project_naming_patterns')
       .delete()
-      .eq('project_id', projectId);
+      .eq('project_id', projectId)
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Error deleting naming pattern:', error);

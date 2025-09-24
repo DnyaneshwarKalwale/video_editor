@@ -632,7 +632,9 @@ const defaultNamingPattern: NamingPattern = {
 async function getUserNamingPatternAsync(): Promise<NamingPattern> {
   try {
     const projectId = window.location.pathname.split('/')[2];
-    const response = await fetch(`/api/projects/${projectId}/naming-pattern`);
+    const response = await fetch(`/api/projects/${projectId}/naming-pattern`, {
+      credentials: 'include' // Include cookies for authentication
+    });
 
     if (response.ok) {
       const data = await response.json();
