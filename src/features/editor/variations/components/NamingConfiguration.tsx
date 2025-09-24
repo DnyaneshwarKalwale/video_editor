@@ -203,20 +203,28 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
   };
 
   return (
-    <div className={`relative ${className}`}>
-      {!isOpen ? (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsOpen(true)}
-          className="flex items-center gap-1"
-          title="Naming Settings"
-        >
-          <Settings className="h-4 w-4" />
-          <span className="hidden xl:inline">Naming</span>
-        </Button>
-      ) : (
-        <div className="bg-white border rounded-lg p-4 space-y-4 shadow-lg max-w-md w-full absolute top-full right-0 mt-2 z-[10000]">
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setIsOpen(true)}
+        className={`flex items-center gap-1 ${className}`}
+        title="Naming Settings"
+      >
+        <Settings className="h-4 w-4" />
+        <span className="hidden xl:inline">Naming</span>
+      </Button>
+
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 z-[9998] bg-black/20"
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Popup */}
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-white border rounded-lg p-4 space-y-4 shadow-xl max-w-md w-full mx-4">
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-sm">Naming Configuration</h3>
         <Button
@@ -412,9 +420,10 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
           )}
         </Button>
       </div>
-        </div>
+          </div>
+        </>
       )}
-    </div>
+    </>
   );
 };
 
