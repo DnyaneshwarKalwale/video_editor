@@ -1121,7 +1121,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
                 <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 <span className="hidden sm:inline">Download All</span>
               </Button>
-
+              
               <Button
                 onClick={handleRegenerateVariations}
                 disabled={isGenerating}

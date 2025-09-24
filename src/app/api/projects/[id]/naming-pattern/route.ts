@@ -58,14 +58,18 @@ export async function PUT(
     const projectId = resolvedParams.id;
     const { pattern_type, element_names } = await request.json();
 
+    console.log('PUT request received:', { projectId, pattern_type, element_names });
+
     // Get user from NextAuth session
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
+      console.log('No session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const userId = session.user.id;
+    console.log('User ID from session:', userId);
 
     // Validate input
     if (!pattern_type || !element_names) {
@@ -96,14 +100,18 @@ export async function PUT(
     }
 
     // Use upsert to insert or update
+    const upsertData = {
+      project_id: projectId,
+      user_id: userId,
+      pattern_type,
+      element_names
+    };
+    
+    console.log('Attempting upsert with data:', upsertData);
+    
     const { data, error } = await supabase
       .from('project_naming_patterns')
-      .upsert({
-        project_id: projectId,
-        user_id: userId,
-        pattern_type,
-        element_names
-      }, {
+      .upsert(upsertData, {
         onConflict: 'project_id,user_id'
       })
       .select()
@@ -123,6 +131,8 @@ export async function PUT(
       }, { status: 500 });
     }
 
+    console.log('Successfully saved naming pattern:', data);
+    
     return NextResponse.json({
       success: true,
       pattern: data
