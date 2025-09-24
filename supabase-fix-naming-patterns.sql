@@ -1,24 +1,29 @@
 -- Fix the project_naming_patterns table to work with NextAuth
--- Remove the foreign key constraint that's causing the issue
+-- The issue is that the foreign key references auth.users instead of users table
 
--- Drop the existing foreign key constraint
+-- Step 1: Drop the existing foreign key constraint (it references wrong table)
 ALTER TABLE project_naming_patterns 
 DROP CONSTRAINT IF EXISTS project_naming_patterns_user_id_fkey;
 
--- Change user_id to TEXT to match NextAuth user IDs
-ALTER TABLE project_naming_patterns 
-ALTER COLUMN user_id TYPE TEXT;
-
--- Update the RLS policy to work with TEXT user_id
+-- Step 2: Drop the existing policy FIRST (before changing column type)
 DROP POLICY IF EXISTS "Users can manage their naming patterns" ON project_naming_patterns;
 
--- Create a new RLS policy that works with NextAuth user IDs
+-- Step 3: Change user_id to UUID to match the users table primary key
+ALTER TABLE project_naming_patterns 
+ALTER COLUMN user_id TYPE UUID USING user_id::UUID;
+
+-- Step 4: Add correct foreign key constraint to users table (not auth.users)
+ALTER TABLE project_naming_patterns 
+ADD CONSTRAINT project_naming_patterns_user_id_fkey 
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+
+-- Step 5: Create proper RLS policy that works with the users table
 CREATE POLICY "Users can manage their naming patterns" ON project_naming_patterns
-  FOR ALL USING (user_id = auth.uid()::text OR user_id = (SELECT id::text FROM auth.users WHERE id = auth.uid()));
+  FOR ALL USING (
+    user_id IN (
+      SELECT id FROM users WHERE id = user_id
+    )
+  );
 
--- Alternative simpler policy (if the above doesn't work)
--- CREATE POLICY "Users can manage their naming patterns" ON project_naming_patterns
---   FOR ALL USING (true); -- Temporarily allow all for testing
-
--- Add a comment to document the change
-COMMENT ON TABLE project_naming_patterns IS 'Stores naming patterns per project. user_id is from NextAuth, not Supabase auth.';
+-- Step 6: Add a comment to document the change
+COMMENT ON TABLE project_naming_patterns IS 'Stores naming patterns per project. user_id references users table, not auth.users.';

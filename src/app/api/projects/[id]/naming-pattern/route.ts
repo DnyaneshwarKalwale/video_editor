@@ -105,26 +105,15 @@ export async function PUT(
     // Use upsert to insert or update
     const upsertData = {
       project_id: projectId,
-      user_id: userId, // Use NextAuth user ID directly
+      user_id: userId, // Use NextAuth user ID directly (this is a valid UUID from users table)
       pattern_type,
       element_names
     };
     
     console.log('Attempting upsert with data:', upsertData);
     
-    // Use service role client to bypass RLS and foreign key constraints
-    const supabaseAdmin = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
-    
-    const { data, error } = await supabaseAdmin
+    // Use regular Supabase client since we have proper foreign key constraints now
+    const { data, error } = await supabase
       .from('project_naming_patterns')
       .upsert(upsertData, {
         onConflict: 'project_id,user_id'
