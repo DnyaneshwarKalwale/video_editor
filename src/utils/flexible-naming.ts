@@ -28,7 +28,9 @@ export function generateFlexibleVariationFileName(
       video: 'video',
       audio: 'audio', 
       text: 'text',
-      image: 'image'
+      image: 'image',
+      font: 'font',
+      speed: 'speed'
     },
     pattern: {
       type: 'letters_upper'
@@ -42,21 +44,25 @@ export function generateFlexibleVariationFileName(
   // Check if this is the original variation
   const isOriginal = variationData.variation?.isOriginal || false;
   
-  // Check which elements actually exist and have variations
+  // Get variation indices from the combination data
   const videoVariation = getVideoVariationIndex(variationData);
   const imageVariation = getImageVariationIndex(variationData);
   const audioVariation = getAudioVariationIndex(variationData);
   const textVariation = getTextVariationIndex(variationData);
+  const fontVariation = getFontVariationIndex(variationData);
+  const speedVariation = getSpeedVariationIndex(variationData);
   
   // Check if elements actually exist in the project
   const hasVideo = (variationData.videoTrackItems && variationData.videoTrackItems.length > 0);
   const hasImage = (variationData.imageTrackItems && variationData.imageTrackItems.length > 0);
   const hasAudio = (variationData.audioTrackItems && variationData.audioTrackItems.length > 0);
   const hasText = (variationData.textOverlays && variationData.textOverlays.length > 0);
+  const hasFont = (variationData.metadata?.fontElements && variationData.metadata.fontElements.length > 0);
+  const hasSpeed = (variationData.metadata?.speedElements && variationData.metadata.speedElements.length > 0);
   
-  // Only include elements that actually exist in the project
+  // Build the filename based on what elements exist and their variations
   if (hasVideo) {
-    if (isOriginal || videoVariation === 0) {
+    if (videoVariation === 0) {
       parts.push(`M-${config.elementNames.video}`);
     } else {
       const patternValue = getPatternValue(videoVariation, config.pattern);
@@ -64,17 +70,17 @@ export function generateFlexibleVariationFileName(
     }
   }
   
-  if (hasImage) {
-    if (isOriginal || imageVariation === 0) {
-      parts.push(`M-${config.elementNames.image}`);
+  if (hasText) {
+    if (textVariation === 0) {
+      parts.push(`M-${config.elementNames.text}`);
     } else {
-      const patternValue = getPatternValue(imageVariation, config.pattern);
-      parts.push(`${patternValue}-${config.elementNames.image}`);
+      const patternValue = getPatternValue(textVariation, config.pattern);
+      parts.push(`${patternValue}-${config.elementNames.text}`);
     }
   }
   
   if (hasAudio) {
-    if (isOriginal || audioVariation === 0) {
+    if (audioVariation === 0) {
       parts.push(`M-${config.elementNames.audio}`);
     } else {
       const patternValue = getPatternValue(audioVariation, config.pattern);
@@ -82,12 +88,30 @@ export function generateFlexibleVariationFileName(
     }
   }
   
-  if (hasText) {
-    if (isOriginal || textVariation === 0) {
-      parts.push(`M-${config.elementNames.text}`);
+  if (hasFont) {
+    if (fontVariation === 0) {
+      parts.push(`M-${config.elementNames.font}`);
     } else {
-      const patternValue = getPatternValue(textVariation, config.pattern);
-      parts.push(`${patternValue}-${config.elementNames.text}`);
+      const patternValue = getPatternValue(fontVariation, config.pattern);
+      parts.push(`${patternValue}-${config.elementNames.font}`);
+    }
+  }
+  
+  if (hasSpeed) {
+    if (speedVariation === 0) {
+      parts.push(`M-${config.elementNames.speed}`);
+    } else {
+      const patternValue = getPatternValue(speedVariation, config.pattern);
+      parts.push(`${patternValue}-${config.elementNames.speed}`);
+    }
+  }
+  
+  if (hasImage) {
+    if (imageVariation === 0) {
+      parts.push(`M-${config.elementNames.image}`);
+    } else {
+      const patternValue = getPatternValue(imageVariation, config.pattern);
+      parts.push(`${patternValue}-${config.elementNames.image}`);
     }
   }
   
@@ -153,8 +177,8 @@ function getVideoVariationIndex(variationData: VariationData): number {
       (item: any) => item.type === 'video'
     );
     if (videoElement) {
-      // Extract variation number from variationId
-      const match = videoElement.variationId?.match(/(\d+)$/);
+      // Extract variation number from key (e.g., "VIDEO1", "VIDEO2")
+      const match = videoElement.key?.match(/(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     }
   }
@@ -170,7 +194,7 @@ function getImageVariationIndex(variationData: VariationData): number {
       (item: any) => item.type === 'image'
     );
     if (imageElement) {
-      const match = imageElement.variationId?.match(/(\d+)$/);
+      const match = imageElement.key?.match(/(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     }
   }
@@ -186,7 +210,7 @@ function getAudioVariationIndex(variationData: VariationData): number {
       (item: any) => item.type === 'audio'
     );
     if (audioElement) {
-      const match = audioElement.variationId?.match(/(\d+)$/);
+      const match = audioElement.key?.match(/(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     }
   }
@@ -202,7 +226,39 @@ function getTextVariationIndex(variationData: VariationData): number {
       (item: any) => item.type === 'text'
     );
     if (textElement) {
-      const match = textElement.variationId?.match(/(\d+)$/);
+      const match = textElement.key?.match(/(\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Determines the font variation index from the variation data
+ */
+function getFontVariationIndex(variationData: VariationData): number {
+  if (variationData.metadata?.combination) {
+    const fontElement = variationData.metadata.combination.find(
+      (item: any) => item.type === 'font'
+    );
+    if (fontElement) {
+      const match = fontElement.key?.match(/(\d+)$/);
+      return match ? parseInt(match[1], 10) : 0;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Determines the speed variation index from the variation data
+ */
+function getSpeedVariationIndex(variationData: VariationData): number {
+  if (variationData.metadata?.combination) {
+    const speedElement = variationData.metadata.combination.find(
+      (item: any) => item.type === 'speed'
+    );
+    if (speedElement) {
+      const match = speedElement.key?.match(/(\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     }
   }
