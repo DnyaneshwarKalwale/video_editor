@@ -9,9 +9,10 @@ const supabase = createClient(
 // GET - Load naming pattern for project
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
     const projectId = params.id;
 
     // Get user from auth header or session
@@ -52,9 +53,10 @@ export async function GET(
 // PUT - Save/Update naming pattern for project
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
     const projectId = params.id;
     const { pattern_type, element_names } = await request.json();
 
@@ -132,9 +134,10 @@ export async function PUT(
 // DELETE - Remove naming pattern for project (reset to default)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = context;
     const projectId = params.id;
 
     const { error } = await supabase
