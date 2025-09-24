@@ -133,7 +133,7 @@ export async function PUT(
       .single();
 
     if (error) {
-      console.error('Error saving naming pattern:', error);
+      console.error('Error saving naming pattern:', error); //h
       console.error('Error details:', {
         code: error.code,
         message: error.message,
