@@ -9,11 +9,11 @@ const supabase = createClient(
 // GET - Load naming pattern for project
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { params } = context;
-    const projectId = params.id;
+    const resolvedParams = await params;
+    const projectId = resolvedParams.id;
 
     // Get user from auth header or session
     const authHeader = request.headers.get('authorization');
@@ -53,11 +53,11 @@ export async function GET(
 // PUT - Save/Update naming pattern for project
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { params } = context;
-    const projectId = params.id;
+    const resolvedParams = await params;
+    const projectId = resolvedParams.id;
     const { pattern_type, element_names } = await request.json();
 
     // Get user from auth header or session
@@ -134,11 +134,11 @@ export async function PUT(
 // DELETE - Remove naming pattern for project (reset to default)
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { params } = context;
-    const projectId = params.id;
+    const resolvedParams = await params;
+    const projectId = resolvedParams.id;
 
     const { error } = await supabase
       .from('project_naming_patterns')
