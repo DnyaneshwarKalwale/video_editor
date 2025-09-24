@@ -1,10 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { NamingConfig } from '@/features/editor/variations/components/NamingConfiguration';
 
-// Initialize Supabase client (adjust URL and key as needed)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Initialize Supabase client with error handling
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_KEY || process.env.SUPABASE_KEY;
+
+// Only create Supabase client if environment variables are available
+const supabase = supabaseUrl && supabaseKey 
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 
 export interface UserNamingConvention {
   id?: string;
@@ -29,6 +33,12 @@ export class NamingConventionsService {
    */
   static async getUserNamingConvention(): Promise<NamingConfig> {
     try {
+      // If Supabase is not available, return default config
+      if (!supabase) {
+        console.warn('Supabase not available, using default naming convention');
+        return this.getDefaultNamingConfig();
+      }
+
       const { data, error } = await supabase
         .from('user_naming_conventions_with_defaults')
         .select('*')
@@ -55,6 +65,12 @@ export class NamingConventionsService {
    */
   static async saveUserNamingConvention(config: NamingConfig): Promise<boolean> {
     try {
+      // If Supabase is not available, return false
+      if (!supabase) {
+        console.warn('Supabase not available, cannot save naming convention');
+        return false;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -99,6 +115,12 @@ export class NamingConventionsService {
    */
   static async resetToDefaults(): Promise<boolean> {
     try {
+      // If Supabase is not available, return false
+      if (!supabase) {
+        console.warn('Supabase not available, cannot reset naming convention');
+        return false;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -177,6 +199,12 @@ export class NamingConventionsService {
    */
   static async hasCustomNamingConvention(): Promise<boolean> {
     try {
+      // If Supabase is not available, return false
+      if (!supabase) {
+        console.warn('Supabase not available, cannot check naming convention');
+        return false;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
