@@ -11,7 +11,9 @@ import VariationDownloadProgressModal from './VariationDownloadProgressModal';
 import { useDownloadManager } from '../../store/use-download-manager';
 import { useProgressBarStore } from '../../store/use-progress-bar-store';
 import { generateVariationFileName } from '@/utils/variation-naming';
+import { generateFlexibleVariationFileName, updateAllVariationNames } from '@/utils/flexible-naming';
 import EditableFilename from './EditableFilename';
+import NamingConfiguration, { NamingConfig } from './NamingConfiguration';
 
 
 const VariationModal: React.FC<VariationModalProps> = ({
@@ -29,6 +31,21 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [downloadingVariation, setDownloadingVariation] = useState<VideoVariation | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [customNames, setCustomNames] = useState<Record<string, string>>({});
+  const [namingConfig, setNamingConfig] = useState<NamingConfig>({
+    elementNames: {
+      video: 'video',
+      audio: 'audio',
+      text: 'text',
+      image: 'image'
+    },
+    pattern: {
+      type: 'letters_upper'
+    },
+    platform: {
+      enabled: true,
+      customName: undefined
+    }
+  });
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
@@ -763,6 +780,19 @@ const VariationModal: React.FC<VariationModalProps> = ({
     }));
   };
 
+  const handleNamingConfigChange = (config: NamingConfig) => {
+    setNamingConfig(config);
+  };
+
+  const handleApplyNamingToAll = () => {
+    const updatedVariations = updateAllVariationNames(
+      variations,
+      namingConfig,
+      project.platformConfig?.name
+    );
+    setVariations(updatedVariations);
+  };
+
   const handleDownload = async (variation: any) => {
     // Prevent multiple downloads of the same variation
     if (downloadingVariationId === variation.id) {
@@ -989,15 +1019,15 @@ const VariationModal: React.FC<VariationModalProps> = ({
       // Generate meaningful filename based on variation data
       const projectName = project.platformConfig?.name || 'Untitled Project';
       
-      // Use custom name if available, otherwise generate smart name
+      // Use custom name if available, otherwise generate flexible smart name
       let filename: string;
       if (customNames[variation.id]) {
         // Use custom name with project prefix
         const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_');
         filename = `${cleanProjectName}_${customNames[variation.id]}.mp4`;
       } else {
-        // Prepare data in the format expected by generateVariationFileName
-        const variationNamingData = {
+        // Use flexible naming system
+        const variationData = {
           variation: {
             id: variation.id,
             isOriginal: variation.isOriginal
@@ -1009,7 +1039,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
           metadata: variation.metadata
         };
         
-        filename = generateVariationFileName(variationNamingData, projectName);
+        filename = generateFlexibleVariationFileName(variationData, projectName, namingConfig);
       }
 
       // Add to download manager
@@ -1098,6 +1128,12 @@ const VariationModal: React.FC<VariationModalProps> = ({
             </div>
             
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <NamingConfiguration
+                config={namingConfig}
+                onConfigChange={handleNamingConfigChange}
+                onApplyToAll={handleApplyNamingToAll}
+                className="hidden sm:block"
+              />
               <Button
                 onClick={handleDownloadAll}
                 disabled={isGenerating || variations.length === 0}
@@ -1202,19 +1238,24 @@ const VariationModal: React.FC<VariationModalProps> = ({
                                 return 'Original';
                               }
                               
-                              // Generate meaningful variation name
-                              const variationNamingData = {
+                              // Use flexible naming system
+                              const variationData = {
                                 variation: {
                                   id: variation.id,
                                   isOriginal: variation.isOriginal
                                 },
                                 videoTrackItems: project.videoTrackItems,
                                 audioTrackItems: project.audioTrackItems,
+                                imageTrackItems: [], // Project doesn't have imageTrackItems
                                 textOverlays: project.textOverlays,
                                 metadata: variation.metadata
                               };
                               
-                              const filename = generateVariationFileName(variationNamingData, project.platformConfig?.name);
+                              const filename = generateFlexibleVariationFileName(
+                                variationData, 
+                                project.platformConfig?.name,
+                                namingConfig
+                              );
                               
                               // Extract just the variation part (remove project name and .mp4)
                               const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
