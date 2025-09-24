@@ -202,23 +202,21 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
     return variationPart;
   };
 
-  if (!isOpen) {
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsOpen(true)}
-        className={`flex items-center gap-1 ${className}`}
-        title="Naming Settings"
-      >
-        <Settings className="h-4 w-4" />
-        <span className="hidden xl:inline">Naming</span>
-      </Button>
-    );
-  }
-
   return (
-    <div className={`bg-white border rounded-lg p-4 space-y-4 shadow-lg max-w-md w-full ${className}`}>
+    <div className={`relative ${className}`}>
+      {!isOpen ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsOpen(true)}
+          className="flex items-center gap-1"
+          title="Naming Settings"
+        >
+          <Settings className="h-4 w-4" />
+          <span className="hidden xl:inline">Naming</span>
+        </Button>
+      ) : (
+        <div className="bg-white border rounded-lg p-4 space-y-4 shadow-lg max-w-md w-full absolute top-full right-0 mt-2 z-[10000]">
       <div className="flex items-center justify-between">
         <h3 className="font-medium text-sm">Naming Configuration</h3>
         <Button
@@ -302,7 +300,7 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
           <SelectTrigger className="h-8">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="z-[10001]">
             {patternOptions.map(option => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
@@ -414,6 +412,8 @@ export const NamingConfiguration: React.FC<NamingConfigurationProps> = ({
           )}
         </Button>
       </div>
+        </div>
+      )}
     </div>
   );
 };
