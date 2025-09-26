@@ -104,19 +104,28 @@ const VariationModal: React.FC<VariationModalProps> = ({
         // Extract project name from the data
         let actualProjectName = null;
 
+        // Check if data has a project property (API response format)
+        if (data && data.project && typeof data.project === 'object') {
+          actualProjectName = data.project.name;
+        }
         // If it's an array, get the first item's name
-        if (Array.isArray(data) && data.length > 0) {
+        else if (Array.isArray(data) && data.length > 0) {
           actualProjectName = data[0].name;
-        } else if (data && typeof data === 'object') {
+        } 
+        // If it's a direct object with name property
+        else if (data && typeof data === 'object') {
           actualProjectName = data.name;
         }
 
         console.log('Project name extraction debug:', {
           isArray: Array.isArray(data),
           dataLength: Array.isArray(data) ? data.length : 'N/A',
+          hasProject: !!(data && data.project),
+          projectName: data?.project?.name,
           firstItemName: Array.isArray(data) && data.length > 0 ? data[0].name : 'N/A',
-          dataName: data.name,
-          extractedName: actualProjectName
+          dataName: data?.name,
+          extractedName: actualProjectName,
+          fullData: data
         });
 
         if (actualProjectName) {
@@ -1577,7 +1586,10 @@ const VariationModal: React.FC<VariationModalProps> = ({
         }}
         currentTemplate={namingTemplate}
         variations={variations}
-        projectData={project}
+        projectData={{
+          ...project,
+          name: projectName // Override with the actual loaded project name
+        }}
       />
     </>
   );

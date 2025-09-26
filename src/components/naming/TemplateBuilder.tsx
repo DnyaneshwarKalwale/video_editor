@@ -122,15 +122,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
       variations.forEach((variation, index) => {
         try {
           const context = {
-            projectName: (() => {
-              // Try to get project ID from URL
-              try {
-                const projectId = window.location.pathname.split('/')[2];
-                return projectId || 'UntitledProject';
-              } catch {
-                return 'UntitledProject';
-              }
-            })(),
+            projectName: projectData?.name || 'UntitledProject',
             textOverlays: variation.allTextOverlays || [],
             videoTrackItems: projectData.videoTrackItems || [],
             audioTrackItems: projectData.audioTrackItems || [],
@@ -262,15 +254,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
       variations.forEach((variation) => {
         try {
           const context = {
-            projectName: (() => {
-              // Try to get project ID from URL
-              try {
-                const projectId = window.location.pathname.split('/')[2];
-                return projectId || 'UntitledProject';
-              } catch {
-                return 'UntitledProject';
-              }
-            })(),
+            projectName: projectData?.name || 'UntitledProject',
             textOverlays: variation.allTextOverlays || [],
             videoTrackItems: projectData.videoTrackItems || [],
             audioTrackItems: projectData.audioTrackItems || [],
