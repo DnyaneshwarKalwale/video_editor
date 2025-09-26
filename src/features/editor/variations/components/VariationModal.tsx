@@ -170,6 +170,13 @@ const VariationModal: React.FC<VariationModalProps> = ({
     console.log('Current projectName state:', projectName);
     console.log('Variations to update:', variations.length);
     console.log('Current variations before update:', variations.map(v => ({ id: v.id, text: v.text })));
+    console.log('First variation details:', variations[0] ? {
+      id: variations[0].id,
+      text: variations[0].text,
+      hasAllTextOverlays: !!variations[0].allTextOverlays,
+      allTextOverlaysCount: variations[0].allTextOverlays?.length,
+      hasMetadata: !!variations[0].metadata
+    } : 'No variations');
 
     const updatedVariations = await Promise.all(
       variations.map(async (variation) => {
@@ -234,7 +241,9 @@ const VariationModal: React.FC<VariationModalProps> = ({
     );
 
     console.log('Updated variations after naming:', updatedVariations.map(v => ({ id: v.id, text: v.text })));
+    console.log('Setting variations with updated names...');
     setVariations(updatedVariations);
+    console.log('Variations set successfully');
   };
 
   const loadVariationsFromSidebar = async () => {
@@ -749,7 +758,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
       // Always use template system by default
       updateVariationNames();
     }
-  }, [namingPattern, namingTemplate, useTemplateSystem, projectName]);
+  }, [namingPattern, namingTemplate, useTemplateSystem, projectName, variations]);
 
   const generateVariations = async () => {
     setIsGenerating(true);
@@ -1485,7 +1494,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                               }
                               
                             // Use the variation's current text (which should be updated with the latest naming pattern)
-                            return variation.text;
+                            console.log(`EditableFilename for ${variation.id}: variation.text = "${variation.text}"`);
+                            return variation.text || 'Loading...';
                           })()}
                             onNameChange={handleNameChange}
                             className="w-full min-w-0 max-w-full"
