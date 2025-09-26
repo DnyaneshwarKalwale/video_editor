@@ -158,6 +158,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
     }
 
     console.log('Updating variation names with project name:', projectName);
+    console.log('Current projectName state:', projectName);
+    console.log('Variations to update:', variations.length);
     console.log('Current variations before update:', variations.map(v => ({ id: v.id, text: v.text })));
 
     const updatedVariations = await Promise.all(
@@ -196,8 +198,15 @@ const VariationModal: React.FC<VariationModalProps> = ({
         });
 
         try {
-          // Always use template-based system
-          const filename = await generateTemplateBasedFileName(variationNamingData, projectName);
+        // Always use template-based system
+        console.log('Calling generateTemplateBasedFileName with:', {
+          variationNamingData,
+          projectName,
+          projectNameType: typeof projectName,
+          projectNameValue: projectName
+        });
+        const filename = await generateTemplateBasedFileName(variationNamingData, projectName);
+        console.log('Generated filename:', filename);
 
           // Remove .mp4 extension for display
           const variationPart = filename.replace('.mp4', '');
@@ -1224,20 +1233,26 @@ const VariationModal: React.FC<VariationModalProps> = ({
         filename = `${cleanProjectName}_${customNames[variation.id]}.mp4`;
       } else {
         // Prepare data in the format expected by naming functions
-        const variationNamingData = {
-          variation: {
-            id: variation.id,
-            isOriginal: variation.isOriginal
-          },
-          videoTrackItems,
-          audioTrackItems,
-          imageTrackItems,
+      const variationNamingData = {
+        variation: {
+          id: variation.id,
+          isOriginal: variation.isOriginal
+        },
+        videoTrackItems,
+        audioTrackItems,
+        imageTrackItems,
           textOverlays: variation.allTextOverlays || [], // Always use variation's specific text overlays
-          metadata: variation.metadata
-        };
-        
+        metadata: variation.metadata
+      };
+      
         // Always use template-based system
+        console.log('Download: Calling generateTemplateBasedFileName with:', {
+          variationNamingData,
+          actualProjectName,
+          actualProjectNameType: typeof actualProjectName
+        });
         filename = await generateTemplateBasedFileName(variationNamingData, actualProjectName);
+        console.log('Download: Generated filename:', filename);
       }
 
       // Add to download manager

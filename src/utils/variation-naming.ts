@@ -778,6 +778,8 @@ export async function generateTemplateBasedFileName(
     console.log('Text overlays in variation data:', variationData.textOverlays);
     
     // Create context for template processing
+    console.log('Template system - projectName parameter:', projectName);
+    console.log('Template system - projectName type:', typeof projectName);
     const context = {
       projectName: projectName || 'UntitledProject',
       textOverlays: variationData.textOverlays?.map(overlay => ({
@@ -819,6 +821,8 @@ export async function generateTemplateBasedFileName(
     
     console.log('Template context:', context);
     console.log('Context projectName:', context.projectName);
+    console.log('Context projectName value:', context.projectName);
+    console.log('Context projectName type:', typeof context.projectName);
     console.log('Context textOverlays:', context.textOverlays);
     console.log('First text overlay:', context.textOverlays?.[0]);
     console.log('Variation metadata:', variationData.metadata);
