@@ -1347,8 +1347,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                       </div>
                       
                       {/* Video name and buttons */}
-                      <div className="text-center space-y-2 w-full">
-                        <div className="w-full min-w-0">
+                      <div className="text-center space-y-2 w-full max-w-full">
+                        <div className="w-full min-w-0 max-w-full overflow-hidden">
                           <EditableFilename
                             variationId={variation.id}
                             currentName={(() => {
@@ -1365,7 +1365,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
                             return variation.text;
                           })()}
                             onNameChange={handleNameChange}
-                            className="w-full min-w-0"
+                            className="w-full min-w-0 max-w-full"
                           />
                         </div>
                         <div className="flex items-center justify-center gap-2">

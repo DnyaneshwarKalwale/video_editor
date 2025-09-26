@@ -774,6 +774,8 @@ export async function generateTemplateBasedFileName(
     const template = await getUserNamingTemplateAsync();
     
     console.log('Loaded template:', template);
+    console.log('Variation data received:', variationData);
+    console.log('Text overlays in variation data:', variationData.textOverlays);
     
     // Create context for template processing
     const context = {
@@ -811,10 +813,13 @@ export async function generateTemplateBasedFileName(
         position: 'Bottom',
         isVisible: true
       },
-      metadata: variationData.metadata
+      metadata: variationData.metadata,
+      customValues: template.customValues || {} // Include custom values from saved template
     };
     
     console.log('Template context:', context);
+    console.log('Context textOverlays:', context.textOverlays);
+    console.log('First text overlay:', context.textOverlays?.[0]);
     console.log('Variation metadata:', variationData.metadata);
     
     // Generate filename using template
@@ -830,7 +835,7 @@ export async function generateTemplateBasedFileName(
 /**
  * Load user's naming template from API
  */
-async function getUserNamingTemplateAsync(): Promise<{ template: string; name: string; description: string }> {
+async function getUserNamingTemplateAsync(): Promise<{ template: string; name: string; description: string; customValues?: Record<string, string> }> {
   try {
     const projectId = window.location.pathname.split('/')[2];
     const response = await fetch(`/api/projects/${projectId}/naming-template`, {
@@ -851,6 +856,7 @@ async function getUserNamingTemplateAsync(): Promise<{ template: string; name: s
   return {
     template: '{ProjectName}-{Headline}-{VideoSpeed}-{FontName}-{FontSize}-{ProgressBar}',
     name: 'Default Template',
-    description: 'Standard template with project name, headline, speed, font, and progress bar'
+    description: 'Standard template with project name, headline, speed, font, and progress bar',
+    customValues: {}
   };
 }

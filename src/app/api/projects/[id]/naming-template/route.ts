@@ -53,7 +53,14 @@ export async function GET(
     console.log('Successfully loaded naming template:', data);
     
     return NextResponse.json({
-      template: data
+      template: {
+        id: data.template_id,
+        name: data.name,
+        template: data.template,
+        description: data.description,
+        isDefault: data.is_default,
+        customValues: data.custom_values || {}
+      }
     });
 
   } catch (error) {
@@ -73,9 +80,12 @@ export async function PUT(
   try {
     const resolvedParams = await params;
     const projectId = resolvedParams.id;
-    const { id, name, template, description, isDefault } = await request.json();
+    const { template: templateData, customValues } = await request.json();
+    
+    // Extract template properties
+    const { id, name, template, description, isDefault } = templateData || {};
 
-    console.log('PUT request received:', { projectId, id, name, template, description, isDefault });
+    console.log('PUT request received:', { projectId, id, name, template, description, isDefault, customValues });
 
     const session = await getServerSession(authOptions);
 
@@ -102,6 +112,7 @@ export async function PUT(
       template,
       description: description || '',
       is_default: isDefault || false,
+      custom_values: customValues || {},
       updated_at: new Date().toISOString()
     };
     

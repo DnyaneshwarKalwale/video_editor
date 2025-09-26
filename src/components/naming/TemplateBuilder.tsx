@@ -57,10 +57,11 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
   useEffect(() => {
     if (template && variations.length > 0 && projectData) {
       const examples: string[] = [];
-      const values: Record<string, string> = {};
+      const allValues: Record<string, Set<string>> = {}; // Track unique values for each placeholder
+      const variationExamples: Array<{name: string, values: Record<string, string>}> = [];
       
-      // Generate examples for first few variations
-      variations.slice(0, 5).forEach((variation, index) => {
+      // Generate examples for all variations
+      variations.forEach((variation, index) => {
         try {
           const context = {
             projectName: (() => {
@@ -85,17 +86,33 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
           
           const extractedValues = extractTemplateValues(context);
           const filename = generateTemplateFilename(template, context);
-          examples.push(filename.replace('.mp4', ''));
+          const cleanName = filename.replace('.mp4', '');
           
-          // Store values for editing
-          Object.assign(values, extractedValues);
+          examples.push(cleanName);
+          variationExamples.push({ name: cleanName, values: extractedValues });
+          
+          // Track unique values for each placeholder
+          Object.entries(extractedValues).forEach(([key, value]) => {
+            if (!allValues[key]) {
+              allValues[key] = new Set();
+            }
+            allValues[key].add(value);
+          });
         } catch (error) {
           console.error('Error generating example:', error);
         }
       });
       
+      // Convert sets to arrays and create editable values
+      const editableValues: Record<string, string> = {};
+      Object.entries(allValues).forEach(([key, valueSet]) => {
+        const values = Array.from(valueSet);
+        // Use the most common value as default, or first if all unique
+        editableValues[key] = values[0];
+      });
+      
       setRealExamples(examples);
-      setEditableValues(values);
+      setEditableValues(editableValues);
     }
   }, [template, variations, projectData]);
 
@@ -149,7 +166,10 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify(newTemplate),
+        body: JSON.stringify({
+          template: newTemplate,
+          customValues: editableValues // Include custom values
+        }),
       });
 
       if (response.ok) {
@@ -177,11 +197,11 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
       [key]: value
     }));
     
-    // Regenerate examples with new value
+    // Regenerate examples with new value - update ALL variations
     if (variations.length > 0 && projectData) {
       const examples: string[] = [];
       
-      variations.slice(0, 5).forEach((variation) => {
+      variations.forEach((variation) => {
         try {
           const context = {
             projectName: (() => {
@@ -233,29 +253,46 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
     const hasImage = projectData.imageTrackItems?.length > 0;
     const hasProgressBar = projectData.progressBarSettings?.isVisible;
     
+    // Always include these basic placeholders
+    const alwaysInclude = ['ProjectName', 'VariationIndex', 'Timestamp'];
+    
     TEMPLATE_PLACEHOLDERS.forEach(placeholder => {
-      let shouldInclude = true;
+      let shouldInclude = false;
       
-      switch (placeholder.id) {
-        case 'Headline':
-        case 'FullText':
-        case 'TextCount':
-          shouldInclude = hasText;
-          break;
-        case 'VideoName':
-        case 'VideoSpeed':
-          shouldInclude = hasVideo;
-          break;
-        case 'AudioName':
-        case 'AudioSpeed':
-          shouldInclude = hasAudio;
-          break;
-        case 'ImageName':
-          shouldInclude = hasImage;
-          break;
-        case 'ProgressBar':
-          shouldInclude = hasProgressBar;
-          break;
+      // Always include basic placeholders
+      if (alwaysInclude.includes(placeholder.id)) {
+        shouldInclude = true;
+      } else {
+        switch (placeholder.id) {
+          case 'Headline':
+          case 'FullText':
+          case 'TextCount':
+          case 'FontName':
+          case 'FontSize':
+          case 'FontWeight':
+          case 'TextColor':
+            shouldInclude = hasText;
+            break;
+          case 'VideoName':
+          case 'VideoSpeed':
+            shouldInclude = hasVideo;
+            break;
+          case 'AudioName':
+          case 'AudioSpeed':
+            shouldInclude = hasAudio;
+            break;
+          case 'ImageName':
+            shouldInclude = hasImage;
+            break;
+          case 'ProgressBar':
+            shouldInclude = hasProgressBar;
+            break;
+          case 'Duration':
+          case 'AspectRatio':
+          case 'Resolution':
+            shouldInclude = true; // These are always available
+            break;
+        }
       }
       
       if (shouldInclude) {
@@ -284,11 +321,11 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            Template Builder
+            Edit Variation Names
           </h3>
           <Button
             onClick={onClose}
@@ -300,143 +337,45 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
-            {/* Left Column - Template Builder */}
-            <div className="space-y-4">
-              {/* Template Info */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Template Name
-                  </label>
-                  <Input
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="Enter template name"
-                    className="w-full"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
-                  </label>
-                  <Input
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Enter template description"
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
-              {/* Template Editor */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Template
-                  </label>
-                  <Button
-                    onClick={handleCopyTemplate}
-                    variant="outline"
-                    size="sm"
-                    className="text-xs"
-                  >
-                    <Copy className="w-3 h-3 mr-1" />
-                    Copy
-                  </Button>
-                </div>
-                <textarea
-                  value={template}
-                  onChange={(e) => setTemplate(e.target.value)}
-                  placeholder="Enter your template with placeholders like {ProjectName}-{Headline}-{VideoSpeed}"
-                  className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 font-mono text-sm"
-                />
-                
-                {/* Validation Errors */}
-                {!validation.isValid && (
-                  <div className="mt-2 text-sm text-red-600">
-                    {validation.errors.map((error, index) => (
-                      <div key={index}>• {error}</div>
-                    ))}
+        <div className="flex-1 overflow-y-auto p-4">
+          {/* Template Selection */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Naming Template
+            </label>
+            <div className="space-y-2">
+              {DEFAULT_TEMPLATES.map((preset) => (
+                <div
+                  key={preset.id}
+                  className={`p-3 border rounded cursor-pointer transition-colors ${
+                    template === preset.template 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                  }`}
+                  onClick={() => handleLoadTemplate(preset)}
+                >
+                  <div className="font-medium text-sm">{preset.name}</div>
+                  <div className="text-xs text-gray-600 mb-1">
+                    {preset.description}
                   </div>
-                )}
-              </div>
-
-              {/* Placeholders */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-gray-900">Placeholders</h4>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="text-sm border border-gray-300 rounded px-2 py-1"
-                  >
-                    {categories.map(category => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="font-mono text-xs text-gray-500 break-all">
+                    {preset.template}
+                  </div>
                 </div>
-                
-                <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
-                  {filteredPlaceholders.map((placeholder) => (
-                    <div
-                      key={placeholder.id}
-                      className="p-2 border border-gray-200 rounded cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                      onClick={() => handleInsertPlaceholder(placeholder)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-mono text-sm font-medium">
-                            {`{${placeholder.id}}`}
-                          </div>
-                          <div className="text-xs text-gray-600">
-                            {placeholder.description}
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {placeholder.example}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              ))}
             </div>
+          </div>
 
-            {/* Right Column - Real Examples & Editable Values */}
+          {/* Generated Names with Editable Values */}
+          {realExamples.length > 0 && (
             <div className="space-y-4">
-              {/* Real Examples */}
-              {realExamples.length > 0 && (
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Eye className="w-4 h-4 text-blue-600" />
-                    <h4 className="font-medium text-gray-900">Real Examples</h4>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-600">Generated from your variations:</div>
-                    {realExamples.map((example, index) => (
-                      <div key={index} className="font-mono text-sm bg-white p-2 rounded border break-all">
-                        {example}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
+              <h4 className="font-medium text-gray-900">Generated Names</h4>
+              
               {/* Editable Values */}
               {Object.keys(editableValues).length > 0 && (
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Edit2 className="w-4 h-4 text-green-600" />
-                    <h4 className="font-medium text-gray-900">Edit Values</h4>
-                  </div>
-                  
-                  <div className="space-y-3">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h5 className="font-medium text-sm text-gray-700 mb-3">Edit Values</h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {Object.entries(editableValues).map(([key, value]) => (
                       <div key={key}>
                         <label className="block text-xs text-gray-600 mb-1 capitalize">
@@ -454,49 +393,77 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
                 </div>
               )}
 
-              {/* Preview */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <Eye className="w-4 h-4 text-gray-600" />
-                  <h4 className="font-medium text-gray-900">Template Preview</h4>
+              {/* Generated Examples */}
+              <div className="space-y-2">
+                <div className="text-sm text-gray-600">
+                  Generated names for all {realExamples.length} variations:
                 </div>
-                
-                <div className="space-y-2">
-                  <div className="text-sm text-gray-600">Template:</div>
-                  <div className="font-mono text-sm bg-white p-2 rounded border break-all">
-                    {template}
-                  </div>
-                </div>
-                
-                {validation.isValid && (
-                  <div className="mt-3 text-xs text-green-600">
-                    ✓ Template is valid
-                  </div>
-                )}
-              </div>
-
-              {/* Preset Templates */}
-              <div>
-                <h4 className="font-medium text-gray-900 mb-3">Preset Templates</h4>
-                <div className="space-y-2">
-                  {DEFAULT_TEMPLATES.map((preset) => (
-                    <div
-                      key={preset.id}
-                      className="p-3 border border-gray-200 rounded cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                      onClick={() => handleLoadTemplate(preset)}
-                    >
-                      <div className="font-medium text-sm">{preset.name}</div>
-                      <div className="text-xs text-gray-600 mb-1">
-                        {preset.description}
-                      </div>
-                      <div className="font-mono text-xs text-gray-500 break-all">
-                        {preset.template}
-                      </div>
+                <div className="max-h-60 overflow-y-auto space-y-1">
+                  {realExamples.map((example, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-blue-50 rounded border text-xs">
+                      <span className="text-gray-600 w-6 text-right">
+                        {index + 1}.
+                      </span>
+                      <span className="font-mono flex-1 break-all">
+                        {example}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Custom Template Editor */}
+          <div className="mt-6">
+            <details className="group">
+              <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
+                Advanced: Custom Template
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Template
+                  </label>
+                  <textarea
+                    value={template}
+                    onChange={(e) => setTemplate(e.target.value)}
+                    placeholder="Enter your template with placeholders like {ProjectName}-{Headline}-{VideoSpeed}"
+                    className="w-full h-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 font-mono text-sm"
+                  />
+                  
+                  {/* Validation Errors */}
+                  {!validation.isValid && (
+                    <div className="mt-2 text-sm text-red-600">
+                      {validation.errors.map((error, index) => (
+                        <div key={index}>• {error}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Available Placeholders */}
+                <div>
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">Available Placeholders</h5>
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                    {filteredPlaceholders.map((placeholder) => (
+                      <div
+                        key={placeholder.id}
+                        className="p-2 border border-gray-200 rounded cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                        onClick={() => handleInsertPlaceholder(placeholder)}
+                      >
+                        <div className="font-mono text-xs font-medium">
+                          {`{${placeholder.id}}`}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {placeholder.description}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
         </div>
 
@@ -523,7 +490,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
             ) : (
               <>
                 <Save className="w-4 h-4 mr-2" />
-                Save Template
+                Save & Apply
               </>
             )}
           </Button>
