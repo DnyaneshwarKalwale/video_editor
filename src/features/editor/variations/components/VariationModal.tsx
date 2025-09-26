@@ -10,9 +10,10 @@ import useStore from '../../store/use-store';
 import VariationDownloadProgressModal from './VariationDownloadProgressModal';
 import { useDownloadManager } from '../../store/use-download-manager';
 import { useProgressBarStore } from '../../store/use-progress-bar-store';
-import { generateVariationFileName, generateVariationFileNameAsync } from '@/utils/variation-naming';
+import { generateVariationFileName, generateVariationFileNameAsync, generateTemplateBasedFileName } from '@/utils/variation-naming';
 import EditableFilename from './EditableFilename';
 import SimpleNamingSelector from '@/components/naming/SimpleNamingSelector';
+import TemplateBuilder from '@/components/naming/TemplateBuilder';
 
 
 const VariationModal: React.FC<VariationModalProps> = ({
@@ -31,7 +32,10 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [customNames, setCustomNames] = useState<Record<string, string>>({});
   const [showNamingSettings, setShowNamingSettings] = useState(false);
+  const [showTemplateBuilder, setShowTemplateBuilder] = useState(false);
   const [namingPattern, setNamingPattern] = useState<any>(null);
+  const [namingTemplate, setNamingTemplate] = useState<any>(null);
+  const [useTemplateSystem, setUseTemplateSystem] = useState(true); // Toggle between old and new system
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
@@ -60,9 +64,26 @@ const VariationModal: React.FC<VariationModalProps> = ({
     }
   };
 
+  // Load naming template when modal opens
+  const loadNamingTemplate = async () => {
+    try {
+      const projectId = window.location.pathname.split('/')[2];
+      const response = await fetch(`/api/projects/${projectId}/naming-template`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setNamingTemplate(data.template);
+      }
+    } catch (error) {
+      console.error('Error loading naming template:', error);
+    }
+  };
+
   // Update variation names when naming pattern changes
   const updateVariationNames = async () => {
-    if (!namingPattern || variations.length === 0) return;
+    if (variations.length === 0) return;
     
     const updatedVariations = await Promise.all(
       variations.map(async (variation) => {
@@ -70,7 +91,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
           return variation; // Keep custom names as is
         }
         
-        // Generate new name with current naming pattern
+        // Generate new name with current naming system
         const variationNamingData = {
           variation: {
             id: variation.id,
@@ -82,7 +103,16 @@ const VariationModal: React.FC<VariationModalProps> = ({
           metadata: variation.metadata
         };
         
-        const filename = await generateVariationFileNameAsync(variationNamingData, project.platformConfig?.name);
+        let filename: string;
+        if (useTemplateSystem && namingTemplate) {
+          // Use new template-based system
+          filename = await generateTemplateBasedFileName(variationNamingData, project.platformConfig?.name);
+        } else {
+          // Use old pattern-based system
+          filename = await generateVariationFileNameAsync(variationNamingData, project.platformConfig?.name);
+        }
+        
+        // Extract variation part (remove project name prefix and .mp4 extension)
         const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
         
         return {
@@ -584,20 +614,25 @@ const VariationModal: React.FC<VariationModalProps> = ({
     setVariations(allVideoCombinations);
   };
 
-  // Load variations and naming pattern when modal opens
+  // Load variations and naming systems when modal opens
   useEffect(() => {
     if (isOpen) {
       loadVariationsFromSidebar();
       loadNamingPattern();
+      loadNamingTemplate();
     }
   }, [isOpen]);
 
-  // Update variation names when naming pattern changes
+  // Update variation names when naming pattern or template changes
   useEffect(() => {
-    if (namingPattern && variations.length > 0) {
-      updateVariationNames();
+    if (variations.length > 0) {
+      if (useTemplateSystem && namingTemplate) {
+        updateVariationNames();
+      } else if (!useTemplateSystem && namingPattern) {
+        updateVariationNames();
+      }
     }
-  }, [namingPattern]);
+  }, [namingPattern, namingTemplate, useTemplateSystem]);
 
   const generateVariations = async () => {
     setIsGenerating(true);
@@ -1059,7 +1094,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
         const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_');
         filename = `${cleanProjectName}_${customNames[variation.id]}.mp4`;
       } else {
-        // Prepare data in the format expected by generateVariationFileName
+        // Prepare data in the format expected by naming functions
         const variationNamingData = {
           variation: {
             id: variation.id,
@@ -1072,7 +1107,13 @@ const VariationModal: React.FC<VariationModalProps> = ({
           metadata: variation.metadata
         };
         
-        filename = await generateVariationFileNameAsync(variationNamingData, projectName);
+        if (useTemplateSystem && namingTemplate) {
+          // Use new template-based system
+          filename = await generateTemplateBasedFileName(variationNamingData, projectName);
+        } else {
+          // Use old pattern-based system
+          filename = await generateVariationFileNameAsync(variationNamingData, projectName);
+        }
       }
 
       // Add to download manager
@@ -1162,14 +1203,25 @@ const VariationModal: React.FC<VariationModalProps> = ({
             
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <Button
+                onClick={() => setShowTemplateBuilder(true)}
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                title="Build custom naming template"
+              >
+                <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Template</span>
+              </Button>
+              
+              <Button
                 onClick={() => setShowNamingSettings(true)}
                 variant="outline"
                 size="sm"
                 className="text-xs"
-                title="Customize naming pattern"
+                title="Simple naming patterns"
               >
                 <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Naming</span>
+                <span className="hidden sm:inline">Patterns</span>
               </Button>
 
               <Button
@@ -1359,9 +1411,24 @@ const VariationModal: React.FC<VariationModalProps> = ({
         onPatternChange={async (patternId) => {
           // Pattern changed - reload naming pattern and update variation names
           console.log('Naming pattern changed to:', patternId);
+          setUseTemplateSystem(false); // Switch to pattern system
           await loadNamingPattern();
           // The useEffect will automatically update variation names when namingPattern changes
         }}
+      />
+
+      {/* Template Builder Modal */}
+      <TemplateBuilder
+        isOpen={showTemplateBuilder}
+        onClose={() => setShowTemplateBuilder(false)}
+        onTemplateChange={async (template) => {
+          // Template changed - reload template and update variation names
+          console.log('Naming template changed to:', template);
+          setUseTemplateSystem(true); // Switch to template system
+          await loadNamingTemplate();
+          // The useEffect will automatically update variation names when namingTemplate changes
+        }}
+        currentTemplate={namingTemplate}
       />
     </>
   );

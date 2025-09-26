@@ -758,3 +758,94 @@ export async function generateVariationFileNameAsync(variationData: VariationDat
   const namingPattern = await getUserNamingPatternAsync();
   return generateVariationFileName(variationData, projectName, namingPattern);
 }
+
+/**
+ * Generate filename using the new template-based naming system
+ */
+export async function generateTemplateBasedFileName(
+  variationData: VariationData, 
+  projectName?: string
+): Promise<string> {
+  try {
+    // Import the template system
+    const { generateTemplateFilename, extractTemplateValues } = await import('./template-naming');
+    
+    // Load user's custom template
+    const template = await getUserNamingTemplateAsync();
+    
+    // Create context for template processing
+    const context = {
+      projectName: projectName || 'UntitledProject',
+      textOverlays: variationData.textOverlays?.map(overlay => ({
+        text: overlay.text || '',
+        style: {
+          fontFamily: overlay.style?.fontFamily,
+          fontSize: overlay.style?.fontSize,
+          fontWeight: overlay.style?.fontWeight,
+          color: overlay.style?.color
+        }
+      })) || [],
+      videoTrackItems: variationData.videoTrackItems?.map(item => ({
+        playbackRate: item.playbackRate || 1,
+        details: {
+          src: item.details?.src,
+          name: item.details?.name
+        }
+      })) || [],
+      audioTrackItems: variationData.audioTrackItems?.map(item => ({
+        playbackRate: item.playbackRate || 1,
+        details: {
+          src: item.details?.src,
+          name: item.details?.name
+        }
+      })) || [],
+      imageTrackItems: variationData.imageTrackItems?.map(item => ({
+        details: {
+          src: item.details?.src,
+          name: item.details?.name
+        }
+      })) || [],
+      progressBarSettings: {
+        position: 'Bottom',
+        isVisible: true
+      },
+      metadata: variationData.metadata
+    };
+    
+    // Generate filename using template
+    return generateTemplateFilename(template.template, context);
+    
+  } catch (error) {
+    console.error('Error generating template-based filename:', error);
+    // Fallback to original naming system
+    return generateVariationFileNameAsync(variationData, projectName);
+  }
+}
+
+/**
+ * Load user's naming template from API
+ */
+async function getUserNamingTemplateAsync(): Promise<{ template: string; name: string; description: string }> {
+  try {
+    const projectId = window.location.pathname.split('/')[2];
+    const response = await fetch(`/api/projects/${projectId}/naming-template`, {
+      credentials: 'include'
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.template) {
+        return data.template;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading naming template:', error);
+  }
+  
+  // Return default template
+  return {
+    template: '{ProjectName}-{Headline}-{VideoSpeed}-{FontName}-{FontSize}-{ProgressBar}',
+    name: 'Default Template',
+    description: 'Standard template with project name, headline, speed, font, and progress bar'
+  };
+}
