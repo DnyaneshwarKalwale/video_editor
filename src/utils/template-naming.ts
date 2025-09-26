@@ -63,6 +63,7 @@ export interface VariationContext {
     speedElements?: any[];
     combination?: any[];
   };
+  customValues?: Record<string, string>; // For user-edited values
 }
 
 // Available placeholders
@@ -252,61 +253,136 @@ export const DEFAULT_TEMPLATES: NamingTemplate[] = [
 export function extractTemplateValues(context: VariationContext): Record<string, string> {
   const values: Record<string, string> = {};
   
-  // Project values
-  values.ProjectName = context.projectName || 'UntitledProject';
-  
-  // Content values
-  if (context.textOverlays && context.textOverlays.length > 0) {
-    const mainText = context.textOverlays[0].text;
-    values.FullText = sanitizeText(mainText);
-    values.Headline = extractHeadline(mainText);
-    values.TextCount = context.textOverlays.length.toString();
-  } else {
-    values.FullText = 'NoText';
-    values.Headline = 'NoText';
-    values.TextCount = '0';
+  // Use custom values if provided (for user-edited values)
+  if (context.customValues) {
+    Object.assign(values, context.customValues);
   }
   
-  // Style values
-  if (context.textOverlays && context.textOverlays.length > 0) {
-    const style = context.textOverlays[0].style;
-    if (style) {
-      values.FontName = extractFontName(style.fontFamily || 'Arial');
-      values.FontSize = style.fontSize ? `${style.fontSize}px` : '16px';
-      values.FontWeight = style.fontWeight || 'normal';
-      values.TextColor = style.color || 'white';
+  // Project values
+  values.ProjectName = context.customValues?.ProjectName || context.projectName || 'UntitledProject';
+  
+  // Content values - Extract from metadata combination if available
+  if (!context.customValues?.Headline && !context.customValues?.FullText) {
+    if (context.metadata?.combination) {
+      // Find text variation from combination
+      const textVariation = context.metadata.combination.find((item: any) => item.type === 'text');
+      if (textVariation && textVariation.value) {
+        values.FullText = sanitizeText(textVariation.value);
+        values.Headline = extractHeadline(textVariation.value);
+      } else {
+        values.FullText = 'NoText';
+        values.Headline = 'NoText';
+      }
+    } else if (context.textOverlays && context.textOverlays.length > 0) {
+      const mainText = context.textOverlays[0].text;
+      values.FullText = sanitizeText(mainText);
+      values.Headline = extractHeadline(mainText);
+    } else {
+      values.FullText = 'NoText';
+      values.Headline = 'NoText';
+    }
+  }
+  
+  values.TextCount = context.textOverlays?.length?.toString() || '0';
+  
+  // Style values - Extract from metadata combination if available
+  if (!context.customValues?.FontName && !context.customValues?.FontSize) {
+    if (context.metadata?.combination) {
+      // Find font variation from combination
+      const fontVariation = context.metadata.combination.find((item: any) => item.type === 'font');
+      if (fontVariation && fontVariation.metadata) {
+        values.FontName = extractFontName(fontVariation.metadata.fontFamily || 'Arial');
+        values.FontSize = fontVariation.metadata.fontSize ? `${fontVariation.metadata.fontSize}px` : '16px';
+        values.FontWeight = fontVariation.metadata.fontWeight || 'normal';
+        values.TextColor = fontVariation.metadata.color || 'white';
+      } else {
+        values.FontName = 'Arial';
+        values.FontSize = '16px';
+        values.FontWeight = 'normal';
+        values.TextColor = 'white';
+      }
+    } else if (context.textOverlays && context.textOverlays.length > 0) {
+      const style = context.textOverlays[0].style;
+      if (style) {
+        values.FontName = extractFontName(style.fontFamily || 'Arial');
+        values.FontSize = style.fontSize ? `${style.fontSize}px` : '16px';
+        values.FontWeight = style.fontWeight || 'normal';
+        values.TextColor = style.color || 'white';
+      } else {
+        values.FontName = 'Arial';
+        values.FontSize = '16px';
+        values.FontWeight = 'normal';
+        values.TextColor = 'white';
+      }
+    } else {
+      values.FontName = 'Arial';
+      values.FontSize = '16px';
+      values.FontWeight = 'normal';
+      values.TextColor = 'white';
+    }
+  }
+  
+  // Media values - Extract from metadata combination if available
+  if (context.metadata?.combination) {
+    // Find speed variation from combination
+    const speedVariation = context.metadata.combination.find((item: any) => item.type === 'speed');
+    if (speedVariation && speedVariation.metadata && speedVariation.metadata.speed) {
+      values.VideoSpeed = formatSpeed(speedVariation.metadata.speed);
+      values.AudioSpeed = formatSpeed(speedVariation.metadata.speed);
+    } else {
+      values.VideoSpeed = '1x';
+      values.AudioSpeed = '1x';
+    }
+    
+    // Find video variation from combination
+    const videoVariation = context.metadata.combination.find((item: any) => item.type === 'video');
+    if (videoVariation && videoVariation.value) {
+      values.VideoName = extractFileName(videoVariation.value);
+    } else {
+      values.VideoName = 'NoVideo';
+    }
+    
+    // Find audio variation from combination
+    const audioVariation = context.metadata.combination.find((item: any) => item.type === 'audio');
+    if (audioVariation && audioVariation.value) {
+      values.AudioName = extractFileName(audioVariation.value);
+    } else {
+      values.AudioName = 'NoAudio';
+    }
+    
+    // Find image variation from combination
+    const imageVariation = context.metadata.combination.find((item: any) => item.type === 'image');
+    if (imageVariation && imageVariation.value) {
+      values.ImageName = extractFileName(imageVariation.value);
+    } else {
+      values.ImageName = 'NoImage';
     }
   } else {
-    values.FontName = 'Arial';
-    values.FontSize = '16px';
-    values.FontWeight = 'normal';
-    values.TextColor = 'white';
-  }
-  
-  // Media values
-  if (context.videoTrackItems && context.videoTrackItems.length > 0) {
-    const video = context.videoTrackItems[0];
-    values.VideoSpeed = formatSpeed(video.playbackRate || 1);
-    values.VideoName = extractFileName(video.details?.src || 'video');
-  } else {
-    values.VideoSpeed = '1x';
-    values.VideoName = 'NoVideo';
-  }
-  
-  if (context.audioTrackItems && context.audioTrackItems.length > 0) {
-    const audio = context.audioTrackItems[0];
-    values.AudioSpeed = formatSpeed(audio.playbackRate || 1);
-    values.AudioName = extractFileName(audio.details?.src || 'audio');
-  } else {
-    values.AudioSpeed = '1x';
-    values.AudioName = 'NoAudio';
-  }
-  
-  if (context.imageTrackItems && context.imageTrackItems.length > 0) {
-    const image = context.imageTrackItems[0];
-    values.ImageName = extractFileName(image.details?.src || 'image');
-  } else {
-    values.ImageName = 'NoImage';
+    // Fallback to track items
+    if (context.videoTrackItems && context.videoTrackItems.length > 0) {
+      const video = context.videoTrackItems[0];
+      values.VideoSpeed = formatSpeed(video.playbackRate || 1);
+      values.VideoName = extractFileName(video.details?.src || 'video');
+    } else {
+      values.VideoSpeed = '1x';
+      values.VideoName = 'NoVideo';
+    }
+    
+    if (context.audioTrackItems && context.audioTrackItems.length > 0) {
+      const audio = context.audioTrackItems[0];
+      values.AudioSpeed = formatSpeed(audio.playbackRate || 1);
+      values.AudioName = extractFileName(audio.details?.src || 'audio');
+    } else {
+      values.AudioSpeed = '1x';
+      values.AudioName = 'NoAudio';
+    }
+    
+    if (context.imageTrackItems && context.imageTrackItems.length > 0) {
+      const image = context.imageTrackItems[0];
+      values.ImageName = extractFileName(image.details?.src || 'image');
+    } else {
+      values.ImageName = 'NoImage';
+    }
   }
   
   // System values
@@ -323,6 +399,9 @@ export function extractTemplateValues(context: VariationContext): Record<string,
   values.Resolution = '1920x1080'; // Default, could be extracted from context
   values.VariationIndex = '1'; // Default, could be extracted from variation data
   values.Timestamp = new Date().toISOString().split('T')[0]; // Current date
+  
+  console.log('Extracted template values:', values);
+  console.log('Context metadata combination:', context.metadata?.combination);
   
   return values;
 }

@@ -35,7 +35,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [showTemplateBuilder, setShowTemplateBuilder] = useState(false);
   const [namingPattern, setNamingPattern] = useState<any>(null);
   const [namingTemplate, setNamingTemplate] = useState<any>(null);
-  const [useTemplateSystem, setUseTemplateSystem] = useState(true); // Toggle between old and new system
+  const [useTemplateSystem, setUseTemplateSystem] = useState(true); // Toggle between old and new system - default to template system
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
@@ -99,21 +99,24 @@ const VariationModal: React.FC<VariationModalProps> = ({
           },
           videoTrackItems: project.videoTrackItems,
           audioTrackItems: project.audioTrackItems,
-          textOverlays: project.textOverlays,
+          textOverlays: variation.allTextOverlays || project.textOverlays, // Use variation's text overlays if available
           metadata: variation.metadata
         };
         
         let filename: string;
-        if (useTemplateSystem && namingTemplate) {
-          // Use new template-based system
+        if (useTemplateSystem) {
+          // Use new template-based system (will use default template if none loaded)
           filename = await generateTemplateBasedFileName(variationNamingData, project.platformConfig?.name);
         } else {
           // Use old pattern-based system
           filename = await generateVariationFileNameAsync(variationNamingData, project.platformConfig?.name);
         }
         
-        // Extract variation part (remove project name prefix and .mp4 extension)
-        const variationPart = filename.replace(/^[^_]+_/, '').replace('.mp4', '');
+        // For template system, use the full filename (it already includes project name)
+        // For pattern system, extract variation part
+        const variationPart = useTemplateSystem 
+          ? filename.replace('.mp4', '') // Remove .mp4 extension only
+          : filename.replace(/^[^_]+_/, '').replace('.mp4', ''); // Remove project prefix and .mp4
         
         return {
           ...variation,
@@ -626,7 +629,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
   // Update variation names when naming pattern or template changes
   useEffect(() => {
     if (variations.length > 0) {
-      if (useTemplateSystem && namingTemplate) {
+      if (useTemplateSystem) {
+        // Always try to update with template system if enabled
         updateVariationNames();
       } else if (!useTemplateSystem && namingPattern) {
         updateVariationNames();
@@ -1103,12 +1107,12 @@ const VariationModal: React.FC<VariationModalProps> = ({
           videoTrackItems,
           audioTrackItems,
           imageTrackItems,
-          textOverlays,
+          textOverlays: variation.allTextOverlays || textOverlays, // Use variation's text overlays if available
           metadata: variation.metadata
         };
         
-        if (useTemplateSystem && namingTemplate) {
-          // Use new template-based system
+        if (useTemplateSystem) {
+          // Use new template-based system (will use default template if none loaded)
           filename = await generateTemplateBasedFileName(variationNamingData, projectName);
         } else {
           // Use old pattern-based system
@@ -1429,6 +1433,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
           // The useEffect will automatically update variation names when namingTemplate changes
         }}
         currentTemplate={namingTemplate}
+        variations={variations}
+        projectData={project}
       />
     </>
   );

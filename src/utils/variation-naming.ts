@@ -773,6 +773,8 @@ export async function generateTemplateBasedFileName(
     // Load user's custom template
     const template = await getUserNamingTemplateAsync();
     
+    console.log('Loaded template:', template);
+    
     // Create context for template processing
     const context = {
       projectName: projectName || 'UntitledProject',
@@ -811,6 +813,9 @@ export async function generateTemplateBasedFileName(
       },
       metadata: variationData.metadata
     };
+    
+    console.log('Template context:', context);
+    console.log('Variation metadata:', variationData.metadata);
     
     // Generate filename using template
     return generateTemplateFilename(template.template, context);

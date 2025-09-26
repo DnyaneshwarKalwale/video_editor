@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Eye, Copy, Save, Loader2 } from 'lucide-react';
+import { X, Eye, Copy, Save, Loader2, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
@@ -8,7 +8,9 @@ import {
   validateTemplate, 
   previewTemplate,
   NamingTemplate,
-  TemplatePlaceholder 
+  TemplatePlaceholder,
+  generateTemplateFilename,
+  extractTemplateValues
 } from '@/utils/template-naming';
 
 interface TemplateBuilderProps {
@@ -16,13 +18,17 @@ interface TemplateBuilderProps {
   onClose: () => void;
   onTemplateChange?: (template: NamingTemplate) => void;
   currentTemplate?: NamingTemplate;
+  variations?: any[]; // Current variations to show real examples
+  projectData?: any; // Project data for context
 }
 
 export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
   isOpen,
   onClose,
   onTemplateChange,
-  currentTemplate
+  currentTemplate,
+  variations = [],
+  projectData
 }) => {
   const [template, setTemplate] = useState('');
   const [templateName, setTemplateName] = useState('');
@@ -31,6 +37,8 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
   const [validation, setValidation] = useState({ isValid: true, errors: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [editableValues, setEditableValues] = useState<Record<string, string>>({});
+  const [realExamples, setRealExamples] = useState<string[]>([]);
 
   // Initialize with current template or default
   useEffect(() => {
@@ -44,6 +52,44 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
       setDescription('User-defined naming template');
     }
   }, [currentTemplate, isOpen]);
+
+  // Generate real examples from variations
+  useEffect(() => {
+    if (template && variations.length > 0 && projectData) {
+      const examples: string[] = [];
+      const values: Record<string, string> = {};
+      
+      // Generate examples for first few variations
+      variations.slice(0, 5).forEach((variation, index) => {
+        try {
+          const context = {
+            projectName: projectData.platformConfig?.name || 'UntitledProject',
+            textOverlays: variation.allTextOverlays || projectData.textOverlays || [],
+            videoTrackItems: projectData.videoTrackItems || [],
+            audioTrackItems: projectData.audioTrackItems || [],
+            imageTrackItems: projectData.imageTrackItems || [],
+            progressBarSettings: {
+              position: 'Bottom',
+              isVisible: true
+            },
+            metadata: variation.metadata
+          };
+          
+          const extractedValues = extractTemplateValues(context);
+          const filename = generateTemplateFilename(template, context);
+          examples.push(filename.replace('.mp4', ''));
+          
+          // Store values for editing
+          Object.assign(values, extractedValues);
+        } catch (error) {
+          console.error('Error generating example:', error);
+        }
+      });
+      
+      setRealExamples(examples);
+      setEditableValues(values);
+    }
+  }, [template, variations, projectData]);
 
   // Update preview when template changes
   useEffect(() => {
@@ -117,9 +163,97 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
     navigator.clipboard.writeText(template);
   };
 
+  const handleValueChange = (key: string, value: string) => {
+    setEditableValues(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    
+    // Regenerate examples with new value
+    if (variations.length > 0 && projectData) {
+      const examples: string[] = [];
+      
+      variations.slice(0, 5).forEach((variation) => {
+        try {
+          const context = {
+            projectName: projectData.platformConfig?.name || 'UntitledProject',
+            textOverlays: variation.allTextOverlays || projectData.textOverlays || [],
+            videoTrackItems: projectData.videoTrackItems || [],
+            audioTrackItems: projectData.audioTrackItems || [],
+            imageTrackItems: projectData.imageTrackItems || [],
+            progressBarSettings: {
+              position: 'Bottom',
+              isVisible: true
+            },
+            metadata: variation.metadata
+          };
+          
+          const extractedValues = extractTemplateValues(context);
+          // Override with edited value
+          extractedValues[key] = value;
+          
+          // Create custom context with edited values
+          const customContext = { ...context, customValues: extractedValues };
+          const filename = generateTemplateFilename(template, customContext);
+          examples.push(filename.replace('.mp4', ''));
+        } catch (error) {
+          console.error('Error generating example:', error);
+        }
+      });
+      
+      setRealExamples(examples);
+    }
+  };
+
+  const getAvailablePlaceholders = () => {
+    if (!variations.length || !projectData) return TEMPLATE_PLACEHOLDERS;
+    
+    const available: TemplatePlaceholder[] = [];
+    
+    // Check what's actually available in the variations
+    const hasText = variations.some(v => v.allTextOverlays?.length > 0);
+    const hasVideo = projectData.videoTrackItems?.length > 0;
+    const hasAudio = projectData.audioTrackItems?.length > 0;
+    const hasImage = projectData.imageTrackItems?.length > 0;
+    const hasProgressBar = projectData.progressBarSettings?.isVisible;
+    
+    TEMPLATE_PLACEHOLDERS.forEach(placeholder => {
+      let shouldInclude = true;
+      
+      switch (placeholder.id) {
+        case 'Headline':
+        case 'FullText':
+        case 'TextCount':
+          shouldInclude = hasText;
+          break;
+        case 'VideoName':
+        case 'VideoSpeed':
+          shouldInclude = hasVideo;
+          break;
+        case 'AudioName':
+        case 'AudioSpeed':
+          shouldInclude = hasAudio;
+          break;
+        case 'ImageName':
+          shouldInclude = hasImage;
+          break;
+        case 'ProgressBar':
+          shouldInclude = hasProgressBar;
+          break;
+      }
+      
+      if (shouldInclude) {
+        available.push(placeholder);
+      }
+    });
+    
+    return available;
+  };
+
+  const availablePlaceholders = getAvailablePlaceholders();
   const filteredPlaceholders = selectedCategory === 'all' 
-    ? TEMPLATE_PLACEHOLDERS 
-    : TEMPLATE_PLACEHOLDERS.filter(p => p.category === selectedCategory);
+    ? availablePlaceholders 
+    : availablePlaceholders.filter(p => p.category === selectedCategory);
 
   const categories = [
     { id: 'all', name: 'All' },
@@ -257,19 +391,64 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
               </div>
             </div>
 
-            {/* Right Column - Preview & Presets */}
+            {/* Right Column - Real Examples & Editable Values */}
             <div className="space-y-4">
+              {/* Real Examples */}
+              {realExamples.length > 0 && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Eye className="w-4 h-4 text-blue-600" />
+                    <h4 className="font-medium text-gray-900">Real Examples</h4>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="text-sm text-gray-600">Generated from your variations:</div>
+                    {realExamples.map((example, index) => (
+                      <div key={index} className="font-mono text-sm bg-white p-2 rounded border break-all">
+                        {example}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Editable Values */}
+              {Object.keys(editableValues).length > 0 && (
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Edit2 className="w-4 h-4 text-green-600" />
+                    <h4 className="font-medium text-gray-900">Edit Values</h4>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {Object.entries(editableValues).map(([key, value]) => (
+                      <div key={key}>
+                        <label className="block text-xs text-gray-600 mb-1 capitalize">
+                          {key.replace(/([A-Z])/g, ' $1').trim()}:
+                        </label>
+                        <Input
+                          value={value}
+                          onChange={(e) => handleValueChange(key, e.target.value)}
+                          className="w-full text-sm"
+                          placeholder={`Enter ${key.toLowerCase()}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Preview */}
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
                   <Eye className="w-4 h-4 text-gray-600" />
-                  <h4 className="font-medium text-gray-900">Preview</h4>
+                  <h4 className="font-medium text-gray-900">Template Preview</h4>
                 </div>
                 
                 <div className="space-y-2">
-                  <div className="text-sm text-gray-600">Generated filename:</div>
+                  <div className="text-sm text-gray-600">Template:</div>
                   <div className="font-mono text-sm bg-white p-2 rounded border break-all">
-                    {preview}
+                    {template}
                   </div>
                 </div>
                 
