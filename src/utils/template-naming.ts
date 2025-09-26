@@ -404,6 +404,9 @@ export function extractTemplateValues(context: VariationContext): Record<string,
   values.Timestamp = new Date().toISOString().split('T')[0]; // Current date
   
   console.log('Extracted template values:', values);
+  console.log('Context projectName:', context.projectName);
+  console.log('Context customValues:', context.customValues);
+  console.log('Final ProjectName value:', values.ProjectName);
   console.log('Context metadata combination:', context.metadata?.combination);
   console.log('Context text overlays:', context.textOverlays);
   console.log('Text variation found in combination:', context.metadata?.combination?.find((item: any) => item.type === 'text'));

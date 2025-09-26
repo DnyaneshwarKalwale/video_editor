@@ -818,9 +818,11 @@ export async function generateTemplateBasedFileName(
     };
     
     console.log('Template context:', context);
+    console.log('Context projectName:', context.projectName);
     console.log('Context textOverlays:', context.textOverlays);
     console.log('First text overlay:', context.textOverlays?.[0]);
     console.log('Variation metadata:', variationData.metadata);
+    console.log('Template being used:', template.template);
     
     // Generate filename using template
     return generateTemplateFilename(template.template, context);
