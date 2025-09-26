@@ -101,45 +101,21 @@ const VariationModal: React.FC<VariationModalProps> = ({
         const data = await response.json();
         console.log('Project data received:', data);
 
-        // Try different possible fields for project name
-        let actualProjectName = data.name || data.title || data.project?.name || data.project?.title;
+        // Extract project name from the data
+        let actualProjectName = null;
 
         // If it's an array, get the first item's name
         if (Array.isArray(data) && data.length > 0) {
-          actualProjectName = data[0].name || data[0].title;
-        }
-
-        // Clean up the project name - remove project ID patterns and sanitize
-        if (actualProjectName) {
-          // Check if this looks like a project ID and reject it
-          if (isProjectId(actualProjectName)) {
-            console.log('Detected project ID as name, looking for better alternatives:', actualProjectName);
-            // This is likely a project ID, look for better alternatives
-            const betterName = data.display_name || data.project_name || data.title;
-            if (betterName && !isProjectId(betterName)) {
-              actualProjectName = betterName;
-              console.log('Found better name:', actualProjectName);
-            } else {
-              // Use a generic name instead of the project ID
-              actualProjectName = 'Project';
-              console.log('Using generic project name instead of ID');
-            }
-          }
-
-          // Sanitize the project name for filename use
-          actualProjectName = actualProjectName.replace(/[^a-zA-Z0-9\s-_]/g, '').trim();
-          if (!actualProjectName) {
-            actualProjectName = 'Project';
-          }
+          actualProjectName = data[0].name;
+        } else if (data && typeof data === 'object') {
+          actualProjectName = data.name;
         }
 
         console.log('Project name extraction debug:', {
-          dataName: data.name,
-          dataTitle: data.title,
-          projectName: data.project?.name,
-          projectTitle: data.project?.title,
           isArray: Array.isArray(data),
-          fullData: data,
+          dataLength: Array.isArray(data) ? data.length : 'N/A',
+          firstItemName: Array.isArray(data) && data.length > 0 ? data[0].name : 'N/A',
+          dataName: data.name,
           extractedName: actualProjectName
         });
 
@@ -586,11 +562,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
           metadata: f.metadata 
         })));
         
-        // Create unique title for this combination
-        const combinationParts = combination.map(item => item.key).join(' + ');
-        let title = `Video ${index + 1} (${combinationParts})`;
-
-        // Use default title format - proper naming will be handled by updateVariationNames
+        // Use empty title - proper naming will be handled by updateVariationNames
+        let title = '';
         
         // Create text overlays with proper structure for this combination
         const textOverlaysForCombination: TextOverlayData[] = textElements.map((textItem) => {
@@ -872,9 +845,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
           const imageElements = combination.filter(item => item.type === 'image');
           const audioElements = combination.filter(item => item.type === 'audio');
           
-          // Create unique title for this combination
-          const combinationParts = combination.map(item => item.key).join(' + ');
-          let title = `Video ${index + 1} (${combinationParts})`;
+          // Use empty title - proper naming will be handled by updateVariationNames
+          let title = '';
 
           // Try to generate proper name immediately if project name is available
           if (projectName && projectName !== 'Untitled Project') {
