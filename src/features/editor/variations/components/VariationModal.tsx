@@ -159,14 +159,9 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const updateVariationNames = async () => {
     if (variations.length === 0) return;
 
-    // Wait for project name to be loaded
-    if (!projectName || projectName === 'Untitled Project') {
-      console.log('Waiting for project name to be loaded...');
-      setTimeout(() => updateVariationNames(), 500);
-      return;
-    }
-
-    console.log('Updating variation names with project name:', projectName);
+    // Use project name or fallback to ensure names are always generated
+    const effectiveProjectName = projectName && projectName !== 'Untitled Project' ? projectName : 'Project';
+    console.log('Updating variation names with project name:', effectiveProjectName);
     console.log('Current projectName state:', projectName);
     console.log('Variations to update:', variations.length);
     console.log('Current variations before update:', variations.map(v => ({ id: v.id, text: v.text })));
@@ -217,11 +212,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
         // Always use template-based system
         console.log('Calling generateTemplateBasedFileName with:', {
           variationNamingData,
-          projectName,
-          projectNameType: typeof projectName,
-          projectNameValue: projectName
+          effectiveProjectName,
+          effectiveProjectNameType: typeof effectiveProjectName,
+          effectiveProjectNameValue: effectiveProjectName
         });
-        const filename = await generateTemplateBasedFileName(variationNamingData, projectName);
+        const filename = await generateTemplateBasedFileName(variationNamingData, effectiveProjectName);
         console.log('Generated filename:', filename);
 
           // Remove .mp4 extension for display
@@ -733,13 +728,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
     })));
     setVariations(allVideoCombinations);
     
-    // If template is already loaded, update names immediately
-    if (namingTemplate && projectName && projectName !== 'Untitled Project') {
-      console.log('Template and project name already loaded, updating names immediately');
-      setTimeout(() => {
-        updateVariationNames();
-      }, 100);
-    }
+    // Always try to update names immediately after setting variations
+    console.log('Variations set, attempting to update names immediately');
+    setTimeout(() => {
+      updateVariationNames();
+    }, 100);
   };
 
   // Load variations and naming systems when modal opens
@@ -1004,6 +997,12 @@ const VariationModal: React.FC<VariationModalProps> = ({
         textContents: v.allTextOverlays?.map(o => o.text) || []
       })));
       setVariations(allVideoCombinations);
+      
+      // Always try to update names immediately after setting variations
+      console.log('Variations generated, attempting to update names immediately');
+      setTimeout(() => {
+        updateVariationNames();
+      }, 100);
       
     } catch (err) {
       console.error('Error generating variations:', err);
