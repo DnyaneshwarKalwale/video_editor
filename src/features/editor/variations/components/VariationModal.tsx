@@ -714,6 +714,14 @@ const VariationModal: React.FC<VariationModalProps> = ({
       textContents: v.allTextOverlays?.map(o => o.text) || []
     })));
     setVariations(allVideoCombinations);
+    
+    // If template is already loaded, update names immediately
+    if (namingTemplate && projectName && projectName !== 'Untitled Project') {
+      console.log('Template and project name already loaded, updating names immediately');
+      setTimeout(() => {
+        updateVariationNames();
+      }, 100);
+    }
   };
 
   // Load variations and naming systems when modal opens

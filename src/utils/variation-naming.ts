@@ -823,6 +823,8 @@ export async function generateTemplateBasedFileName(
     console.log('Context projectName:', context.projectName);
     console.log('Context projectName value:', context.projectName);
     console.log('Context projectName type:', typeof context.projectName);
+    console.log('Context projectName value:', context.projectName);
+    console.log('Context projectName type:', typeof context.projectName);
     console.log('Context textOverlays:', context.textOverlays);
     console.log('First text overlay:', context.textOverlays?.[0]);
     console.log('Variation metadata:', variationData.metadata);
@@ -843,22 +845,44 @@ export async function generateTemplateBasedFileName(
  */
 async function getUserNamingTemplateAsync(): Promise<{ template: string; name: string; description: string; customValues?: Record<string, string> }> {
   try {
+    // First try to get project-specific template
     const projectId = window.location.pathname.split('/')[2];
-    const response = await fetch(`/api/projects/${projectId}/naming-template`, {
+    const projectResponse = await fetch(`/api/projects/${projectId}/naming-template`, {
       credentials: 'include'
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data.template) {
-        return data.template;
+    if (projectResponse.ok) {
+      const projectData = await projectResponse.json();
+      if (projectData.template) {
+        console.log('Using project-specific template:', projectData.template);
+        return projectData.template;
+      }
+    }
+
+    // If no project-specific template, get user's default template
+    const userResponse = await fetch('/api/user/naming-templates', {
+      credentials: 'include'
+    });
+
+    if (userResponse.ok) {
+      const userData = await userResponse.json();
+      if (userData.templates && userData.templates.length > 0) {
+        // Find the default template or use the first one
+        const defaultTemplate = userData.templates.find((t: any) => t.is_default) || userData.templates[0];
+        console.log('Using user template:', defaultTemplate);
+        return {
+          template: defaultTemplate.template,
+          name: defaultTemplate.name,
+          description: defaultTemplate.description,
+          customValues: defaultTemplate.custom_values || {}
+        };
       }
     }
   } catch (error) {
     console.error('Error loading naming template:', error);
   }
   
-  // Return default template
+  // Return hardcoded default template as fallback
   return {
     template: '{ProjectName}-{Headline}-{VideoSpeed}-{FontName}-{FontSize}-{ProgressBar}',
     name: 'Default Template',

@@ -39,9 +39,67 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [editableValues, setEditableValues] = useState<Record<string, string>>({});
   const [realExamples, setRealExamples] = useState<string[]>([]);
+  const [userTemplates, setUserTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+
+  // Load user templates
+  const loadUserTemplates = async () => {
+    try {
+      const response = await fetch('/api/user/naming-templates', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUserTemplates(data.templates || []);
+      }
+    } catch (error) {
+      console.error('Error loading user templates:', error);
+    }
+  };
+
+  // Save custom template
+  const saveCustomTemplate = async () => {
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch('/api/user/naming-templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          name: templateName,
+          description: description,
+          template: template,
+          customValues: editableValues
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Template saved successfully:', data);
+        // Reload templates
+        await loadUserTemplates();
+        // Show success message
+        alert('Template saved successfully!');
+      } else {
+        const error = await response.json();
+        alert(`Error saving template: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      alert('Error saving template');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Initialize with current template or default
   useEffect(() => {
+    loadUserTemplates();
+    
     if (currentTemplate) {
       setTemplate(currentTemplate.template);
       setTemplateName(currentTemplate.name);
@@ -344,22 +402,57 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
               Naming Template
             </label>
             <div className="space-y-2">
-              {DEFAULT_TEMPLATES.map((preset) => (
+              {/* User's Custom Templates (shown first) */}
+              {userTemplates.filter(t => !t.is_default).map((userTemplate) => (
                 <div
-                  key={preset.id}
+                  key={userTemplate.id}
                   className={`p-3 border rounded cursor-pointer transition-colors ${
-                    template === preset.template 
+                    template === userTemplate.template 
+                      ? 'border-green-500 bg-green-50' 
+                      : 'border-green-200 hover:border-green-300 hover:bg-green-50'
+                  }`}
+                  onClick={() => {
+                    setTemplate(userTemplate.template);
+                    setTemplateName(userTemplate.name);
+                    setDescription(userTemplate.description);
+                    setEditableValues(userTemplate.custom_values || {});
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium text-sm text-green-700">{userTemplate.name}</div>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Custom</span>
+                  </div>
+                  <div className="text-xs text-gray-600 mb-1">
+                    {userTemplate.description}
+                  </div>
+                  <div className="font-mono text-xs text-gray-500 break-all">
+                    {userTemplate.template}
+                  </div>
+                </div>
+              ))}
+              
+              {/* Default Templates */}
+              {userTemplates.filter(t => t.is_default).map((defaultTemplate) => (
+                <div
+                  key={defaultTemplate.id}
+                  className={`p-3 border rounded cursor-pointer transition-colors ${
+                    template === defaultTemplate.template 
                       ? 'border-blue-500 bg-blue-50' 
                       : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
                   }`}
-                  onClick={() => handleLoadTemplate(preset)}
+                  onClick={() => {
+                    setTemplate(defaultTemplate.template);
+                    setTemplateName(defaultTemplate.name);
+                    setDescription(defaultTemplate.description);
+                    setEditableValues(defaultTemplate.custom_values || {});
+                  }}
                 >
-                  <div className="font-medium text-sm">{preset.name}</div>
+                  <div className="font-medium text-sm">{defaultTemplate.name}</div>
                   <div className="text-xs text-gray-600 mb-1">
-                    {preset.description}
+                    {defaultTemplate.description}
                   </div>
                   <div className="font-mono text-xs text-gray-500 break-all">
-                    {preset.template}
+                    {defaultTemplate.template}
                   </div>
                 </div>
               ))}
@@ -478,6 +571,21 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
             Cancel
           </Button>
           <Button
+            onClick={saveCustomTemplate}
+            variant="outline"
+            className="flex-1"
+            disabled={!validation.isValid || isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save as Custom'
+            )}
+          </Button>
+          <Button
             onClick={handleSaveTemplate}
             className="flex-1"
             disabled={!validation.isValid || isLoading}
@@ -490,7 +598,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
             ) : (
               <>
                 <Save className="w-4 h-4 mr-2" />
-                Save & Apply
+                Apply to Project
               </>
             )}
           </Button>
