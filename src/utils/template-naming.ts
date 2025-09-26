@@ -259,8 +259,35 @@ export function extractTemplateValues(context: VariationContext): Record<string,
   }
   
   // Project values - Use custom value or extract from project name
-  values.ProjectName = context.customValues?.ProjectName || 
-    (context.projectName && context.projectName !== 'Untitled Project' ? context.projectName : 'UntitledProject');
+  console.log('Template naming - context.projectName:', context.projectName);
+  console.log('Template naming - context.customValues?.ProjectName:', context.customValues?.ProjectName);
+
+  let projectName = context.customValues?.ProjectName || context.projectName || 'UntitledProject';
+
+  // Check if project name looks like an ID and clean it up
+  if (projectName && projectName !== 'Untitled Project' && projectName !== 'UntitledProject') {
+    // Check for specific project ID patterns (like a0c0063f-a664-4777-9206-4e66670d9f59)
+    const isProjectIdPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(projectName) ||
+                              /^[A-Za-z0-9]{10,}$/.test(projectName) ||
+                              (projectName.includes('-') && projectName.length > 20);
+
+    if (isProjectIdPattern) {
+      console.log('Project name looks like an ID, using generic name instead:', projectName);
+      projectName = 'Project';
+    } else {
+      // Sanitize the project name for filename use but keep it
+      projectName = projectName.replace(/[^a-zA-Z0-9\s-_]/g, '').trim();
+      if (!projectName) {
+        projectName = 'Project';
+      }
+    }
+  } else if (!projectName || projectName === 'Untitled Project') {
+    projectName = 'UntitledProject';
+  }
+
+  values.ProjectName = projectName;
+
+  console.log('Template naming - final ProjectName value:', values.ProjectName);
   
   // Content values - Prioritize textOverlays (variation-specific) over metadata.combination (original video)
   if (!context.customValues?.Headline && !context.customValues?.FullText) {

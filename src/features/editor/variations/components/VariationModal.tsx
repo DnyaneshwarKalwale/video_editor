@@ -38,6 +38,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [useTemplateSystem, setUseTemplateSystem] = useState(true); // Toggle between old and new system - default to template system
   const [projectName, setProjectName] = useState<string>('Untitled Project');
 
+  // Helper function to check if a string looks like a project ID
+  const isProjectId = (str: string): boolean => {
+    return str.includes('-') && str.length > 15 && /^[a-zA-Z0-9-]+$/.test(str);
+  };
+
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
   const { addDownload, setOpen } = useDownloadManager();
@@ -87,21 +92,67 @@ const VariationModal: React.FC<VariationModalProps> = ({
     try {
       const projectId = window.location.pathname.split('/')[2];
       console.log('Loading project name for project ID:', projectId);
-      
+
       const response = await fetch(`/api/projects/${projectId}`, {
         credentials: 'include'
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('Project data received:', data);
-        
+
         // Try different possible fields for project name
-        const actualProjectName = data.name || data.title || data.project?.name || data.project?.title;
-        
+        let actualProjectName = data.name || data.title || data.project?.name || data.project?.title;
+
+        // If it's an array, get the first item's name
+        if (Array.isArray(data) && data.length > 0) {
+          actualProjectName = data[0].name || data[0].title;
+        }
+
+        // Clean up the project name - remove project ID patterns and sanitize
+        if (actualProjectName) {
+          // Check if this looks like a project ID and reject it
+          if (isProjectId(actualProjectName)) {
+            console.log('Detected project ID as name, looking for better alternatives:', actualProjectName);
+            // This is likely a project ID, look for better alternatives
+            const betterName = data.display_name || data.project_name || data.title;
+            if (betterName && !isProjectId(betterName)) {
+              actualProjectName = betterName;
+              console.log('Found better name:', actualProjectName);
+            } else {
+              // Use a generic name instead of the project ID
+              actualProjectName = 'Project';
+              console.log('Using generic project name instead of ID');
+            }
+          }
+
+          // Sanitize the project name for filename use
+          actualProjectName = actualProjectName.replace(/[^a-zA-Z0-9\s-_]/g, '').trim();
+          if (!actualProjectName) {
+            actualProjectName = 'Project';
+          }
+        }
+
+        console.log('Project name extraction debug:', {
+          dataName: data.name,
+          dataTitle: data.title,
+          projectName: data.project?.name,
+          projectTitle: data.project?.title,
+          isArray: Array.isArray(data),
+          fullData: data,
+          extractedName: actualProjectName
+        });
+
         if (actualProjectName) {
           console.log('Successfully loaded project name:', actualProjectName);
           setProjectName(actualProjectName);
+          // Trigger variation name update after project name is loaded
+          setTimeout(() => {
+            if (variations.length > 0) {
+              console.log('Triggering variation name update after project name loaded');
+              updateVariationNames();
+            }
+          }, 100);
         } else {
           console.log('No project name found in data, retrying...');
           // Retry after a short delay
@@ -122,22 +173,32 @@ const VariationModal: React.FC<VariationModalProps> = ({
   // Update variation names when naming pattern changes
   const updateVariationNames = async () => {
     if (variations.length === 0) return;
-    
+
     // Wait for project name to be loaded
     if (!projectName || projectName === 'Untitled Project') {
       console.log('Waiting for project name to be loaded...');
       setTimeout(() => updateVariationNames(), 500);
       return;
     }
-    
+
     console.log('Updating variation names with project name:', projectName);
-    
+    console.log('Current variations before update:', variations.map(v => ({ id: v.id, text: v.text })));
+
     const updatedVariations = await Promise.all(
       variations.map(async (variation) => {
         if (customNames[variation.id]) {
+          console.log(`Keeping custom name for ${variation.id}: ${customNames[variation.id]}`);
           return variation; // Keep custom names as is
         }
-        
+
+        // Skip if variation already has a proper template-generated name (not the generic format)
+        if (variation.text && !variation.text.includes('Video ') && !variation.text.includes('(') && variation.text.length > 10) {
+          console.log(`Keeping existing proper name for ${variation.id}: ${variation.text}`);
+          return variation;
+        }
+
+        console.log(`Generating new name for ${variation.id}, current text: ${variation.text}`);
+
         // Generate new name with current naming system
         const variationNamingData = {
           variation: {
@@ -149,20 +210,36 @@ const VariationModal: React.FC<VariationModalProps> = ({
           textOverlays: variation.allTextOverlays || [], // Always use variation's specific text overlays
           metadata: variation.metadata
         };
-        
-        // Always use template-based system
-        const filename = await generateTemplateBasedFileName(variationNamingData, projectName);
-        
-        // Remove .mp4 extension for display
-        const variationPart = filename.replace('.mp4', '');
-        
-        return {
-          ...variation,
-          text: variationPart // Update the display name
-        };
+
+        console.log(`Variation naming data for ${variation.id}:`, {
+          hasTextOverlays: !!variationNamingData.textOverlays?.length,
+          textOverlaysCount: variationNamingData.textOverlays?.length,
+          firstText: variationNamingData.textOverlays?.[0]?.text,
+          hasMetadata: !!variationNamingData.metadata,
+          hasCombination: !!variationNamingData.metadata?.combination
+        });
+
+        try {
+          // Always use template-based system
+          const filename = await generateTemplateBasedFileName(variationNamingData, projectName);
+
+          // Remove .mp4 extension for display
+          const variationPart = filename.replace('.mp4', '');
+
+          console.log(`Generated new name for ${variation.id}: ${variationPart}`);
+
+          return {
+            ...variation,
+            text: variationPart // Update the display name
+          };
+        } catch (error) {
+          console.error(`Error generating name for ${variation.id}:`, error);
+          return variation; // Keep existing name if generation fails
+        }
       })
     );
-    
+
+    console.log('Updated variations after naming:', updatedVariations.map(v => ({ id: v.id, text: v.text })));
     setVariations(updatedVariations);
   };
 
@@ -511,7 +588,9 @@ const VariationModal: React.FC<VariationModalProps> = ({
         
         // Create unique title for this combination
         const combinationParts = combination.map(item => item.key).join(' + ');
-        const title = `Video ${index + 1} (${combinationParts})`;
+        let title = `Video ${index + 1} (${combinationParts})`;
+
+        // Use default title format - proper naming will be handled by updateVariationNames
         
         // Create text overlays with proper structure for this combination
         const textOverlaysForCombination: TextOverlayData[] = textElements.map((textItem) => {
@@ -795,7 +874,45 @@ const VariationModal: React.FC<VariationModalProps> = ({
           
           // Create unique title for this combination
           const combinationParts = combination.map(item => item.key).join(' + ');
-          const title = `Video ${index + 1} (${combinationParts})`;
+          let title = `Video ${index + 1} (${combinationParts})`;
+
+          // Try to generate proper name immediately if project name is available
+          if (projectName && projectName !== 'Untitled Project') {
+            try {
+              const variationNamingData = {
+                variation: {
+                  id: `combination-${index}`,
+                  isOriginal: index === 0
+                },
+                videoTrackItems: project.videoTrackItems,
+                audioTrackItems: project.audioTrackItems,
+                textOverlays: [], // Will be set below
+                metadata: {
+                  videoElements,
+                  imageElements,
+                  audioElements,
+                  combination
+                }
+              };
+
+              // Set text overlays for naming (will be created properly below)
+              const tempTextOverlays = textElements.map((textItem) => ({
+                text: textItem.value,
+                style: {
+                  fontFamily: 'Arial, sans-serif',
+                  fontSize: 48,
+                  fontWeight: 'bold',
+                  color: '#ffffff'
+                }
+              }));
+              variationNamingData.textOverlays = tempTextOverlays;
+
+              // Use default title format - proper naming will be handled by updateVariationNames
+            } catch (error) {
+              console.error('Error generating initial variation name:', error);
+              // Keep the default title format
+            }
+          }
           
           // Create text overlays with proper structure for this combination
           const textOverlaysForCombination: TextOverlayData[] = textElements.map((textItem) => {
