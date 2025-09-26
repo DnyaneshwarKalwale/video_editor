@@ -82,32 +82,55 @@ const VariationModal: React.FC<VariationModalProps> = ({
     }
   };
 
-  // Load project name
+  // Load project name - wait for actual name, no fallbacks
   const loadProjectName = async () => {
     try {
       const projectId = window.location.pathname.split('/')[2];
+      console.log('Loading project name for project ID:', projectId);
+      
       const response = await fetch(`/api/projects/${projectId}`, {
         credentials: 'include'
       });
       
       if (response.ok) {
         const data = await response.json();
-        setProjectName(data.name || data.title || projectId || 'Untitled Project');
+        console.log('Project data received:', data);
+        
+        // Try different possible fields for project name
+        const actualProjectName = data.name || data.title || data.project?.name || data.project?.title;
+        
+        if (actualProjectName) {
+          console.log('Successfully loaded project name:', actualProjectName);
+          setProjectName(actualProjectName);
+        } else {
+          console.log('No project name found in data, retrying...');
+          // Retry after a short delay
+          setTimeout(() => loadProjectName(), 1000);
+        }
       } else {
-        // Fallback to project ID
-        setProjectName(projectId || 'Untitled Project');
+        console.log('Failed to load project data, retrying...');
+        // Retry after a short delay
+        setTimeout(() => loadProjectName(), 1000);
       }
     } catch (error) {
       console.error('Error loading project name:', error);
-      // Fallback to project ID
-      const projectId = window.location.pathname.split('/')[2];
-      setProjectName(projectId || 'Untitled Project');
+      // Retry after a short delay
+      setTimeout(() => loadProjectName(), 1000);
     }
   };
 
   // Update variation names when naming pattern changes
   const updateVariationNames = async () => {
     if (variations.length === 0) return;
+    
+    // Wait for project name to be loaded
+    if (!projectName || projectName === 'Untitled Project') {
+      console.log('Waiting for project name to be loaded...');
+      setTimeout(() => updateVariationNames(), 500);
+      return;
+    }
+    
+    console.log('Updating variation names with project name:', projectName);
     
     const updatedVariations = await Promise.all(
       variations.map(async (variation) => {
@@ -127,23 +150,11 @@ const VariationModal: React.FC<VariationModalProps> = ({
           metadata: variation.metadata
         };
         
-        // Use the loaded project name
-        const actualProjectName = projectName;
+        // Always use template-based system
+        const filename = await generateTemplateBasedFileName(variationNamingData, projectName);
         
-        let filename: string;
-        if (useTemplateSystem) {
-          // Use new template-based system (will use default template if none loaded)
-          filename = await generateTemplateBasedFileName(variationNamingData, actualProjectName);
-        } else {
-          // Use old pattern-based system
-          filename = await generateVariationFileNameAsync(variationNamingData, actualProjectName);
-        }
-        
-        // For template system, use the full filename (it already includes project name)
-        // For pattern system, extract variation part
-        const variationPart = useTemplateSystem 
-          ? filename.replace('.mp4', '') // Remove .mp4 extension only
-          : filename.replace(/^[^_]+_/, '').replace('.mp4', ''); // Remove project prefix and .mp4
+        // Remove .mp4 extension for display
+        const variationPart = filename.replace('.mp4', '');
         
         return {
           ...variation,
@@ -657,12 +668,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
   // Update variation names when naming pattern or template changes
   useEffect(() => {
     if (variations.length > 0) {
-      if (useTemplateSystem) {
-        // Always try to update with template system if enabled
-        updateVariationNames();
-      } else if (!useTemplateSystem && namingPattern) {
-        updateVariationNames();
-      }
+      // Always use template system by default
+      updateVariationNames();
     }
   }, [namingPattern, namingTemplate, useTemplateSystem, projectName]);
 
@@ -1140,13 +1147,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
           metadata: variation.metadata
         };
         
-        if (useTemplateSystem) {
-          // Use new template-based system (will use default template if none loaded)
-          filename = await generateTemplateBasedFileName(variationNamingData, actualProjectName);
-        } else {
-          // Use old pattern-based system
-          filename = await generateVariationFileNameAsync(variationNamingData, actualProjectName);
-        }
+        // Always use template-based system
+        filename = await generateTemplateBasedFileName(variationNamingData, actualProjectName);
       }
 
       // Add to download manager
