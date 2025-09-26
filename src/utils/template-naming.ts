@@ -258,8 +258,9 @@ export function extractTemplateValues(context: VariationContext): Record<string,
     Object.assign(values, context.customValues);
   }
   
-  // Project values
-  values.ProjectName = context.customValues?.ProjectName || context.projectName || 'UntitledProject';
+  // Project values - Use custom value or extract from project name
+  values.ProjectName = context.customValues?.ProjectName || 
+    (context.projectName && context.projectName !== 'Untitled Project' ? context.projectName : 'UntitledProject');
   
   // Content values - Extract from metadata combination if available
   if (!context.customValues?.Headline && !context.customValues?.FullText) {
@@ -274,6 +275,7 @@ export function extractTemplateValues(context: VariationContext): Record<string,
         values.Headline = 'NoText';
       }
     } else if (context.textOverlays && context.textOverlays.length > 0) {
+      // Use the actual text from the variation's text overlays
       const mainText = context.textOverlays[0].text;
       values.FullText = sanitizeText(mainText);
       values.Headline = extractHeadline(mainText);
@@ -402,6 +404,8 @@ export function extractTemplateValues(context: VariationContext): Record<string,
   
   console.log('Extracted template values:', values);
   console.log('Context metadata combination:', context.metadata?.combination);
+  console.log('Context text overlays:', context.textOverlays);
+  console.log('Text variation found:', context.metadata?.combination?.find((item: any) => item.type === 'text'));
   
   return values;
 }

@@ -58,52 +58,57 @@ export const EditableFilename: React.FC<EditableFilenameProps> = ({
     }
   };
 
-  if (isEditing) {
-    return (
-      <div className={`flex items-center gap-2 ${className}`}>
-        <Input
-          ref={inputRef}
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="flex-1 text-sm h-8"
-          placeholder="Enter custom name..."
-        />
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleSave}
-          className="h-8 w-8 p-0"
-        >
-          <Check className="h-4 w-4 text-green-600" />
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleCancel}
-          className="h-8 w-8 p-0"
-        >
-          <X className="h-4 w-4 text-red-600" />
-        </Button>
-      </div>
-    );
-  }
+      if (isEditing) {
+        return (
+          <div className={`flex items-center gap-2 min-w-0 ${className}`}>
+            <Input
+              ref={inputRef}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="flex-1 text-sm h-8 min-w-0"
+              placeholder="Enter custom name..."
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleSave}
+              className="h-8 w-8 p-0 flex-shrink-0"
+            >
+              <Check className="h-4 w-4 text-green-600" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleCancel}
+              className="h-8 w-8 p-0 flex-shrink-0"
+            >
+              <X className="h-4 w-4 text-red-600" />
+            </Button>
+          </div>
+        );
+      }
 
-  return (
-    <div className={`group flex items-center gap-2 ${className}`}>
-      <span className="text-sm font-medium truncate flex-1" title={currentName}>
-        {currentName}
-      </span>
-      <Button
-        size="sm"
-        variant="ghost"
-        onClick={handleStartEdit}
-        className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-      >
-        <Edit2 className="h-3 w-3" />
-      </Button>
-    </div>
-  );
+      return (
+        <div className={`group flex items-center gap-2 min-w-0 ${className}`}>
+          <span 
+            className="text-sm font-medium truncate flex-1 min-w-0 cursor-pointer" 
+            title={currentName}
+            onClick={handleStartEdit}
+          >
+            {currentName}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleStartEdit}
+            className="h-6 w-6 p-0 opacity-60 hover:opacity-100 transition-opacity flex-shrink-0"
+            title="Click to edit name"
+          >
+            <Edit2 className="h-3 w-3" />
+          </Button>
+        </div>
+      );
 };
 
 export default EditableFilename;

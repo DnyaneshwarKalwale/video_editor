@@ -63,8 +63,16 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
       variations.slice(0, 5).forEach((variation, index) => {
         try {
           const context = {
-            projectName: projectData.platformConfig?.name || 'UntitledProject',
-            textOverlays: variation.allTextOverlays || projectData.textOverlays || [],
+            projectName: (() => {
+              // Try to get project ID from URL
+              try {
+                const projectId = window.location.pathname.split('/')[2];
+                return projectId || 'UntitledProject';
+              } catch {
+                return 'UntitledProject';
+              }
+            })(),
+            textOverlays: variation.allTextOverlays || [],
             videoTrackItems: projectData.videoTrackItems || [],
             audioTrackItems: projectData.audioTrackItems || [],
             imageTrackItems: projectData.imageTrackItems || [],
@@ -176,8 +184,16 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
       variations.slice(0, 5).forEach((variation) => {
         try {
           const context = {
-            projectName: projectData.platformConfig?.name || 'UntitledProject',
-            textOverlays: variation.allTextOverlays || projectData.textOverlays || [],
+            projectName: (() => {
+              // Try to get project ID from URL
+              try {
+                const projectId = window.location.pathname.split('/')[2];
+                return projectId || 'UntitledProject';
+              } catch {
+                return 'UntitledProject';
+              }
+            })(),
+            textOverlays: variation.allTextOverlays || [],
             videoTrackItems: projectData.videoTrackItems || [],
             audioTrackItems: projectData.audioTrackItems || [],
             imageTrackItems: projectData.imageTrackItems || [],

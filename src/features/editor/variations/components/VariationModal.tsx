@@ -36,6 +36,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [namingPattern, setNamingPattern] = useState<any>(null);
   const [namingTemplate, setNamingTemplate] = useState<any>(null);
   const [useTemplateSystem, setUseTemplateSystem] = useState(true); // Toggle between old and new system - default to template system
+  const [projectName, setProjectName] = useState<string>('Untitled Project');
 
   const openAIService = AIVariationService.getInstance();
   const { trackItemsMap, trackItemIds } = useStore();
@@ -81,6 +82,29 @@ const VariationModal: React.FC<VariationModalProps> = ({
     }
   };
 
+  // Load project name
+  const loadProjectName = async () => {
+    try {
+      const projectId = window.location.pathname.split('/')[2];
+      const response = await fetch(`/api/projects/${projectId}`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setProjectName(data.name || data.title || projectId || 'Untitled Project');
+      } else {
+        // Fallback to project ID
+        setProjectName(projectId || 'Untitled Project');
+      }
+    } catch (error) {
+      console.error('Error loading project name:', error);
+      // Fallback to project ID
+      const projectId = window.location.pathname.split('/')[2];
+      setProjectName(projectId || 'Untitled Project');
+    }
+  };
+
   // Update variation names when naming pattern changes
   const updateVariationNames = async () => {
     if (variations.length === 0) return;
@@ -99,17 +123,20 @@ const VariationModal: React.FC<VariationModalProps> = ({
           },
           videoTrackItems: project.videoTrackItems,
           audioTrackItems: project.audioTrackItems,
-          textOverlays: variation.allTextOverlays || project.textOverlays, // Use variation's text overlays if available
+          textOverlays: variation.allTextOverlays || [], // Always use variation's specific text overlays
           metadata: variation.metadata
         };
+        
+        // Use the loaded project name
+        const actualProjectName = projectName;
         
         let filename: string;
         if (useTemplateSystem) {
           // Use new template-based system (will use default template if none loaded)
-          filename = await generateTemplateBasedFileName(variationNamingData, project.platformConfig?.name);
+          filename = await generateTemplateBasedFileName(variationNamingData, actualProjectName);
         } else {
           // Use old pattern-based system
-          filename = await generateVariationFileNameAsync(variationNamingData, project.platformConfig?.name);
+          filename = await generateVariationFileNameAsync(variationNamingData, actualProjectName);
         }
         
         // For template system, use the full filename (it already includes project name)
@@ -623,6 +650,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
       loadVariationsFromSidebar();
       loadNamingPattern();
       loadNamingTemplate();
+      loadProjectName();
     }
   }, [isOpen]);
 
@@ -636,7 +664,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
         updateVariationNames();
       }
     }
-  }, [namingPattern, namingTemplate, useTemplateSystem]);
+  }, [namingPattern, namingTemplate, useTemplateSystem, projectName]);
 
   const generateVariations = async () => {
     setIsGenerating(true);
@@ -1089,13 +1117,14 @@ const VariationModal: React.FC<VariationModalProps> = ({
       };
 
       // Generate meaningful filename based on variation data
-      const projectName = project.platformConfig?.name || 'Untitled Project';
+      // Use the loaded project name
+      const actualProjectName = projectName;
       
       // Use custom name if available, otherwise generate smart name
       let filename: string;
       if (customNames[variation.id]) {
         // Use custom name with project prefix
-        const cleanProjectName = projectName.replace(/[^a-zA-Z0-9-_]/g, '_');
+        const cleanProjectName = actualProjectName.replace(/[^a-zA-Z0-9-_]/g, '_');
         filename = `${cleanProjectName}_${customNames[variation.id]}.mp4`;
       } else {
         // Prepare data in the format expected by naming functions
@@ -1107,16 +1136,16 @@ const VariationModal: React.FC<VariationModalProps> = ({
           videoTrackItems,
           audioTrackItems,
           imageTrackItems,
-          textOverlays: variation.allTextOverlays || textOverlays, // Use variation's text overlays if available
+          textOverlays: variation.allTextOverlays || [], // Always use variation's specific text overlays
           metadata: variation.metadata
         };
         
         if (useTemplateSystem) {
           // Use new template-based system (will use default template if none loaded)
-          filename = await generateTemplateBasedFileName(variationNamingData, projectName);
+          filename = await generateTemplateBasedFileName(variationNamingData, actualProjectName);
         } else {
           // Use old pattern-based system
-          filename = await generateVariationFileNameAsync(variationNamingData, projectName);
+          filename = await generateVariationFileNameAsync(variationNamingData, actualProjectName);
         }
       }
 
@@ -1295,7 +1324,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
                     });
                     
                     return (
-                    <div key={variation.id} className="flex flex-col items-center space-y-3 w-full max-w-full p-2">
+                    <div key={variation.id} className="flex flex-col items-center space-y-3 w-full max-w-full p-2 min-w-0">
                       {/* Video Container - Fixed size matching platform */}
                       <div 
                         className="relative bg-black rounded-lg overflow-hidden"
@@ -1318,8 +1347,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
                       </div>
                       
                       {/* Video name and buttons */}
-                      <div className="text-center space-y-2">
-                        <div className="w-full">
+                      <div className="text-center space-y-2 w-full">
+                        <div className="w-full min-w-0">
                           <EditableFilename
                             variationId={variation.id}
                             currentName={(() => {
@@ -1336,7 +1365,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
                             return variation.text;
                           })()}
                             onNameChange={handleNameChange}
-                            className="w-full"
+                            className="w-full min-w-0"
                           />
                         </div>
                         <div className="flex items-center justify-center gap-2">
