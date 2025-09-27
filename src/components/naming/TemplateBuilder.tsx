@@ -63,34 +63,57 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
     try {
       setIsLoading(true);
       
+      // Validate required fields
+      if (!templateName.trim()) {
+        console.error('Template name is required');
+        return;
+      }
+      
+      if (!template.trim()) {
+        console.error('Template is required');
+        return;
+      }
+      
+      const requestBody = {
+        name: templateName.trim(),
+        description: description.trim(),
+        template: template.trim(),
+        customValues: editableValues
+      };
+      
+      console.log('Saving custom template with data:', requestBody);
+      
       const response = await fetch('/api/user/naming-templates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({
-          name: templateName,
-          description: description,
-          template: template,
-          customValues: editableValues
-        })
+        body: JSON.stringify(requestBody)
       });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
 
       if (response.ok) {
         const data = await response.json();
         console.log('Template saved successfully:', data);
         // Reload templates
         await loadUserTemplates();
-        // Show success message
-        alert('Template saved successfully!');
+        // Show success message (no popup)
+        console.log('Template saved successfully!');
       } else {
-        const error = await response.json();
-        alert(`Error saving template: ${error.error}`);
+        const errorText = await response.text();
+        console.error(`Error saving template - Status: ${response.status}, Response: ${errorText}`);
+        try {
+          const error = JSON.parse(errorText);
+          console.error(`Parsed error: ${error.error}`);
+        } catch (parseError) {
+          console.error('Could not parse error response as JSON');
+        }
       }
     } catch (error) {
       console.error('Error saving template:', error);
-      alert('Error saving template');
     } finally {
       setIsLoading(false);
     }
@@ -227,11 +250,10 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
         onClose();
       } else {
         const errorData = await response.json();
-        alert(`Failed to save template: ${errorData.error || 'Unknown error'}`);
+        console.error(`Failed to save template: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error saving template:', error);
-      alert('Network error while saving template. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -505,6 +527,34 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
                   <textarea
                     value={template}
                     onChange={(e) => setTemplate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace') {
+                        const textarea = e.target as HTMLTextAreaElement;
+                        const cursorPos = textarea.selectionStart;
+                        const text = template;
+                        
+                        // Find if cursor is inside a placeholder
+                        const placeholderRegex = /\{[^}]+\}/g;
+                        let match;
+                        while ((match = placeholderRegex.exec(text)) !== null) {
+                          const start = match.index;
+                          const end = match.index + match[0].length;
+                          
+                          // If cursor is inside this placeholder, remove the entire placeholder
+                          if (cursorPos > start && cursorPos <= end) {
+                            e.preventDefault();
+                            const newText = text.substring(0, start) + text.substring(end);
+                            setTemplate(newText);
+                            
+                            // Set cursor position after the removed placeholder
+                            setTimeout(() => {
+                              textarea.setSelectionRange(start, start);
+                            }, 0);
+                            return;
+                          }
+                        }
+                      }
+                    }}
                     placeholder="Enter your template with placeholders like {ProjectName}-{Headline}-{VideoSpeed}"
                     className="w-full h-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500 font-mono text-sm"
                   />

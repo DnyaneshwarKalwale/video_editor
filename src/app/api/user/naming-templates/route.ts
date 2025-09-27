@@ -103,51 +103,57 @@ export async function GET(request: NextRequest) {
 // POST - Create a new custom template
 export async function POST(request: NextRequest) {
   try {
+    console.log('POST /api/user/naming-templates - Starting request');
+    
     const session = await getServerSession(authOptions);
+    console.log('Session:', session ? 'Found' : 'Not found');
     
     if (!session?.user?.id) {
+      console.log('No session or user ID found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const userId = session.user.id;
+    console.log('User ID:', userId);
+    
     const body = await request.json();
+    console.log('Request body:', body);
+    
     const { name, description, template, customValues } = body;
 
     if (!name || !template) {
+      console.log('Missing required fields - name:', !!name, 'template:', !!template);
       return NextResponse.json({ error: 'Name and template are required' }, { status: 400 });
     }
 
-    // Check if template name already exists for this user
-    const { data: existingTemplate } = await supabase
-      .from('user_naming_templates')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('name', name)
-      .single();
+    // Allow duplicate names - just append timestamp to make them unique
+    const uniqueName = `${name}_${Date.now()}`;
+    console.log('Unique name:', uniqueName);
 
-    if (existingTemplate) {
-      return NextResponse.json({ error: 'Template name already exists' }, { status: 400 });
-    }
+    const insertData = {
+      user_id: userId,
+      name: uniqueName,
+      description: description || '',
+      template,
+      custom_values: customValues || {},
+      is_default: false
+    };
+    
+    console.log('Insert data:', insertData);
 
     // Create new template
     const { data: newTemplate, error: insertError } = await supabase
       .from('user_naming_templates')
-      .insert({
-        user_id: userId,
-        name,
-        description: description || '',
-        template,
-        custom_values: customValues || {},
-        is_default: false
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (insertError) {
       console.error('Error creating template:', insertError);
-      return NextResponse.json({ error: 'Failed to create template' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to create template', details: insertError.message }, { status: 500 });
     }
 
+    console.log('Template created successfully:', newTemplate);
     return NextResponse.json({ template: newTemplate });
 
   } catch (error) {
