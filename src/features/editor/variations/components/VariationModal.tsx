@@ -10,7 +10,7 @@ import useStore from '../../store/use-store';
 import VariationDownloadProgressModal from './VariationDownloadProgressModal';
 import { useDownloadManager } from '../../store/use-download-manager';
 import { useProgressBarStore } from '../../store/use-progress-bar-store';
-import { generateVariationFileName, generateVariationFileNameAsync, generateTemplateBasedFileName } from '@/utils/variation-naming';
+import { generateVariationFileName, generateTemplateBasedFileName } from '@/utils/variation-naming';
 import EditableFilename from './EditableFilename';
 import SimpleNamingSelector from '@/components/naming/SimpleNamingSelector';
 import TemplateBuilder from '@/components/naming/TemplateBuilder';
@@ -161,17 +161,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
 
     // Use project name or fallback to ensure names are always generated
     const effectiveProjectName = projectName && projectName !== 'Untitled Project' ? projectName : 'Project';
-    console.log('Updating variation names with project name:', effectiveProjectName);
-    console.log('Current projectName state:', projectName);
-    console.log('Variations to update:', variations.length);
-    console.log('Current variations before update:', variations.map(v => ({ id: v.id, text: v.text })));
-    console.log('First variation details:', variations[0] ? {
-      id: variations[0].id,
-      text: variations[0].text,
-      hasAllTextOverlays: !!variations[0].allTextOverlays,
-      allTextOverlaysCount: variations[0].allTextOverlays?.length,
-      hasMetadata: !!variations[0].metadata
-    } : 'No variations');
 
     const updatedVariations = await Promise.all(
       variations.map(async (variation) => {
@@ -179,14 +168,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
           console.log(`Keeping custom name for ${variation.id}: ${customNames[variation.id]}`);
           return variation; // Keep custom names as is
         }
-
-        // Skip if variation already has a proper template-generated name (not the generic format)
-        if (variation.text && !variation.text.includes('Video ') && !variation.text.includes('(') && variation.text.length > 10) {
-          console.log(`Keeping existing proper name for ${variation.id}: ${variation.text}`);
-          return variation;
-        }
-
-        console.log(`Generating new name for ${variation.id}, current text: ${variation.text}`);
 
         // Generate new name with current naming system
         const variationNamingData = {
@@ -200,29 +181,12 @@ const VariationModal: React.FC<VariationModalProps> = ({
           metadata: variation.metadata
         };
 
-        console.log(`Variation naming data for ${variation.id}:`, {
-          hasTextOverlays: !!variationNamingData.textOverlays?.length,
-          textOverlaysCount: variationNamingData.textOverlays?.length,
-          firstText: variationNamingData.textOverlays?.[0]?.text,
-          hasMetadata: !!variationNamingData.metadata,
-          hasCombination: !!variationNamingData.metadata?.combination
-        });
-
         try {
         // Always use template-based system
-        console.log('Calling generateTemplateBasedFileName with:', {
-          variationNamingData,
-          effectiveProjectName,
-          effectiveProjectNameType: typeof effectiveProjectName,
-          effectiveProjectNameValue: effectiveProjectName
-        });
         const filename = await generateTemplateBasedFileName(variationNamingData, effectiveProjectName);
-        console.log('Generated filename:', filename);
 
           // Remove .mp4 extension for display
           const variationPart = filename.replace('.mp4', '');
-
-          console.log(`Generated new name for ${variation.id}: ${variationPart}`);
 
           return {
             ...variation,
@@ -234,9 +198,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
         }
       })
     );
-
-    console.log('Updated variations after naming:', updatedVariations.map(v => ({ id: v.id, text: v.text })));
-    console.log('Setting variations with updated names...');
     setVariations(updatedVariations);
     console.log('Variations set successfully');
   };

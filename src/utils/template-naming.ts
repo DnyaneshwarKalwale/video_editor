@@ -259,12 +259,7 @@ export function extractTemplateValues(context: VariationContext): Record<string,
   }
   
   // Project values - Use custom value or extract from project name
-  console.log('Template naming - context.projectName:', context.projectName);
-  console.log('Template naming - context.customValues?.ProjectName:', context.customValues?.ProjectName);
-
   values.ProjectName = context.customValues?.ProjectName || context.projectName || 'Project';
-
-  console.log('Template naming - final ProjectName value:', values.ProjectName);
   
   // Content values - Prioritize textOverlays (variation-specific) over metadata.combination (original video)
   if (!context.customValues?.Headline && !context.customValues?.FullText) {
@@ -406,16 +401,6 @@ export function extractTemplateValues(context: VariationContext): Record<string,
   values.Resolution = '1920x1080'; // Default, could be extracted from context
   values.VariationIndex = '1'; // Default, could be extracted from variation data
   values.Timestamp = new Date().toISOString().split('T')[0]; // Current date
-  
-  console.log('Extracted template values:', values);
-  console.log('Context projectName:', context.projectName);
-  console.log('Context customValues:', context.customValues);
-  console.log('Final ProjectName value:', values.ProjectName);
-  console.log('Context metadata combination:', context.metadata?.combination);
-  console.log('Context text overlays:', context.textOverlays);
-  console.log('Text variation found in combination:', context.metadata?.combination?.find((item: any) => item.type === 'text'));
-  console.log('Using textOverlays for text extraction:', context.textOverlays && context.textOverlays.length > 0);
-  console.log('First text overlay text:', context.textOverlays?.[0]?.text);
   
   return values;
 }
