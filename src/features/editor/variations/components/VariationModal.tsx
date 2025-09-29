@@ -35,7 +35,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [showTemplateBuilder, setShowTemplateBuilder] = useState(false);
   const [namingPattern, setNamingPattern] = useState<any>(null);
   const [namingTemplate, setNamingTemplate] = useState<any>(null);
-  const [useTemplateSystem, setUseTemplateSystem] = useState(true); // Toggle between old and new system - default to template system
+  const [useTemplateSystem, setUseTemplateSystem] = useState(true); // Always use template system
   const [projectName, setProjectName] = useState<string>('Untitled Project');
 
   // Helper function to check if a string looks like a project ID
@@ -80,10 +80,38 @@ const VariationModal: React.FC<VariationModalProps> = ({
       
       if (response.ok) {
         const data = await response.json();
-        setNamingTemplate(data.template);
+        if (data.template) {
+          setNamingTemplate(data.template);
+        } else {
+          // Set default template if none found
+          setNamingTemplate({
+            id: 'default',
+            name: 'Default Template',
+            template: '{ProjectName}-{Headline}-{VideoSpeed}-{FontName}-{FontSize}-{ProgressBar}',
+            description: 'Standard template with project name, headline, speed, font, and progress bar',
+            isDefault: true
+          });
+        }
+      } else {
+        // Set default template if API fails
+        setNamingTemplate({
+          id: 'default',
+          name: 'Default Template',
+          template: '{ProjectName}-{Headline}-{VideoSpeed}-{FontName}-{FontSize}-{ProgressBar}',
+          description: 'Standard template with project name, headline, speed, font, and progress bar',
+          isDefault: true
+        });
       }
     } catch (error) {
       console.error('Error loading naming template:', error);
+      // Set default template if error occurs
+      setNamingTemplate({
+        id: 'default',
+        name: 'Default Template',
+        template: '{ProjectName}-{Headline}-{VideoSpeed}-{FontName}-{FontSize}-{ProgressBar}',
+        description: 'Standard template with project name, headline, speed, font, and progress bar',
+        isDefault: true
+      });
     }
   };
 
@@ -711,6 +739,18 @@ const VariationModal: React.FC<VariationModalProps> = ({
       updateVariationNames();
     }
   }, [namingPattern, namingTemplate, useTemplateSystem, projectName]);
+
+  // Fallback: Update variation names when variations are loaded (in case template loading is slow)
+  useEffect(() => {
+    if (variations.length > 0) {
+      // If template is not loaded yet, try to update names anyway (will use default template)
+      if (!namingTemplate) {
+        setTimeout(() => {
+          updateVariationNames();
+        }, 1000);
+      }
+    }
+  }, [variations]);
 
 
   const generateVariations = async () => {
