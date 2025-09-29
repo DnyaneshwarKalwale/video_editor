@@ -165,7 +165,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
     const updatedVariations = await Promise.all(
       variations.map(async (variation) => {
         if (customNames[variation.id]) {
-          console.log(`Keeping custom name for ${variation.id}: ${customNames[variation.id]}`);
           return variation; // Keep custom names as is
         }
 
@@ -199,7 +198,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
       })
     );
     setVariations(updatedVariations);
-    console.log('Variations set successfully');
   };
 
   const loadVariationsFromSidebar = async () => {

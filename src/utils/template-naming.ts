@@ -261,23 +261,31 @@ export function extractTemplateValues(context: VariationContext): Record<string,
   // Project values - Use custom value or extract from project name
   values.ProjectName = context.customValues?.ProjectName || context.projectName || 'Project';
   
-  // Content values - Prioritize textOverlays (variation-specific) over metadata.combination (original video)
+  // Content values - Always prioritize metadata.combination for variation-specific text
   if (!context.customValues?.Headline && !context.customValues?.FullText) {
-    if (context.textOverlays && context.textOverlays.length > 0) {
-      // Use the actual text from the variation's text overlays (this is variation-specific)
-      const mainText = context.textOverlays[0].text;
-      values.FullText = sanitizeText(mainText);
-      values.Headline = extractHeadline(mainText);
-    } else if (context.metadata?.combination) {
-      // Fallback to metadata combination if no text overlays available
+    if (context.metadata?.combination) {
+      // Use metadata combination first as it contains the actual variation-specific text
+      console.log('🔍 Template naming - Metadata combination:', context.metadata.combination);
       const textVariation = context.metadata.combination.find((item: any) => item.type === 'text');
       if (textVariation && textVariation.value) {
+        console.log('🔍 Template naming - Found text variation:', textVariation.value);
         values.FullText = sanitizeText(textVariation.value);
         values.Headline = extractHeadline(textVariation.value);
+        console.log('🔍 Template naming - Generated FullText:', values.FullText, 'Headline:', values.Headline);
+      } else if (context.textOverlays && context.textOverlays.length > 0) {
+        // Fallback to text overlays if no text variation in combination
+        const mainText = context.textOverlays[0].text;
+        values.FullText = sanitizeText(mainText);
+        values.Headline = extractHeadline(mainText);
       } else {
         values.FullText = 'NoText';
         values.Headline = 'NoText';
       }
+    } else if (context.textOverlays && context.textOverlays.length > 0) {
+      // Fallback to text overlays if no metadata combination
+      const mainText = context.textOverlays[0].text;
+      values.FullText = sanitizeText(mainText);
+      values.Headline = extractHeadline(mainText);
     } else {
       values.FullText = 'NoText';
       values.Headline = 'NoText';
@@ -286,30 +294,44 @@ export function extractTemplateValues(context: VariationContext): Record<string,
   
   values.TextCount = context.textOverlays?.length?.toString() || '0';
   
-  // Style values - Prioritize textOverlays (variation-specific) over metadata.combination (original video)
+  // Style values - Always prioritize metadata.combination for variation-specific styles
   if (!context.customValues?.FontName && !context.customValues?.FontSize) {
-    if (context.textOverlays && context.textOverlays.length > 0) {
-      // Use the actual style from the variation's text overlays (this is variation-specific)
-      const style = context.textOverlays[0].style;
-      if (style) {
-        values.FontName = extractFontName(style.fontFamily || 'Arial');
-        values.FontSize = style.fontSize ? `${style.fontSize}px` : '16px';
-        values.FontWeight = style.fontWeight || 'normal';
-        values.TextColor = style.color || 'white';
-      } else {
-        values.FontName = 'Arial';
-        values.FontSize = '16px';
-        values.FontWeight = 'normal';
-        values.TextColor = 'white';
-      }
-    } else if (context.metadata?.combination) {
-      // Fallback to metadata combination if no text overlays available
+    if (context.metadata?.combination) {
+      // Use metadata combination first as it contains the actual variation-specific styles
       const fontVariation = context.metadata.combination.find((item: any) => item.type === 'font');
       if (fontVariation && fontVariation.metadata) {
         values.FontName = extractFontName(fontVariation.metadata.fontFamily || 'Arial');
         values.FontSize = fontVariation.metadata.fontSize ? `${fontVariation.metadata.fontSize}px` : '16px';
         values.FontWeight = fontVariation.metadata.fontWeight || 'normal';
         values.TextColor = fontVariation.metadata.color || 'white';
+      } else if (context.textOverlays && context.textOverlays.length > 0) {
+        // Fallback to text overlays if no font variation in combination
+        const style = context.textOverlays[0].style;
+        if (style) {
+          values.FontName = extractFontName(style.fontFamily || 'Arial');
+          values.FontSize = style.fontSize ? `${style.fontSize}px` : '16px';
+          values.FontWeight = style.fontWeight || 'normal';
+          values.TextColor = style.color || 'white';
+        } else {
+          values.FontName = 'Arial';
+          values.FontSize = '16px';
+          values.FontWeight = 'normal';
+          values.TextColor = 'white';
+        }
+      } else {
+        values.FontName = 'Arial';
+        values.FontSize = '16px';
+        values.FontWeight = 'normal';
+        values.TextColor = 'white';
+      }
+    } else if (context.textOverlays && context.textOverlays.length > 0) {
+      // Fallback to text overlays if no metadata combination
+      const style = context.textOverlays[0].style;
+      if (style) {
+        values.FontName = extractFontName(style.fontFamily || 'Arial');
+        values.FontSize = style.fontSize ? `${style.fontSize}px` : '16px';
+        values.FontWeight = style.fontWeight || 'normal';
+        values.TextColor = style.color || 'white';
       } else {
         values.FontName = 'Arial';
         values.FontSize = '16px';

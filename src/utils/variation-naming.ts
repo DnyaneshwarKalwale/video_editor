@@ -837,7 +837,6 @@ async function getUserNamingTemplateAsync(): Promise<{ template: string; name: s
     if (projectResponse.ok) {
       const projectData = await projectResponse.json();
       if (projectData.template) {
-        console.log('Using project-specific template:', projectData.template);
         return projectData.template;
       }
     }
@@ -852,7 +851,6 @@ async function getUserNamingTemplateAsync(): Promise<{ template: string; name: s
       if (userData.templates && userData.templates.length > 0) {
         // Find the default template or use the first one
         const defaultTemplate = userData.templates.find((t: any) => t.is_default) || userData.templates[0];
-        console.log('Using user template:', defaultTemplate);
         return {
           template: defaultTemplate.template,
           name: defaultTemplate.name,
