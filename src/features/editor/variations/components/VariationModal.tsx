@@ -697,44 +697,21 @@ const VariationModal: React.FC<VariationModalProps> = ({
   // Load variations and naming systems when modal opens
   useEffect(() => {
     if (isOpen) {
-      const initializeModal = async () => {
-        console.log('🚀 Initializing variation modal...');
-        
-        // Load all systems first
-        await Promise.all([
-          loadNamingPattern(),
-          loadNamingTemplate(),
-          loadProjectName()
-        ]);
-        
-        console.log('✅ All systems loaded, loading variations...');
-        
-        // Then load variations (which will trigger name updates)
-        loadVariationsFromSidebar();
-      };
-      
-      initializeModal();
+      loadVariationsFromSidebar();
+      loadNamingPattern();
+      loadNamingTemplate();
+      loadProjectName();
     }
   }, [isOpen]);
 
   // Update variation names when naming pattern or template changes
   useEffect(() => {
     if (variations.length > 0) {
-      console.log('🔄 Updating variation names - template system ready');
       // Always use template system by default
       updateVariationNames();
     }
   }, [namingPattern, namingTemplate, useTemplateSystem, projectName]);
 
-  // Fallback: Update variation names when variations are loaded (in case template loading failed)
-  useEffect(() => {
-    if (variations.length > 0 && !namingTemplate) {
-      // If template is not loaded yet, try to update names anyway (will use default template)
-      setTimeout(() => {
-        updateVariationNames();
-      }, 500);
-    }
-  }, [variations]);
 
   const generateVariations = async () => {
     setIsGenerating(true);
