@@ -710,7 +710,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
       // Always use template system by default
       updateVariationNames();
     }
-  }, [namingPattern, namingTemplate, useTemplateSystem, projectName, variations]);
+  }, [namingPattern, namingTemplate, useTemplateSystem, projectName]);
 
   const generateVariations = async () => {
     setIsGenerating(true);
@@ -1452,7 +1452,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
                               }
                               
                             // Use the variation's current text (which should be updated with the latest naming pattern)
-                            console.log(`EditableFilename for ${variation.id}: variation.text = "${variation.text}"`);
                             return variation.text || 'Loading...';
                           })()}
                             onNameChange={handleNameChange}

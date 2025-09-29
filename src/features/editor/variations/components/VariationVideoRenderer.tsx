@@ -40,18 +40,22 @@ const VariationVideoRenderer: React.FC<VariationVideoRendererProps> = ({
     if (!variation.isOriginal && variation.originalTextId) {
       const textItem = modified[variation.originalTextId];
       if (textItem && textItem.type === 'text') {
+        // Use the actual text content from textOverlays, not the filename
+        const variationTextOverlay = textOverlays.find(overlay => overlay.id === variation.originalTextId);
+        const actualText = variationTextOverlay?.text || textItem.details?.text;
+        
         modified[variation.originalTextId] = {
           ...textItem,
           details: {
             ...textItem.details,
-            text: variation.text,
+            text: actualText,
           },
         };
       }
     }
     
     return modified;
-  }, [trackItemsMap, variation]);
+  }, [trackItemsMap, variation, textOverlays]);
 
   // Group track items using the modified map
   const groupedItems = groupTrackItems({

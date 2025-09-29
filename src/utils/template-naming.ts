@@ -266,19 +266,14 @@ export function extractTemplateValues(context: VariationContext): Record<string,
     if (context.textOverlays && context.textOverlays.length > 0) {
       // Use text overlays first as they contain the actual variation-specific text
       const mainText = context.textOverlays[0].text;
-      console.log('🔍 Template naming - Found text overlay:', mainText);
       values.FullText = sanitizeText(mainText);
       values.Headline = extractHeadline(mainText);
-      console.log('🔍 Template naming - Generated FullText:', values.FullText, 'Headline:', values.Headline);
     } else if (context.metadata?.combination) {
       // Fallback to metadata combination if no text overlays available
-      console.log('🔍 Template naming - Metadata combination:', context.metadata.combination);
       const textVariation = context.metadata.combination.find((item: any) => item.type === 'text');
       if (textVariation && textVariation.value) {
-        console.log('🔍 Template naming - Found text variation in combination:', textVariation.value);
         values.FullText = sanitizeText(textVariation.value);
         values.Headline = extractHeadline(textVariation.value);
-        console.log('🔍 Template naming - Generated FullText:', values.FullText, 'Headline:', values.Headline);
       } else {
         values.FullText = 'NoText';
         values.Headline = 'NoText';
