@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, RefreshCw, Download, Settings } from 'lucide-react';
+import { X, Loader2, Download, Settings } from 'lucide-react';
 import ScalezLoader from "@/components/ui/scalez-loader";
 import { VariationModalProps, VideoVariation, TextOverlayData } from '../types/variation-types';
 import VideoPreview from './VideoPreview';
@@ -80,7 +80,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
       if (response.ok) {
         const data = await response.json();
         if (data.template) {
-          setNamingTemplate(data.template);
+        setNamingTemplate(data.template);
         } else {
           // Set default template if none found
           setNamingTemplate({
@@ -193,7 +193,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
     for (let i = 0; i < variations.length; i++) {
       const variation = variations[i];
       
-      if (customNames[variation.id]) {
+        if (customNames[variation.id]) {
         continue; // Skip custom names
       }
 
@@ -202,24 +202,24 @@ const VariationModal: React.FC<VariationModalProps> = ({
         continue;
       }
 
-      // Generate new name with current naming system
-      const variationNamingData = {
-        variation: {
-          id: variation.id,
-          isOriginal: variation.isOriginal
-        },
-        videoTrackItems: project.videoTrackItems,
-        audioTrackItems: project.audioTrackItems,
-        textOverlays: variation.allTextOverlays || [], // Always use variation's specific text overlays
-        metadata: variation.metadata
-      };
+        // Generate new name with current naming system
+        const variationNamingData = {
+          variation: {
+            id: variation.id,
+            isOriginal: variation.isOriginal
+          },
+          videoTrackItems: project.videoTrackItems,
+          audioTrackItems: project.audioTrackItems,
+          textOverlays: variation.allTextOverlays || [], // Always use variation's specific text overlays
+          metadata: variation.metadata
+        };
 
-      try {
+        try {
         // Always use template-based system
         const filename = await generateTemplateBasedFileName(variationNamingData, effectiveProjectName);
 
-        // Remove .mp4 extension for display
-        const variationPart = filename.replace('.mp4', '');
+          // Remove .mp4 extension for display
+          const variationPart = filename.replace('.mp4', '');
 
         // Update this specific variation immediately
         setVariations(prevVariations => 
@@ -236,8 +236,8 @@ const VariationModal: React.FC<VariationModalProps> = ({
         // Small delay to show progressive loading
         await new Promise(resolve => setTimeout(resolve, 100));
         
-      } catch (error) {
-        console.error(`Error generating name for ${variation.id}:`, error);
+        } catch (error) {
+          console.error(`Error generating name for ${variation.id}:`, error);
       }
     }
   };
@@ -1026,9 +1026,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
     }
   };
 
-  const handleRegenerateVariations = () => {
-    generateVariations();
-  };
 
   const handleNameChange = (variationId: string, newName: string) => {
     setCustomNames(prev => ({
@@ -1403,16 +1400,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
                 <span className="hidden sm:inline">Download All</span>
               </Button>
               
-              <Button
-                onClick={handleRegenerateVariations}
-                disabled={isGenerating}
-                variant="outline"
-                size="sm"
-                className="text-xs"
-              >
-                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Regenerate</span>
-              </Button>
               
               <Button
                 onClick={handleSave}
