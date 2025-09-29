@@ -12,7 +12,6 @@ import { useDownloadManager } from '../../store/use-download-manager';
 import { useProgressBarStore } from '../../store/use-progress-bar-store';
 import { generateVariationFileName, generateTemplateBasedFileName } from '@/utils/variation-naming';
 import EditableFilename from './EditableFilename';
-import SimpleNamingSelector from '@/components/naming/SimpleNamingSelector';
 import TemplateBuilder from '@/components/naming/TemplateBuilder';
 
 
@@ -31,12 +30,12 @@ const VariationModal: React.FC<VariationModalProps> = ({
   const [downloadingVariation, setDownloadingVariation] = useState<VideoVariation | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [customNames, setCustomNames] = useState<Record<string, string>>({});
-  const [showNamingSettings, setShowNamingSettings] = useState(false);
   const [showTemplateBuilder, setShowTemplateBuilder] = useState(false);
   const [namingPattern, setNamingPattern] = useState<any>(null);
   const [namingTemplate, setNamingTemplate] = useState<any>(null);
   const [useTemplateSystem, setUseTemplateSystem] = useState(true); // Always use template system
   const [projectName, setProjectName] = useState<string>('Untitled Project');
+  const [processedVariations, setProcessedVariations] = useState<Set<string>>(new Set()); // Track which variations have been processed
 
   // Helper function to check if a string looks like a project ID
   const isProjectId = (str: string): boolean => {
@@ -190,42 +189,57 @@ const VariationModal: React.FC<VariationModalProps> = ({
     // Use project name or fallback to ensure names are always generated
     const effectiveProjectName = projectName && projectName !== 'Untitled Project' ? projectName : 'Project';
 
-    const updatedVariations = await Promise.all(
-      variations.map(async (variation) => {
-        if (customNames[variation.id]) {
-          return variation; // Keep custom names as is
-        }
+    // Update variations one by one for progressive loading
+    for (let i = 0; i < variations.length; i++) {
+      const variation = variations[i];
+      
+      if (customNames[variation.id]) {
+        continue; // Skip custom names
+      }
 
-        // Generate new name with current naming system
-        const variationNamingData = {
-          variation: {
-            id: variation.id,
-            isOriginal: variation.isOriginal
-          },
-          videoTrackItems: project.videoTrackItems,
-          audioTrackItems: project.audioTrackItems,
-          textOverlays: variation.allTextOverlays || [], // Always use variation's specific text overlays
-          metadata: variation.metadata
-        };
+      // Skip if already processed (caching)
+      if (processedVariations.has(variation.id) && variation.text && !variation.text.includes('Loading')) {
+        continue;
+      }
 
-        try {
+      // Generate new name with current naming system
+      const variationNamingData = {
+        variation: {
+          id: variation.id,
+          isOriginal: variation.isOriginal
+        },
+        videoTrackItems: project.videoTrackItems,
+        audioTrackItems: project.audioTrackItems,
+        textOverlays: variation.allTextOverlays || [], // Always use variation's specific text overlays
+        metadata: variation.metadata
+      };
+
+      try {
         // Always use template-based system
         const filename = await generateTemplateBasedFileName(variationNamingData, effectiveProjectName);
 
-          // Remove .mp4 extension for display
-          const variationPart = filename.replace('.mp4', '');
+        // Remove .mp4 extension for display
+        const variationPart = filename.replace('.mp4', '');
 
-          return {
-            ...variation,
-            text: variationPart // Update the display name
-          };
-        } catch (error) {
-          console.error(`Error generating name for ${variation.id}:`, error);
-          return variation; // Keep existing name if generation fails
-        }
-      })
-    );
-    setVariations(updatedVariations);
+        // Update this specific variation immediately
+        setVariations(prevVariations => 
+          prevVariations.map(v => 
+            v.id === variation.id 
+              ? { ...v, text: variationPart }
+              : v
+          )
+        );
+
+        // Mark as processed (caching)
+        setProcessedVariations(prev => new Set([...prev, variation.id]));
+
+        // Small delay to show progressive loading
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.error(`Error generating name for ${variation.id}:`, error);
+      }
+    }
   };
 
   const loadVariationsFromSidebar = async () => {
@@ -971,7 +985,7 @@ const VariationModal: React.FC<VariationModalProps> = ({
           
           const videoVariation: VideoVariation = {
             id: `combination-${index}`,
-            text: title,
+            text: 'Loading...', // Show loading initially, will be updated progressively
             originalTextId: textElements[0]?.elementId || 'original',
             isOriginal: index === 0, // First combination is considered "original"
             editable: false,
@@ -1377,16 +1391,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
                 <span className="hidden sm:inline">Template</span>
               </Button>
               
-              <Button
-                onClick={() => setShowNamingSettings(true)}
-                variant="outline"
-                size="sm"
-                className="text-xs"
-                title="Simple naming patterns"
-              >
-                <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Patterns</span>
-              </Button>
 
               <Button
                 onClick={handleDownloadAll}
@@ -1568,18 +1572,6 @@ const VariationModal: React.FC<VariationModalProps> = ({
         </>
       )}
 
-      {/* Naming Pattern Settings Modal */}
-      <SimpleNamingSelector
-        isOpen={showNamingSettings}
-        onClose={() => setShowNamingSettings(false)}
-        onPatternChange={async (patternId) => {
-          // Pattern changed - reload naming pattern and update variation names
-          console.log('Naming pattern changed to:', patternId);
-          setUseTemplateSystem(false); // Switch to pattern system
-          await loadNamingPattern();
-          // The useEffect will automatically update variation names when namingPattern changes
-        }}
-      />
 
       {/* Template Builder Modal */}
       <TemplateBuilder
