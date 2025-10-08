@@ -124,6 +124,7 @@ const ProgressBarSettings: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label className="text-sm">Fast Start Progress</Label>
+                    <p className="text-xs text-gray-500 mt-1">Progress % reached in fast start period</p>
                     <div className="flex items-center space-x-2 mt-1">
                       <input
                         type="number"
@@ -144,6 +145,7 @@ const ProgressBarSettings: React.FC = () => {
                   </div>
                   <div>
                     <Label className="text-sm">Fast End Start Progress</Label>
+                    <p className="text-xs text-gray-500 mt-1">Progress % where fast end begins</p>
                     <div className="flex items-center space-x-2 mt-1">
                       <input
                         type="number"

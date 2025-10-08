@@ -48,48 +48,105 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     const fastStartDurationMs = settings.fastStartDuration * 1000;
     const fastEndDurationMs = settings.fastEndDuration * 1000;
 
-    // Progress amounts (0-1) - how much progress to complete in each period
-    const fastStartProgressAmount = settings.fastStartProgress; // e.g., 0.5 = 50% of progress bar
-    const fastEndProgressAmount = settings.fastEndProgress; // e.g., 0.3 = 30% of progress bar
+    // Progress amounts (0-1)
+    const fastStartProgressAmount = settings.fastStartProgress;
+    const fastEndStartProgress = settings.fastEndProgress;
 
-    // The remaining progress for middle section
-    const middleProgressAmount = 1 - fastStartProgressAmount - fastEndProgressAmount;
+    // Check what user has set
+    const hasFastStartDuration = fastStartDurationMs > 0;
+    const hasFastStartProgress = fastStartProgressAmount > 0;
+    const hasFastEndDuration = fastEndDurationMs > 0;
+    const hasFastEndProgress = fastEndStartProgress > 0;
 
-    // Time boundaries
-    const fastStartEndTime = Math.min(fastStartDurationMs, totalDurationMs);
-    const fastEndStartTime = Math.max(totalDurationMs - fastEndDurationMs, fastStartEndTime);
+    // If no settings at all, use default deceptive pattern (very fast → normal → slow → very slow)
+    if (!hasFastStartDuration && !hasFastStartProgress && !hasFastEndDuration && !hasFastEndProgress) {
+      // Default deceptive pattern: 0% → 20% (fast) → 60% (slow) → 100% (very fast)
+      const quarter1 = totalDurationMs * 0.25; // First 25%
+      const quarter3 = totalDurationMs * 0.75; // Last 25%
+      
+      if (currentTimeMs <= quarter1) {
+        // Very fast start: 0% → 20% in first 25%
+        const timeRatio = currentTimeMs / quarter1;
+        return timeRatio * 0.2;
+      } else if (currentTimeMs >= quarter3) {
+        // Very fast end: 60% → 100% in last 25%
+        const timeRatio = (currentTimeMs - quarter3) / (totalDurationMs - quarter3);
+        const endProgress = timeRatio * 0.4; // 40% progress in this period
+        return 0.6 + endProgress;
+      } else {
+        // Slow middle: 20% → 60% in middle 50%
+        const middleTimeRatio = (currentTimeMs - quarter1) / (quarter3 - quarter1);
+        const middleProgress = middleTimeRatio * 0.4; // 40% progress in this period
+        return 0.2 + middleProgress;
+      }
+    }
 
-    let progress = 0;
+    // Determine effective settings with smart defaults
+    let fastStartEndTime, fastStartProgress, fastEndStartTime, fastEndProgress;
 
+    // Fast Start Settings
+    if (hasFastStartDuration && hasFastStartProgress) {
+      // Both set: use user values
+      fastStartEndTime = Math.min(fastStartDurationMs, totalDurationMs);
+      fastStartProgress = fastStartProgressAmount;
+    } else if (hasFastStartDuration && !hasFastStartProgress) {
+      // Only duration: reach 70% in that time (much faster than normal)
+      fastStartEndTime = Math.min(fastStartDurationMs, totalDurationMs);
+      fastStartProgress = 0.7;
+    } else if (!hasFastStartDuration && hasFastStartProgress) {
+      // Only progress: reach that % in first 20% of video
+      fastStartEndTime = totalDurationMs * 0.2;
+      fastStartProgress = fastStartProgressAmount;
+    } else {
+      // Neither set: no fast start
+      fastStartEndTime = 0;
+      fastStartProgress = 0;
+    }
+
+    // Fast End Settings
+    if (hasFastEndDuration && hasFastEndProgress) {
+      // Both set: use user values
+      fastEndStartTime = Math.max(totalDurationMs - fastEndDurationMs, fastStartEndTime);
+      fastEndProgress = fastEndStartProgress;
+    } else if (hasFastEndDuration && !hasFastEndProgress) {
+      // Only duration: start from 30% in that time (much faster than normal)
+      fastEndStartTime = Math.max(totalDurationMs - fastEndDurationMs, fastStartEndTime);
+      fastEndProgress = 0.3;
+    } else if (!hasFastEndDuration && hasFastEndProgress) {
+      // Only progress: start from that % in last 20% of video
+      fastEndStartTime = Math.max(totalDurationMs * 0.8, fastStartEndTime);
+      fastEndProgress = fastEndStartProgress;
+    } else {
+      // Neither set: no fast end
+      fastEndStartTime = totalDurationMs;
+      fastEndProgress = 1;
+    }
+
+    // Ensure fast start progress is less than fast end progress
+    if (fastStartProgress >= fastEndProgress) {
+      fastStartProgress = Math.max(0, fastEndProgress - 0.01);
+    }
+
+    // Calculate progress based on current time
     if (currentTimeMs <= fastStartEndTime) {
-      // Fast start period: 0% to fastStartProgressAmount%
-      const timeRatio = currentTimeMs / fastStartEndTime;
-      progress = timeRatio * fastStartProgressAmount;
+      // Fast start period: 0% to fastStartProgress%
+      const timeRatio = fastStartEndTime > 0 ? currentTimeMs / fastStartEndTime : 0;
+      return timeRatio * fastStartProgress;
     }
     else if (currentTimeMs >= fastEndStartTime) {
-      // Fast end period: (100% - fastEndProgressAmount%) to 100%
-      const fastStartProgress = fastStartProgressAmount;
-      const middleProgress = middleProgressAmount;
-      const endTimeRatio = (currentTimeMs - fastEndStartTime) / (totalDurationMs - fastEndStartTime);
-      const endProgress = endTimeRatio * fastEndProgressAmount;
-
-      progress = fastStartProgress + middleProgress + endProgress;
+      // Fast end period: fastEndProgress% to 100%
+      const timeRatio = (totalDurationMs - fastEndStartTime) > 0 ? 
+        (currentTimeMs - fastEndStartTime) / (totalDurationMs - fastEndStartTime) : 0;
+      const endProgress = timeRatio * (1 - fastEndProgress);
+      return fastEndProgress + endProgress;
     }
     else {
-      // Middle period: fastStartProgressAmount% to (100% - fastEndProgressAmount%)
-      const fastStartProgress = fastStartProgressAmount;
-      const middleTimeRatio = (currentTimeMs - fastStartEndTime) / (fastEndStartTime - fastStartEndTime);
-      const middleProgress = middleTimeRatio * middleProgressAmount;
-
-      progress = fastStartProgress + middleProgress;
+      // Middle period: fastStartProgress% to fastEndProgress%
+      const middleTimeRatio = (fastEndStartTime - fastStartEndTime) > 0 ? 
+        (currentTimeMs - fastStartEndTime) / (fastEndStartTime - fastStartEndTime) : 0;
+      const middleProgress = middleTimeRatio * (fastEndProgress - fastStartProgress);
+      return fastStartProgress + middleProgress;
     }
-
-    // Ensure we reach exactly 100% at the end
-    if (currentTimeMs >= totalDurationMs * 0.99) {
-      progress = 1.0;
-    }
-
-    return Math.min(progress, 1);
   };
 
   let progress = settings.useDeceptiveProgress ?
