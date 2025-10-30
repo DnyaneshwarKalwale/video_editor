@@ -49,10 +49,10 @@ const defaultSettings: ProgressBarSettings = {
   shadowColor: 'rgba(0, 0, 0, 0.4)',
   isVisible: true,
   useDeceptiveProgress: false,
-  fastStartDuration: 2, // 2 seconds fast start (user can adjust 0-60)
-  fastStartProgress: 0.2, // reach 20% in first 2 seconds
-  fastEndDuration: 1, // 1 second fast end (user can adjust 0-60)
-  fastEndProgress: 0.8, // start fast progress at 80%
+  fastStartDuration: 10, // 10 seconds fast start (user can adjust 0-60)
+  fastStartProgress: 0.1, // reach 10% in first 10 seconds
+  fastEndDuration: 5, // 5 seconds fast end (user can adjust 0-60)
+  fastEndProgress: 0.9, // start fast progress at 90%
 };
 
 export const useProgressBarStore = create<ProgressBarStore>((set, get) => ({
@@ -61,23 +61,9 @@ export const useProgressBarStore = create<ProgressBarStore>((set, get) => ({
   isSaving: false,
   
   updateSettings: (updates) =>
-    set((state) => {
-      const newSettings = { ...state.settings, ...updates };
-      
-      // Validate progress settings
-      if (newSettings.useDeceptiveProgress) {
-        // Fast start progress should be less than fast end progress
-        if (newSettings.fastStartProgress >= newSettings.fastEndProgress) {
-          console.warn('Progress settings invalid: fastStartProgress must be less than fastEndProgress');
-          // Auto-adjust to prevent invalid state
-          if (newSettings.fastStartProgress >= newSettings.fastEndProgress) {
-            newSettings.fastStartProgress = Math.min(newSettings.fastStartProgress, newSettings.fastEndProgress - 0.1);
-          }
-        }
-      }
-      
-      return { settings: newSettings };
-    }),
+    set((state) => ({
+      settings: { ...state.settings, ...updates },
+    })),
     
   resetToDefault: () =>
     set({ settings: defaultSettings }),
