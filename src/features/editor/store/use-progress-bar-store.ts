@@ -21,8 +21,10 @@ interface ProgressBarSettings {
   
   // Deceptive Progress (for ads)
   useDeceptiveProgress: boolean;
+  useFastStart: boolean; // enable/disable fast start independently
   fastStartDuration: number; // seconds to show fast progress at start
   fastStartProgress: number; // percentage to reach in fast start (0-1)
+  useFastEnd: boolean; // enable/disable fast end independently
   fastEndDuration: number; // seconds to show fast progress at end
   fastEndProgress: number; // percentage to start fast progress at end (0-1)
 }
@@ -49,8 +51,10 @@ const defaultSettings: ProgressBarSettings = {
   shadowColor: 'rgba(0, 0, 0, 0.4)',
   isVisible: true,
   useDeceptiveProgress: false,
+  useFastStart: false, // disabled by default
   fastStartDuration: 10, // 10 seconds fast start (user can adjust 0-60)
   fastStartProgress: 0.1, // reach 10% in first 10 seconds
+  useFastEnd: false, // disabled by default
   fastEndDuration: 5, // 5 seconds fast end (user can adjust 0-60)
   fastEndProgress: 0.9, // start fast progress at 90%
 };

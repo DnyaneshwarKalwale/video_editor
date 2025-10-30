@@ -20,29 +20,42 @@ const ProgressBarSettings: React.FC = () => {
   } = useProgressBarStore();
 
   // Validation function for progress settings
-  const validateProgressSettings = (fastStartProgress: number, fastEndProgress: number) => {
+  const validateProgressSettings = (
+    useFastStart: boolean,
+    useFastEnd: boolean,
+    fastStartProgress: number,
+    fastEndProgress: number
+  ) => {
     const errors: string[] = [];
-    
-    // Fast start progress should be less than fast end progress
-    if (fastStartProgress >= fastEndProgress) {
-      errors.push("Fast Start Progress must be less than Fast End Start Progress");
+
+    // Only validate if both are enabled
+    if (useFastStart && useFastEnd) {
+      // Fast start progress should be less than fast end progress
+      if (fastStartProgress >= fastEndProgress) {
+        errors.push("Fast Start Progress must be less than Fast End Start Progress");
+      }
     }
-    
-    // Fast end progress should not exceed 100%
-    if (fastEndProgress > 1) {
+
+    // Validate fast end progress if enabled
+    if (useFastEnd && fastEndProgress > 1) {
       errors.push("Fast End Start Progress cannot exceed 100%");
     }
-    
-    // Fast start progress should not be negative
-    if (fastStartProgress < 0) {
+
+    // Validate fast start progress if enabled
+    if (useFastStart && fastStartProgress < 0) {
       errors.push("Fast Start Progress cannot be negative");
     }
-    
+
     return errors;
   };
 
   // Get validation errors for current settings
-  const validationErrors = validateProgressSettings(settings.fastStartProgress, settings.fastEndProgress);
+  const validationErrors = validateProgressSettings(
+    settings.useFastStart,
+    settings.useFastEnd,
+    settings.fastStartProgress,
+    settings.fastEndProgress
+  );
 
   // Load settings on mount
   useEffect(() => {
@@ -104,129 +117,156 @@ const ProgressBarSettings: React.FC = () => {
            
            {settings.useDeceptiveProgress && (
              <div className="space-y-3 pl-4 border-l-2 border-gray-200">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-sm">Fast Start Duration</Label>
-                    <div className="text-xs text-gray-500 mb-1">How long to show fast progress at start</div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input
-                        type="number"
-                        value={settings.fastStartDuration}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
-                          const clampedValue = Math.max(0, Math.min(60, value));
-                          updateSettings({ fastStartDuration: clampedValue });
-                        }}
-                        min="0"
-                        max="60"
-                        step="0.5"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="0-60"
-                      />
-                      <span className="text-sm text-gray-500">sec</span>
-                    </div>
+                {/* Fast Start Toggle & Settings */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                    <Switch
+                      checked={settings.useFastStart}
+                      onCheckedChange={(checked) => updateSettings({ useFastStart: checked })}
+                    />
+                    <Label className="text-sm font-medium">Enable Fast Start</Label>
                   </div>
-                  <div>
-                    <Label className="text-sm">Fast End Duration</Label>
-                    <div className="text-xs text-gray-500 mb-1">How long to show fast progress at end</div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input
-                        type="number"
-                        value={settings.fastEndDuration}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
-                          const clampedValue = Math.max(0, Math.min(60, value));
-                          updateSettings({ fastEndDuration: clampedValue });
-                        }}
-                        min="0"
-                        max="60"
-                        step="0.5"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="0-60"
-                      />
-                      <span className="text-sm text-gray-500">sec</span>
+
+                  {settings.useFastStart && (
+                    <div className="grid grid-cols-2 gap-3 pl-4 border-l-2 border-blue-200">
+                      <div>
+                        <Label className="text-sm">Duration</Label>
+                        <div className="text-xs text-gray-500 mb-1">How long for fast start</div>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <input
+                            type="number"
+                            value={settings.fastStartDuration}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value) || 0;
+                              const clampedValue = Math.max(0, Math.min(60, value));
+                              updateSettings({ fastStartDuration: clampedValue });
+                            }}
+                            min="0"
+                            max="60"
+                            step="0.5"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="0-60"
+                          />
+                          <span className="text-sm text-gray-500">sec</span>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm">Target Progress</Label>
+                        <div className="text-xs text-gray-500 mb-1">Progress to reach</div>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <input
+                            type="number"
+                            value={Math.round(settings.fastStartProgress * 100)}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value) || 0;
+                              const clampedValue = Math.max(0, Math.min(100, value));
+                              const newFastStartProgress = clampedValue / 100;
+
+                              // Auto-adjust fast end progress if both are enabled and it would be invalid
+                              let newFastEndProgress = settings.fastEndProgress;
+                              if (settings.useFastEnd && newFastStartProgress >= newFastEndProgress) {
+                                newFastEndProgress = Math.min(1, newFastStartProgress + 0.1);
+                              }
+
+                              updateSettings({
+                                fastStartProgress: newFastStartProgress,
+                                fastEndProgress: newFastEndProgress
+                              });
+                            }}
+                            min="0"
+                            max="100"
+                            step="1"
+                            className={`flex-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                              validationErrors.some(err => err.includes("Fast Start Progress"))
+                                ? "border-red-500 focus:ring-red-500"
+                                : "border-gray-300 focus:ring-blue-500"
+                            }`}
+                            placeholder="0-100"
+                          />
+                          <span className="text-sm text-gray-500">%</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-sm">Fast Start Progress</Label>
-                    <div className="text-xs text-gray-500 mb-1">How much progress to complete in fast start (e.g., 10% = reach 10%)</div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input
-                        type="number"
-                        value={Math.round(settings.fastStartProgress * 100)}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
-                          const clampedValue = Math.max(0, Math.min(100, value));
-                          const newFastStartProgress = clampedValue / 100;
-                          
-                          // Auto-adjust fast end progress if it would be invalid
-                          let newFastEndProgress = settings.fastEndProgress;
-                          if (newFastStartProgress >= newFastEndProgress) {
-                            newFastEndProgress = Math.min(1, newFastStartProgress + 0.1); // Add 10% buffer
-                          }
-                          
-                          updateSettings({ 
-                            fastStartProgress: newFastStartProgress,
-                            fastEndProgress: newFastEndProgress
-                          });
-                        }}
-                        min="0"
-                        max="100"
-                        step="1"
-                        className={`flex-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
-                          validationErrors.some(err => err.includes("Fast Start Progress")) 
-                            ? "border-red-500 focus:ring-red-500" 
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                        placeholder="0-100"
-                      />
-                      <span className="text-sm text-gray-500">%</span>
-                    </div>
+
+                {/* Fast End Toggle & Settings */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
+                    <Switch
+                      checked={settings.useFastEnd}
+                      onCheckedChange={(checked) => updateSettings({ useFastEnd: checked })}
+                    />
+                    <Label className="text-sm font-medium">Enable Fast End</Label>
                   </div>
-                  <div>
-                    <Label className="text-sm">Fast End Start Progress</Label>
-                    <div className="text-xs text-gray-500 mb-1">When to start fast progress (e.g., 90% = start at 90%)</div>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <input
-                        type="number"
-                        value={Math.round(settings.fastEndProgress * 100)}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value) || 0;
-                          const clampedValue = Math.max(0, Math.min(100, value));
-                          const newFastEndProgress = clampedValue / 100;
-                          
-                          // Auto-adjust fast start progress if it would be invalid
-                          let newFastStartProgress = settings.fastStartProgress;
-                          if (newFastStartProgress >= newFastEndProgress) {
-                            newFastStartProgress = Math.max(0, newFastEndProgress - 0.1); // Subtract 10% buffer
-                          }
-                          
-                          updateSettings({ 
-                            fastStartProgress: newFastStartProgress,
-                            fastEndProgress: newFastEndProgress
-                          });
-                        }}
-                        min="0"
-                        max="100"
-                        step="1"
-                        className={`flex-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
-                          validationErrors.some(err => err.includes("Fast End Start Progress")) 
-                            ? "border-red-500 focus:ring-red-500" 
-                            : "border-gray-300 focus:ring-blue-500"
-                        }`}
-                        placeholder="0-100"
-                      />
-                      <span className="text-sm text-gray-500">%</span>
+
+                  {settings.useFastEnd && (
+                    <div className="grid grid-cols-2 gap-3 pl-4 border-l-2 border-blue-200">
+                      <div>
+                        <Label className="text-sm">Duration</Label>
+                        <div className="text-xs text-gray-500 mb-1">How long for fast end</div>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <input
+                            type="number"
+                            value={settings.fastEndDuration}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value) || 0;
+                              const clampedValue = Math.max(0, Math.min(60, value));
+                              updateSettings({ fastEndDuration: clampedValue });
+                            }}
+                            min="0"
+                            max="60"
+                            step="0.5"
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="0-60"
+                          />
+                          <span className="text-sm text-gray-500">sec</span>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm">Start At</Label>
+                        <div className="text-xs text-gray-500 mb-1">When to start fast end</div>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <input
+                            type="number"
+                            value={Math.round(settings.fastEndProgress * 100)}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value) || 0;
+                              const clampedValue = Math.max(0, Math.min(100, value));
+                              const newFastEndProgress = clampedValue / 100;
+
+                              // Auto-adjust fast start progress if both are enabled and it would be invalid
+                              let newFastStartProgress = settings.fastStartProgress;
+                              if (settings.useFastStart && newFastStartProgress >= newFastEndProgress) {
+                                newFastStartProgress = Math.max(0, newFastEndProgress - 0.1);
+                              }
+
+                              updateSettings({
+                                fastStartProgress: newFastStartProgress,
+                                fastEndProgress: newFastEndProgress
+                              });
+                            }}
+                            min="0"
+                            max="100"
+                            step="1"
+                            className={`flex-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:border-transparent ${
+                              validationErrors.some(err => err.includes("Fast End Start Progress"))
+                                ? "border-red-500 focus:ring-red-500"
+                                : "border-gray-300 focus:ring-blue-500"
+                            }`}
+                            placeholder="0-100"
+                          />
+                          <span className="text-sm text-gray-500">%</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Validation Errors Display */}
                 {validationErrors.length > 0 && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                    <div className="text-sm font-medium text-red-800 mb-1">⚠️ Validation Errors:</div>
+                    <div className="text-sm font-medium text-red-800 mb-1">Validation Errors:</div>
                     <ul className="text-sm text-red-700 space-y-1">
                       {validationErrors.map((error, index) => (
                         <li key={index}>• {error}</li>
@@ -236,13 +276,29 @@ const ProgressBarSettings: React.FC = () => {
                 )}
 
                 {/* Progress Visualization */}
-                {validationErrors.length === 0 && (
+                {validationErrors.length === 0 && (settings.useFastStart || settings.useFastEnd) && (
                   <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
-                    <div className="text-sm font-medium text-green-800 mb-2">✅ Progress Bar Timeline:</div>
+                    <div className="text-sm font-medium text-green-800 mb-2">Progress Bar Timeline:</div>
                     <div className="text-xs text-green-700 space-y-1">
-                      <div>• Fast Start: 0% → {Math.round(settings.fastStartProgress * 100)}% (first {settings.fastStartDuration}s)</div>
-                      <div>• Middle: {Math.round(settings.fastStartProgress * 100)}% → {Math.round(settings.fastEndProgress * 100)}% (slow)</div>
-                      <div>• Fast End: {Math.round(settings.fastEndProgress * 100)}% → 100% (last {settings.fastEndDuration}s)</div>
+                      {settings.useFastStart && !settings.useFastEnd && (
+                        <>
+                          <div>• Fast Start: 0% → {Math.round(settings.fastStartProgress * 100)}% (first {settings.fastStartDuration}s)</div>
+                          <div>• Normal: {Math.round(settings.fastStartProgress * 100)}% → 100% (rest of video)</div>
+                        </>
+                      )}
+                      {!settings.useFastStart && settings.useFastEnd && (
+                        <>
+                          <div>• Normal: 0% → {Math.round(settings.fastEndProgress * 100)}% (until {settings.fastEndDuration}s before end)</div>
+                          <div>• Fast End: {Math.round(settings.fastEndProgress * 100)}% → 100% (last {settings.fastEndDuration}s)</div>
+                        </>
+                      )}
+                      {settings.useFastStart && settings.useFastEnd && (
+                        <>
+                          <div>• Fast Start: 0% → {Math.round(settings.fastStartProgress * 100)}% (first {settings.fastStartDuration}s)</div>
+                          <div>• Middle: {Math.round(settings.fastStartProgress * 100)}% → {Math.round(settings.fastEndProgress * 100)}% (slow)</div>
+                          <div>• Fast End: {Math.round(settings.fastEndProgress * 100)}% → 100% (last {settings.fastEndDuration}s)</div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
